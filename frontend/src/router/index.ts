@@ -6,6 +6,9 @@ import Admin from '../views/Admin.vue';
 
 import Exemplos from '../views/Exemplos.vue';
 import Pacientes from '../views/Pacientes.vue';
+import InteracoesLec from '../views/InteracoesLec.vue';
+import EspecialidadesLec from '../views/EspecialidadesLec.vue';
+import CentralMarcacao from '../views/CentralMarcacao.vue';
 
 const routes = [
   {
@@ -35,6 +38,24 @@ const routes = [
     path: '/pacientes',
     name: 'Pacientes',
     component: Pacientes,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/interacoes',
+    name: 'Interações LEC',
+    component: InteracoesLec,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/especialidades',
+    name: 'Especialidades LEC',
+    component: EspecialidadesLec,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/central-marcacao',
+    name: 'Central de Marcação',
+    component: CentralMarcacao,
     meta: { requiresAuth: true },
   },
 ];

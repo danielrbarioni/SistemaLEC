@@ -32,7 +32,19 @@
             </router-link>
             <router-link v-if="authStore.isAuthenticated" to="/pacientes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
               <UsersIcon class="h-6 w-6" />
-              <span>Pacientes</span>
+              <span>Pacientes AGHU</span>
+            </router-link>
+            <router-link v-if="authStore.isAuthenticated" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+              <PencilSquareIcon class="h-6 w-6" />
+              <span>Interações LEC</span>
+            </router-link>
+            <router-link v-if="authStore.isAuthenticated" to="/especialidades" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+              <QueueListIcon class="h-6 w-6" />
+              <span>Fila Especialidades</span>
+            </router-link>
+            <router-link v-if="authStore.isAuthenticated" to="/central-marcacao" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+              <CalendarDaysIcon class="h-6 w-6" />
+              <span>Central de Marcação</span>
             </router-link>
         
         <router-link v-if="authStore.isAdmin" to="/admin" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
@@ -82,6 +94,9 @@ import {
   CubeTransparentIcon,
   Bars3Icon,
   ArrowRightOnRectangleIcon,
+  PencilSquareIcon,
+  QueueListIcon,
+  CalendarDaysIcon,
 } from '@heroicons/vue/24/outline';
 import ProfileDropdown from '../components/ProfileDropdown.vue';
 import Button from '../components/Button.vue';
