@@ -171,7 +171,7 @@ if (isGitHubPages) {
     }
 
     // Rota: GET /api/pacientes  (lista para o módulo Especialidades)
-    if (url.match(/\/api\/pacientes$/) && method === 'get') {
+    if ((url.endsWith('/api/pacientes') || url.endsWith('/api/pacientes?')) && method === 'get') {
       return { data: mockPacientesEspecialidades, status: 200, headers: {}, config };
     }
 
