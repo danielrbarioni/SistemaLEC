@@ -8,7 +8,7 @@ import Exemplos from '../views/Exemplos.vue';
 import Pacientes from '../views/Pacientes.vue';
 import InteracoesLec from '../views/InteracoesLec.vue';
 import EspecialidadesLec from '../views/EspecialidadesLec.vue';
-import CentralMarcacao from '../views/CentralMarcacao.vue';
+
 
 const routes = [
   {
@@ -52,16 +52,11 @@ const routes = [
     component: EspecialidadesLec,
     meta: { requiresAuth: true },
   },
-  {
-    path: '/central-marcacao',
-    name: 'Central de Marcação',
-    component: CentralMarcacao,
-    meta: { requiresAuth: true },
-  },
+
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
   linkActiveClass: 'bg-paper-active-link',
   linkExactActiveClass: 'bg-paper-active-link',

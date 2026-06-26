@@ -8,10 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/',
+  base: process.env.NODE_ENV === 'production' ? '/SistemaLEC/' : '/',
   plugins: [vue(), tailwindcss()],
   build: {
-    outDir: path.resolve(__dirname, '../src/static/dist'),
+    outDir: process.env.GITHUB_PAGES === 'true'
+      ? path.resolve(__dirname, '../dist')
+      : path.resolve(__dirname, '../src/static/dist'),
     emptyOutDir: true,
   },
   server: {

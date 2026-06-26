@@ -25,7 +25,7 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         if not os.path.exists(self.solicitacoes_path):
             with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['id', 'tipo', 'codigo_paciente', 'nome_paciente', 'detalhes', 'status', 'data_criacao'])
+                writer.writerow(['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swallis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao'])
 
         # Inicializa arquivo de status locais
         if not os.path.exists(self.status_locais_path):
@@ -37,9 +37,15 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         nova_solic = {
             'id': str(uuid.uuid4())[:8],
             'tipo': solicitacao.get('tipo', 'INSERIR'),
+            'especialidade': solicitacao.get('especialidade', ''),
+            'procedimento': solicitacao.get('procedimento', ''),
             'codigo_paciente': str(solicitacao.get('codigo_paciente', '')),
             'nome_paciente': solicitacao.get('nome_paciente', ''),
+            'judicializado': solicitacao.get('judicializado', 'Não'),
+            'swallis': solicitacao.get('swallis', ''),
+            'medico_responsavel': solicitacao.get('medico_responsavel', ''),
             'detalhes': solicitacao.get('detalhes', ''),
+            'tempo_standby': solicitacao.get('tempo_standby', ''),
             'status': 'PENDENTE',
             'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }

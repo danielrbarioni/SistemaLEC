@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-800">Interações Diretas com a LEC</h1>
-      <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial -> Gestão da LEC</span>
+      <h1 class="text-2xl font-bold text-gray-800">Sistema LEC</h1>
+      <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial → Gestão da LEC</span>
     </div>
 
     <!-- Abas Principais -->
@@ -10,7 +10,7 @@
       <button 
         v-for="aba in abas" 
         :key="aba.id" 
-        @click="abaAtiva = aba.id"
+        @click="selecionarAba(aba.id)"
         :class="[
           'flex-1 py-3 text-sm font-semibold rounded-md transition duration-200',
           abaAtiva === aba.id 
@@ -25,7 +25,7 @@
       </button>
     </div>
 
-    <!-- Formulários das Abas -->
+    <!-- Formulário -->
     <Card class="rounded-t-none">
       <template #header>
         <div class="flex justify-between items-center">
@@ -34,55 +34,200 @@
         </div>
       </template>
 
-      <form @submit.prevent="enviarSolicitacao" class="space-y-4">
+      <!-- Alerta indicando a origem dos dados quando buscados na Sede -->
+      <div v-if="abaAtiva !== 'INSERIR' && formCarregadoDaSede" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center space-x-2">
+        <span>✅ Dados da solicitação ativa carregados com sucesso do <strong>Sistema LEC Sede</strong>.</span>
+      </div>
+
+      <form @submit.prevent="enviarSolicitacao" class="space-y-5">
+
+        <!-- Linha de Busca/Identificação do Paciente -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- Código do Paciente (Prontuário) -->
           <div class="form-group">
-            <label for="codigo_paciente" class="form-label font-semibold">Nº Prontuário (Código AGHU)</label>
+            <label for="codigo_paciente" class="form-label font-semibold">Nº Prontuário <span class="text-red-500">*</span></label>
             <div class="flex space-x-2">
               <input 
                 id="codigo_paciente" 
                 v-model="form.codigo_paciente" 
                 type="text" 
-                placeholder="Digite o código" 
+                placeholder="Prontuário" 
                 class="form-control"
                 required
               />
-              <Button type="button" @click="buscarPaciente" :disabled="loadingBusca" variant="info" class="whitespace-nowrap">
-                {{ loadingBusca ? 'Buscando...' : 'Buscar Nome' }}
+              <Button type="button" @click="buscarDados" :disabled="loadingBusca" variant="info" class="whitespace-nowrap">
+                {{ loadingBusca ? '...' : 'Buscar' }}
               </Button>
             </div>
+            <p class="text-xs text-gray-400 mt-1">
+              {{ abaAtiva === 'INSERIR' ? 'Busca dados no AGHU' : 'Puxa dados do Sistema LEC Sede' }}
+            </p>
           </div>
 
-          <!-- Nome do Paciente -->
           <div class="form-group md:col-span-2">
-            <label for="nome_paciente" class="form-label font-semibold">Nome Completo do Paciente</label>
+            <label for="nome_paciente" class="form-label font-semibold">Nome Completo do Paciente <span class="text-red-500">*</span></label>
             <input 
               id="nome_paciente" 
               v-model="form.nome_paciente" 
               type="text" 
-              placeholder="Preenchido automaticamente ou digitado" 
+              placeholder="Preenchido automaticamente ou digitado manualmente" 
               class="form-control"
               required
+              :disabled="abaAtiva !== 'INSERIR'"
             />
+            <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
           </div>
         </div>
 
-        <!-- Detalhes / Justificativa da Solicitação -->
+        <!-- Linha 2: Especialidade + Procedimento (Fila) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-group">
+            <label for="especialidade" class="form-label font-semibold">Especialidade <span class="text-red-500">*</span></label>
+            <select
+              id="especialidade"
+              v-model="form.especialidade"
+              class="form-control"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
+              required
+              @change="form.procedimento = ''"
+              :disabled="camposDesabilitados"
+            >
+              <option value="" disabled>Selecione a especialidade...</option>
+              <option v-for="esp in especialidades" :key="esp.nome" :value="esp.nome">
+                {{ esp.nome }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="procedimento" class="form-label font-semibold">Procedimento (Fila de Espera) <span class="text-red-500">*</span></label>
+            <select
+              id="procedimento"
+              v-model="form.procedimento"
+              class="form-control"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados || !form.especialidade }"
+              required
+              :disabled="camposDesabilitados || !form.especialidade"
+            >
+              <option value="" disabled>{{ form.especialidade ? 'Selecione o procedimento...' : 'Selecione a especialidade primeiro' }}</option>
+              <option v-for="proc in procedimentosDaEspecialidade" :key="proc" :value="proc">
+                {{ proc }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Linha 3: Judicializado + Swallis + Médico Responsável -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+
+          <!-- Judicializado -->
+          <div class="form-group">
+            <label class="form-label font-semibold">Judicializado? <span class="text-red-500">*</span></label>
+            <div class="flex items-center space-x-6 mt-2 p-3 border border-gray-200 rounded-lg" :class="camposDesabilitados ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'">
+              <label class="flex items-center space-x-2" :class="camposDesabilitados ? 'cursor-not-allowed' : 'cursor-pointer'">
+                <input
+                  type="radio"
+                  name="judicializado"
+                  value="Sim"
+                  v-model="form.judicializado"
+                  class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  required
+                  :disabled="camposDesabilitados"
+                />
+                <span class="text-sm font-medium text-gray-700">Sim</span>
+              </label>
+              <label class="flex items-center space-x-2" :class="camposDesabilitados ? 'cursor-not-allowed' : 'cursor-pointer'">
+                <input
+                  type="radio"
+                  name="judicializado"
+                  value="Não"
+                  v-model="form.judicializado"
+                  class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  :disabled="camposDesabilitados"
+                />
+                <span class="text-sm font-medium text-gray-700">Não</span>
+              </label>
+            </div>
+            <div v-if="form.judicializado === 'Sim'" class="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
+              ⚠️ Paciente com determinação judicial — prioridade legal
+            </div>
+          </div>
+
+          <!-- Swallis -->
+          <div class="form-group">
+            <label for="swallis" class="form-label font-semibold">
+              Swallis (Priorização) <span class="text-red-500">*</span>
+            </label>
+            <select
+              id="swallis"
+              v-model="form.swallis"
+              class="form-control"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
+              required
+              :disabled="camposDesabilitados"
+            >
+              <option value="" disabled>Selecione...</option>
+              <option value="A1">A1 — Prioridade Máxima</option>
+              <option value="A2">A2 — Alta Prioridade</option>
+              <option value="B">B — Prioridade Intermediária</option>
+              <option value="C">C — Prioridade Padrão</option>
+              <option value="D">D — Eletivo / Baixa Prioridade</option>
+            </select>
+            <div v-if="form.swallis" class="mt-2 px-3 py-2 rounded-lg text-xs font-semibold" :class="swallisBadgeClass">
+              Classificação: {{ form.swallis }}
+            </div>
+          </div>
+
+          <!-- Médico Responsável -->
+          <div class="form-group">
+            <label for="medico_responsavel" class="form-label font-semibold">Médico Responsável <span class="text-red-500">*</span></label>
+            <input
+              id="medico_responsavel"
+              v-model="form.medico_responsavel"
+              type="text"
+              placeholder="Nome do médico solicitante"
+              class="form-control"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
+              required
+              :disabled="camposDesabilitados"
+            />
+            <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
+          </div>
+        </div>
+
+        <!-- Linha Opcional: Tempo de Stand-by (Apenas na aba STANDBY) -->
+        <div v-if="abaAtiva === 'STANDBY'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="form-group md:col-span-1">
+            <label for="tempo_standby" class="form-label font-semibold">Tempo de Stand-by (em dias) <span class="text-red-500">*</span></label>
+            <input
+              id="tempo_standby"
+              v-model.number="form.tempo_standby"
+              type="number"
+              min="1"
+              max="90"
+              placeholder="Ex: 30"
+              class="form-control text-lg font-bold text-center"
+              required
+            />
+            <p class="text-xs text-red-500 mt-1 font-semibold">⚠️ Limite máximo permitido de 90 dias.</p>
+          </div>
+        </div>
+
+        <!-- Justificativa / Detalhes -->
         <div class="form-group">
           <label for="detalhes" class="form-label font-semibold">
-            {{ labelDetalhes }}
+            {{ labelDetalhes }} <span class="text-red-500">*</span>
           </label>
           <textarea 
             id="detalhes" 
             v-model="form.detalhes" 
-            rows="4" 
-            placeholder="Descreva detalhes clínicos, indicação de urgência, ou justificativas para a alteração..." 
+            rows="3" 
+            placeholder="Descreva a justificativa clínica para esta solicitação..." 
             class="form-control"
             required
           ></textarea>
         </div>
 
+        <!-- Botões -->
         <div class="flex justify-end space-x-3 pt-2">
           <Button type="button" @click="limparFormulario" variant="secondary">
             Limpar
@@ -110,35 +255,51 @@
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paciente</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Justificativa / Detalhes</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade / Procedimento</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário / Paciente</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judicial</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Swallis</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info Extra</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200 text-sm">
             <tr v-for="solic in solicitacoes" :key="solic.id">
-              <td class="px-6 py-4 whitespace-nowrap text-gray-500 font-mono text-xs">#{{ solic.id }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="getTipoBadgeClass(solic.tipo)">
-                  {{ solic.tipo }}
-                </span>
+              <td class="px-4 py-4 whitespace-nowrap text-gray-500 font-mono text-xs">#{{ solic.id }}</td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                <span :class="getTipoBadgeClass(solic.tipo)">{{ solic.tipo }}</span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ solic.codigo_paciente }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium">{{ solic.nome_paciente }}</td>
-              <td class="px-6 py-4 text-gray-600 max-w-xs truncate" :title="solic.detalhes">{{ solic.detalhes }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="getStatusBadgeClass(solic.status)">
-                  {{ solic.status }}
-                </span>
+              <td class="px-4 py-4 text-gray-700 text-xs">
+                <div class="font-semibold">{{ solic.especialidade || '—' }}</div>
+                <div class="text-gray-400">{{ solic.procedimento || '—' }}</div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-xs">{{ solic.data_criacao }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-xs">
-                <!-- Se for equipe de gestão, exibe botões para Aprovar/Rejeitar -->
+              <td class="px-4 py-4 text-gray-700 text-xs">
+                <div class="font-mono">{{ solic.codigo_paciente }}</div>
+                <div class="font-medium">{{ solic.nome_paciente }}</div>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap text-xs">
+                <span v-if="solic.judicializado === 'Sim'" class="px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">⚖️ Sim</span>
+                <span v-else class="text-gray-400">Não</span>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                <span v-if="solic.swallis" :class="getSwallisClass(solic.swallis)">{{ solic.swallis }}</span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap text-xs text-gray-600">{{ solic.medico_responsavel || '—' }}</td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
+              </td>
+              <td class="px-4 py-4 text-xs text-gray-600">
+                <div v-if="solic.tempo_standby" class="font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                  ⏱️ {{ solic.tempo_standby }} dias
+                </div>
+                <div v-else class="text-gray-400">—</div>
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap text-xs">
                 <div v-if="solic.status === 'PENDENTE'" class="flex space-x-1">
                   <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">Aprovar</Button>
                   <Button @click="atualizarStatus(solic.id, 'REJEITADO')" variant="danger" size="sm">Rejeitar</Button>
@@ -169,11 +330,66 @@ import LoadingIndicator from '../components/LoadingIndicator.vue';
 
 const toast = useToast();
 
+// -------------------------------------------------------
+// Especialidades e Procedimentos
+// -------------------------------------------------------
+const especialidades = ref([
+  {
+    nome: 'Cardiologia / Cirurgia Cardíaca',
+    procedimentos: ['Revascularização do Miocárdio (Ponte de Safena)', 'Troca de Valva Aórtica', 'Troca de Valva Mitral', 'Implante de Marcapasso', 'Correção de CIA / CIV']
+  },
+  {
+    nome: 'Cirurgia Geral',
+    procedimentos: ['Colecistectomia', 'Herniorrafia Inguinal', 'Apendicectomia', 'Gastrectomia', 'Colostomia']
+  },
+  {
+    nome: 'Ginecologia',
+    procedimentos: ['Histerectomia', 'Miomectomia', 'Laparoscopia Diagnóstica', 'Colpoperineoplastia', 'Ooforectomia']
+  },
+  {
+    nome: 'Neurocirurgia',
+    procedimentos: ['Craniectomia Descompressiva', 'Clipagem de Aneurisma', 'Derivação Ventrículo-Peritoneal', 'Microdiscectomia', 'Tumor Cerebral — Ressecção']
+  },
+  {
+    nome: 'Oftalmologia',
+    procedimentos: ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser']
+  },
+  {
+    nome: 'Ortopedia',
+    procedimentos: ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna']
+  },
+  {
+    nome: 'Otorrinolaringologia',
+    procedimentos: ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe']
+  },
+  {
+    nome: 'Plástica',
+    procedimentos: ['Mamoplastia', 'Rinoplastia', 'Blefaroplastia', 'Reconstrução Mamária', 'Abdominoplastia']
+  },
+  {
+    nome: 'Torácica',
+    procedimentos: ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia']
+  },
+  {
+    nome: 'Urologia',
+    procedimentos: ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
+  }
+]);
+
+// Procedimentos filtrados pela especialidade selecionada
+const procedimentosDaEspecialidade = computed(() => {
+  const esp = especialidades.value.find(e => e.nome === form.value.especialidade);
+  return esp ? esp.procedimentos : [];
+});
+
+// -------------------------------------------------------
+// Abas
+// -------------------------------------------------------
 const abas = [
   { id: 'INSERIR', nome: 'Solicitar Inclusão', icon: UserPlusIcon },
   { id: 'EDITAR', nome: 'Solicitar Edição', icon: PencilSquareIcon },
   { id: 'EXCLUIR', nome: 'Solicitar Exclusão', icon: TrashIcon },
-  { id: 'STANDBY', nome: 'Colocar Stand-by', icon: PauseIcon },
+  { id: 'STANDBY', nome: 'Colocar Stand-by', icon: PauseIcon }
 ];
 
 const abaAtiva = ref('INSERIR');
@@ -181,11 +397,31 @@ const loadingBusca = ref(false);
 const submitting = ref(false);
 const loadingSolicitacoes = ref(false);
 const solicitacoes = ref<any[]>([]);
+const formCarregadoDaSede = ref(false);
 
+// -------------------------------------------------------
+// Formulário
+// -------------------------------------------------------
 const form = ref({
+  especialidade: '',
+  procedimento: '',
   codigo_paciente: '',
   nome_paciente: '',
+  judicializado: '',
+  swallis: '',
+  medico_responsavel: '',
   detalhes: '',
+  tempo_standby: undefined as number | undefined
+});
+
+const selecionarAba = (id: string) => {
+  abaAtiva.value = id;
+  limparFormulario();
+};
+
+// Determina se os campos devem ser somente-leitura na aba selecionada
+const camposDesabilitados = computed(() => {
+  return abaAtiva.value === 'EXCLUIR' || abaAtiva.value === 'STANDBY';
 });
 
 const tipoSolicitacaoNome = computed(() => {
@@ -195,47 +431,80 @@ const tipoSolicitacaoNome = computed(() => {
 
 const labelDetalhes = computed(() => {
   switch (abaAtiva.value) {
-    case 'INSERIR':
-      return 'Justificativa e Indicação Clínica para Inclusão';
-    case 'EDITAR':
-      return 'Campos e Dados que precisam ser atualizados e o motivo';
-    case 'EXCLUIR':
-      return 'Motivo detalhado para a Exclusão da Lista de Espera';
-    case 'STANDBY':
-      return 'Motivo clínico ou administrativo para suspensão temporária (Stand-by)';
-    default:
-      return 'Detalhes da Solicitação';
+    case 'INSERIR':  return 'Justificativa e Indicação Clínica para Inclusão';
+    case 'EDITAR':   return 'Campos e Dados que precisam ser atualizados e o motivo';
+    case 'EXCLUIR':  return 'Motivo detalhado para a Exclusão da Lista de Espera';
+    case 'STANDBY':  return 'Motivo clínico ou administrativo para suspensão temporária (Stand-by)';
+    default:         return 'Detalhes da Solicitação';
   }
 });
 
-// Limpa formulário
+const swallisBadgeClass = computed(() => {
+  switch (form.value.swallis) {
+    case 'A1': return 'bg-red-100 text-red-800';
+    case 'A2': return 'bg-orange-100 text-orange-800';
+    case 'B':  return 'bg-yellow-100 text-yellow-800';
+    case 'C':  return 'bg-blue-100 text-blue-800';
+    case 'D':  return 'bg-gray-100 text-gray-700';
+    default:   return 'bg-gray-100 text-gray-700';
+  }
+});
+
 const limparFormulario = () => {
   form.value = {
+    especialidade: '',
+    procedimento: '',
     codigo_paciente: '',
     nome_paciente: '',
+    judicializado: '',
+    swallis: '',
+    medico_responsavel: '',
     detalhes: '',
+    tempo_standby: undefined
   };
+  formCarregadoDaSede.value = false;
 };
 
-// Busca nome do paciente no AGHU usando endpoint do backend
-const buscarPaciente = async () => {
+// Busca unificada com base no prontuário e na aba selecionada
+const buscarDados = async () => {
   if (!form.value.codigo_paciente) {
     toast.error('Por favor, digite o número do prontuário.');
     return;
   }
   loadingBusca.value = true;
+  formCarregadoDaSede.value = false;
+
   try {
-    const { data } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
-    form.value.nome_paciente = data.nome;
-    toast.success(`Paciente localizado: ${data.nome}`);
-  } catch (error) {
-    toast.error('Paciente não localizado no AGHU. Digite o nome manualmente.');
+    if (abaAtiva.value === 'INSERIR') {
+      // Busca no AGHU
+      const { data } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
+      form.value.nome_paciente = data.nome;
+      toast.success(`Paciente localizado no AGHU: ${data.nome}`);
+    } else {
+      // Busca no Sistema LEC Sede (nossas solicitações ativas)
+      const { data } = await api.get(`/api/solicitacoes/paciente/${form.value.codigo_paciente}`);
+      form.value.nome_paciente = data.nome_paciente;
+      form.value.especialidade = data.especialidade || '';
+      form.value.procedimento = data.procedimento || '';
+      form.value.judicializado = data.judicializado || 'Não';
+      form.value.swallis = data.swallis || '';
+      form.value.medico_responsavel = data.medico_responsavel || '';
+      
+      formCarregadoDaSede.value = true;
+      toast.success('Solicitação ativa localizada no Sistema LEC Sede!');
+    }
+  } catch (error: any) {
+    if (abaAtiva.value === 'INSERIR') {
+      toast.error('Paciente não localizado no AGHU. Digite o nome manualmente.');
+    } else {
+      toast.error('Prontuário sem solicitação ativa no Sistema LEC Sede. Não é possível editar, excluir ou colocar em standby.');
+      limparFormulario();
+    }
   } finally {
     loadingBusca.value = false;
   }
 };
 
-// Carrega lista de solicitações
 const carregarSolicitacoes = async () => {
   loadingSolicitacoes.value = true;
   try {
@@ -248,15 +517,28 @@ const carregarSolicitacoes = async () => {
   }
 };
 
-// Envia a solicitação
 const enviarSolicitacao = async () => {
+  // Validação do limite de tempo do standby
+  if (abaAtiva.value === 'STANDBY') {
+    if (!form.value.tempo_standby || form.value.tempo_standby < 1 || form.value.tempo_standby > 90) {
+      toast.error('O tempo de stand-by deve ser entre 1 e 90 dias.');
+      return;
+    }
+  }
+
   submitting.value = true;
   try {
     await api.post('/api/solicitacoes', {
       tipo: abaAtiva.value,
+      especialidade: form.value.especialidade,
+      procedimento: form.value.procedimento,
       codigo_paciente: form.value.codigo_paciente,
       nome_paciente: form.value.nome_paciente,
+      judicializado: form.value.judicializado,
+      swallis: form.value.swallis,
+      medico_responsavel: form.value.medico_responsavel,
       detalhes: form.value.detalhes,
+      tempo_standby: form.value.tempo_standby || undefined
     });
     toast.success('Solicitação registrada com sucesso!');
     limparFormulario();
@@ -268,7 +550,6 @@ const enviarSolicitacao = async () => {
   }
 };
 
-// Atualiza status da solicitação (aprovar/rejeitar)
 const atualizarStatus = async (id: string, status: string) => {
   try {
     await api.put(`/api/solicitacoes/${id}/status`, { status });
@@ -282,19 +563,31 @@ const atualizarStatus = async (id: string, status: string) => {
 const getTipoBadgeClass = (tipo: string) => {
   switch (tipo) {
     case 'INSERIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800';
-    case 'EDITAR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800';
+    case 'EDITAR':  return 'px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800';
     case 'EXCLUIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800';
     case 'STANDBY': return 'px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800';
-    default: return 'px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800';
+    default:        return 'px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800';
+  }
+};
+
+const getSwallisClass = (swallis: string) => {
+  const base = 'px-2 py-0.5 rounded font-bold text-xs';
+  switch (swallis) {
+    case 'A1': return `${base} bg-red-100 text-red-800`;
+    case 'A2': return `${base} bg-orange-100 text-orange-800`;
+    case 'B':  return `${base} bg-yellow-100 text-yellow-800`;
+    case 'C':  return `${base} bg-blue-100 text-blue-800`;
+    case 'D':  return `${base} bg-gray-100 text-gray-700`;
+    default:   return `${base} bg-gray-100 text-gray-700`;
   }
 };
 
 const getStatusBadgeClass = (status: string) => {
   switch (status) {
-    case 'PENDENTE': return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800';
-    case 'APROVADO': return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800';
+    case 'PENDENTE':  return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800';
+    case 'APROVADO':  return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800';
     case 'REJEITADO': return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800';
-    default: return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800';
+    default:          return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800';
   }
 };
 

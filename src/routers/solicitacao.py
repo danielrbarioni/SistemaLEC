@@ -17,9 +17,15 @@ router = APIRouter(
 
 class SolicitacaoCreate(BaseModel):
     tipo: str
+    especialidade: str = ""
+    procedimento: str = ""
     codigo_paciente: str
     nome_paciente: str
+    judicializado: str = "Não"
+    swallis: str = ""
+    medico_responsavel: str = ""
     detalhes: str
+    tempo_standby: int = None
 
 class SolicitacaoStatusUpdate(BaseModel):
     status: str
@@ -41,6 +47,23 @@ async def listar_solicitacoes(
 ):
     """Lista todas as solicitações."""
     return await solicitacao_controller.listar_solicitacoes(provider)
+
+@router.get("/paciente/{codigo_paciente}", response_model=dict)
+async def obter_solicitacao_por_paciente(
+    codigo_paciente: str,
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY))
+):
+    """Retorna a solicitação mais recente cadastrada para um paciente específico."""
+    solicitacoes = await solicitacao_controller.listar_solicitacoes(provider)
+    # Filtra por codigo_paciente e ordena para pegar a mais recente
+    solics_paciente = [s for s in solicitacoes if str(s.get('codigo_paciente')) == str(codigo_paciente)]
+    if not solics_paciente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Nenhuma solicitação encontrada para este prontuário no Sistema LEC."
+        )
+    # Retorna a última cadastrada
+    return solics_paciente[-1]
 
 @router.put("/{id_solicitacao}/status", response_model=dict)
 async def atualizar_status_solicitacao(
