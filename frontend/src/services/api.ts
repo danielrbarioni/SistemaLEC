@@ -21,6 +21,30 @@ const mockPacientes: Record<string, { codigo: string; nome: string; cpf: string 
   '345678': { codigo: '345678', nome: 'JULIANA SOUZA (DEMO)', cpf: '999.888.777-66' },
 };
 
+// Pacientes para o módulo de Especialidades (rota /api/pacientes)
+const mockPacientesEspecialidades = [
+  // ── PLÁSTICA (10 pacientes fictícios) ───────────────────────────────────────
+  { codigo: 'HC-1045231', nome: 'ANA BEATRIZ FERREIRA', procedimento: 'Reconstrução Mamária',   especialidade: 'Plástica', ultima_consulta_epo: '2024-03-10' },
+  { codigo: 'HC-2078934', nome: 'CARLA MENDES SILVA',   procedimento: 'Mamoplastia',             especialidade: 'Plástica', ultima_consulta_epo: '2024-05-22' },
+  { codigo: 'HC-3012847', nome: 'DANIELA ROCHA LIMA',   procedimento: 'Abdominoplastia',         especialidade: 'Plástica', ultima_consulta_epo: '2024-07-08' },
+  { codigo: 'HC-4056182', nome: 'FERNANDA COSTA REIS',  procedimento: 'Rinoplastia',             especialidade: 'Plástica', ultima_consulta_epo: '2024-08-14' },
+  { codigo: 'HC-5091376', nome: 'JÉSSICA ALVES MOURA',  procedimento: 'Blefaroplastia',          especialidade: 'Plástica', ultima_consulta_epo: '2024-09-03' },
+  { codigo: 'HC-6034721', nome: 'LÚCIA BARROS SANTOS',  procedimento: 'Reconstrução Mamária',   especialidade: 'Plástica', ultima_consulta_epo: '2024-10-17' },
+  { codigo: 'HC-7083914', nome: 'MÁRCIA TEIXEIRA NUNES',procedimento: 'Mamoplastia',             especialidade: 'Plástica', ultima_consulta_epo: '2024-11-05' },
+  { codigo: 'HC-8027563', nome: 'PATRÍCIA GOMES ARAUJO',procedimento: 'Abdominoplastia',         especialidade: 'Plástica', ultima_consulta_epo: '2025-01-20' },
+  { codigo: 'HC-9041298', nome: 'RENATA CARDOSO FREITAS',procedimento: 'Rinoplastia',            especialidade: 'Plástica', ultima_consulta_epo: '2025-03-11' },
+  { codigo: 'HC-1162047', nome: 'SANDRA OLIVEIRA PINTO',procedimento: 'Blefaroplastia',          especialidade: 'Plástica', ultima_consulta_epo: '2025-05-28' },
+  // ── OFTALMOLOGIA (exemplos) ─────────────────────────────────────────────────
+  { codigo: 'HC-2205831', nome: 'ANTONIO JOSE CAVALCANTE', procedimento: 'Facoemulsificação (Catarata)', especialidade: 'Oftalmologia', ultima_consulta_epo: '2024-06-15' },
+  { codigo: 'HC-3318742', nome: 'BENEDITA RAMOS CORREIA',  procedimento: 'Trabeculectomia (Glaucoma)',  especialidade: 'Oftalmologia', ultima_consulta_epo: '2024-11-30' },
+  // ── UROLOGIA (exemplos) ─────────────────────────────────────────────────────
+  { codigo: 'HC-4421653', nome: 'CARLOS HENRIQUE MELO',    procedimento: 'Prostatectomia Radical',       especialidade: 'Urologia',     ultima_consulta_epo: '2024-04-19' },
+  { codigo: 'HC-5534564', nome: 'DIEGO FERREIRA SOUZA',    procedimento: 'Ressecção Transuretral de Próstata (RTUP)', especialidade: 'Urologia', ultima_consulta_epo: '2025-02-07' },
+  // ── TORÁCICA (exemplos) ─────────────────────────────────────────────────────
+  { codigo: 'HC-6647475', nome: 'ELIANA MOREIRA BASTOS',   procedimento: 'Lobectomia',                  especialidade: 'Torácica',     ultima_consulta_epo: '2024-08-25' },
+  { codigo: 'HC-7750386', nome: 'FABIO AZEVEDO CUNHA',     procedimento: 'Ressecção de Nódulo Pulmonar', especialidade: 'Torácica',     ultima_consulta_epo: '2025-04-13' },
+];
+
 const getLocalSolicitacoes = () => {
   const data = localStorage.getItem('demo_solicitacoes');
   if (!data) {
@@ -144,6 +168,11 @@ if (isGitHubPages) {
     // Rota: POST /api/logout
     if (url.includes('/api/logout')) {
       return { data: { success: true }, status: 200, headers: {}, config };
+    }
+
+    // Rota: GET /api/pacientes  (lista para o módulo Especialidades)
+    if (url.match(/\/api\/pacientes$/) && method === 'get') {
+      return { data: mockPacientesEspecialidades, status: 200, headers: {}, config };
     }
 
     // Rota: GET /api/pacientes/{codigo}
