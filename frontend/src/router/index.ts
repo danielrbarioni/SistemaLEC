@@ -44,7 +44,7 @@ const routes = [
   },
   {
     path: '/interacoes',
-    name: 'Interações com o Sistema LEC da Rede HU Brasil',
+    name: 'Sistema LEC',
     component: InteracoesLec,
     meta: { requiresAuth: true },
   },
