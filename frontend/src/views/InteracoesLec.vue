@@ -1,18 +1,18 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-800">Sistema LEC</h1>
+      <h1 class="text-xl font-bold text-gray-800">Interações com o sistema LEC da Rede HU Brasil</h1>
       <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial → Gestão da LEC</span>
     </div>
 
     <!-- Abas Principais -->
-    <div class="flex border-b border-gray-300 bg-white p-2 rounded-t-lg shadow-sm">
+    <div class="flex border-b border-gray-300 bg-white p-2 rounded-t-lg shadow-sm overflow-x-auto">
       <button 
         v-for="aba in abas" 
         :key="aba.id" 
         @click="selecionarAba(aba.id)"
         :class="[
-          'flex-1 py-3 text-sm font-semibold rounded-md transition duration-200',
+          'flex-1 py-3 text-sm font-semibold rounded-md transition duration-200 whitespace-nowrap px-2',
           abaAtiva === aba.id 
             ? 'bg-paper-sidebar text-white shadow-md' 
             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
@@ -59,7 +59,7 @@
               </Button>
             </div>
             <p class="text-xs text-gray-400 mt-1">
-              {{ abaAtiva === 'INSERIR' ? 'Busca dados no AGHU' : 'Puxa dados do Sistema LEC Sede' }}
+              {{ abaAtiva === 'INSERIR' ? 'Busca dados no AGHU' : 'Puxa dados do módulo Pacientes' }}
             </p>
           </div>
 
@@ -75,6 +75,31 @@
               :disabled="abaAtiva !== 'INSERIR'"
             />
             <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
+          </div>
+        </div>
+
+        <!-- Seleção de Procedimento para Edição (quando há múltiplos) -->
+        <div v-if="abaAtiva === 'EDITAR' && procedimentosPaciente.length > 1" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <label class="form-label font-semibold text-amber-800">Qual procedimento deseja editar?</label>
+          <div class="mt-2 space-y-2">
+            <label 
+              v-for="(proc, idx) in procedimentosPaciente" 
+              :key="idx" 
+              class="flex items-center space-x-3 p-3 bg-white rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-50 transition"
+              :class="{ 'border-amber-500 bg-amber-50 ring-1 ring-amber-400': procedimentoSelecionadoParaEdicao === idx }"
+            >
+              <input 
+                type="radio" 
+                :value="idx" 
+                v-model="procedimentoSelecionadoParaEdicao"
+                class="h-4 w-4 text-amber-600"
+                @change="preencherCamposDoProc(proc)"
+              />
+              <div class="text-sm">
+                <div class="font-semibold text-gray-800">{{ proc.procedimento }}</div>
+                <div class="text-xs text-gray-500">{{ proc.especialidade }} · Swallis: {{ proc.swallis || '—' }}</div>
+              </div>
+            </label>
           </div>
         </div>
 
@@ -100,19 +125,23 @@
 
           <div class="form-group">
             <label for="procedimento" class="form-label font-semibold">Procedimento (Fila de Espera) <span class="text-red-500">*</span></label>
-            <select
-              id="procedimento"
-              v-model="form.procedimento"
-              class="form-control"
-              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados || !form.especialidade }"
-              required
-              :disabled="camposDesabilitados || !form.especialidade"
-            >
-              <option value="" disabled>{{ form.especialidade ? 'Selecione o procedimento...' : 'Selecione a especialidade primeiro' }}</option>
-              <option v-for="proc in procedimentosDaEspecialidade" :key="proc" :value="proc">
-                {{ proc }}
-              </option>
-            </select>
+            <!-- Campo combinado: digitar ou selecionar -->
+            <div class="relative">
+              <input
+                id="procedimento"
+                v-model="form.procedimento"
+                type="text"
+                list="procedimentos-lista"
+                :placeholder="form.especialidade ? 'Digite ou selecione o procedimento...' : 'Selecione a especialidade primeiro'"
+                class="form-control"
+                :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados || !form.especialidade }"
+                required
+                :disabled="camposDesabilitados || !form.especialidade"
+              />
+              <datalist id="procedimentos-lista">
+                <option v-for="proc in procedimentosDaEspecialidade" :key="proc" :value="proc">{{ proc }}</option>
+              </datalist>
+            </div>
           </div>
         </div>
 
@@ -184,20 +213,24 @@
               id="medico_responsavel"
               v-model="form.medico_responsavel"
               type="text"
-              placeholder="Nome do médico solicitante"
+              list="medicos-lista"
+              placeholder="Digite o nome do médico solicitante"
               class="form-control"
               :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
               required
               :disabled="camposDesabilitados"
             />
+            <datalist id="medicos-lista">
+              <option v-for="med in medicosConhecidos" :key="med" :value="med">{{ med }}</option>
+            </datalist>
             <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
           </div>
         </div>
 
-        <!-- Linha Opcional: Tempo de Stand-by (Apenas na aba STANDBY) -->
+        <!-- Linha Opcional: Tempo de Standby (Apenas na aba STANDBY) -->
         <div v-if="abaAtiva === 'STANDBY'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="form-group md:col-span-1">
-            <label for="tempo_standby" class="form-label font-semibold">Tempo de Stand-by (em dias) <span class="text-red-500">*</span></label>
+            <label for="tempo_standby" class="form-label font-semibold">Tempo de Standby (em dias) <span class="text-red-500">*</span></label>
             <input
               id="tempo_standby"
               v-model.number="form.tempo_standby"
@@ -386,6 +419,14 @@ const procedimentosDaEspecialidade = computed(() => {
   return esp ? esp.procedimentos : [];
 });
 
+// Médicos conhecidos extraídos das solicitações (para o autocomplete)
+const medicosConhecidos = computed(() => {
+  const nomes = solicitacoes.value
+    .map(s => s.medico_responsavel)
+    .filter(n => n && n !== '—' && n !== 'Não informado');
+  return [...new Set(nomes)].sort();
+});
+
 // -------------------------------------------------------
 // Abas
 // -------------------------------------------------------
@@ -393,7 +434,7 @@ const abas = [
   { id: 'INSERIR', nome: 'Solicitar Inclusão', icon: UserPlusIcon },
   { id: 'EDITAR', nome: 'Solicitar Edição', icon: PencilSquareIcon },
   { id: 'EXCLUIR', nome: 'Solicitar Exclusão', icon: TrashIcon },
-  { id: 'STANDBY', nome: 'Colocar Stand-by', icon: PauseIcon }
+  { id: 'STANDBY', nome: 'Solicitar Standby', icon: PauseIcon }
 ];
 
 const abaAtiva = ref('INSERIR');
@@ -403,12 +444,17 @@ const loadingSolicitacoes = ref(false);
 const solicitacoes = ref<any[]>([]);
 const formCarregadoDaSede = ref(false);
 
+// Para aba EDITAR com múltiplos procedimentos
+const procedimentosPaciente = ref<any[]>([]);
+const procedimentoSelecionadoParaEdicao = ref<number | null>(null);
+
 // -------------------------------------------------------
 // Formulário
 // -------------------------------------------------------
 const form = ref({
   especialidade: '',
   procedimento: '',
+  procedimento_anterior: '', // Armazena o procedimento original antes de editar
   codigo_paciente: '',
   nome_paciente: '',
   judicializado: '',
@@ -463,7 +509,7 @@ const labelDetalhes = computed(() => {
     case 'INSERIR':  return 'Justificativa e Indicação Clínica para Inclusão';
     case 'EDITAR':   return 'Campos e Dados que precisam ser atualizados e o motivo';
     case 'EXCLUIR':  return 'Motivo detalhado para a Exclusão da Lista de Espera';
-    case 'STANDBY':  return 'Motivo clínico ou administrativo para suspensão temporária (Stand-by)';
+    case 'STANDBY':  return 'Motivo clínico ou administrativo para suspensão temporária (Standby)';
     default:         return 'Detalhes da Solicitação';
   }
 });
@@ -483,6 +529,7 @@ const limparFormulario = () => {
   form.value = {
     especialidade: '',
     procedimento: '',
+    procedimento_anterior: '',
     codigo_paciente: '',
     nome_paciente: '',
     judicializado: '',
@@ -492,6 +539,25 @@ const limparFormulario = () => {
     tempo_standby: undefined
   };
   formCarregadoDaSede.value = false;
+  procedimentosPaciente.value = [];
+  procedimentoSelecionadoParaEdicao.value = null;
+
+  // Reaplica especialidade travada pelo perfil
+  const profile = perfisStore.perfilAtivo;
+  if (profile.tipo === 'ESPECIALIDADE' && profile.especialidade) {
+    const found = especialidades.value.find(e => e.nome.toLowerCase().includes(profile.especialidade!.toLowerCase()));
+    form.value.especialidade = found ? found.nome : profile.especialidade;
+  }
+};
+
+// Preenche o formulário ao selecionar o procedimento para edição
+const preencherCamposDoProc = (proc: any) => {
+  form.value.procedimento_anterior = proc.procedimento;
+  form.value.procedimento = proc.procedimento;
+  form.value.especialidade = proc.especialidade;
+  form.value.judicializado = proc.judicializado || 'Não';
+  form.value.swallis = proc.swallis || '';
+  form.value.medico_responsavel = proc.medico_responsavel || '';
 };
 
 // Busca unificada com base no prontuário e na aba selecionada
@@ -502,6 +568,8 @@ const buscarDados = async () => {
   }
   loadingBusca.value = true;
   formCarregadoDaSede.value = false;
+  procedimentosPaciente.value = [];
+  procedimentoSelecionadoParaEdicao.value = null;
 
   try {
     if (abaAtiva.value === 'INSERIR') {
@@ -509,8 +577,87 @@ const buscarDados = async () => {
       const { data } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
       form.value.nome_paciente = data.nome;
       toast.success(`Paciente localizado no AGHU: ${data.nome}`);
+    } else if (abaAtiva.value === 'EDITAR') {
+      // Busca procedimentos do paciente no módulo Pacientes
+      const { data: solicsData } = await api.get('/api/solicitacoes');
+      const especialidadeAtual = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
+        ? perfisStore.perfilAtivo.especialidade.toLowerCase()
+        : null;
+
+      // Reconstrução dos procedimentos do paciente (igual ao módulo Pacientes)
+      const allSolics: any[] = solicsData;
+      const codProntuario = String(form.value.codigo_paciente);
+
+      // Pega o nome do paciente
+      const solicsDosPac = allSolics.filter(s => String(s.codigo_paciente) === codProntuario);
+      if (solicsDosPac.length === 0) {
+        toast.error('Paciente não encontrado no Sistema LEC.');
+        limparFormulario();
+        return;
+      }
+      form.value.nome_paciente = solicsDosPac[0].nome_paciente;
+
+      // Reconstrói a lista de procedimentos aprovados do paciente
+      const procMap = new Map<string, any>();
+      const approvedSolics = solicsDosPac
+        .filter(s => s.status === 'APROVADO')
+        .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
+
+      for (const s of approvedSolics) {
+        const key = `${s.especialidade}||${s.procedimento}`;
+        if (s.tipo === 'INSERIR') {
+          procMap.set(key, {
+            especialidade: s.especialidade,
+            procedimento: s.procedimento,
+            judicializado: s.judicializado || 'Não',
+            swallis: s.swallis || '—',
+            medico_responsavel: s.medico_responsavel || 'Não informado',
+            status: 'ATIVO'
+          });
+        } else if (s.tipo === 'EDITAR') {
+          const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
+          const existing = procMap.get(oldKey);
+          if (existing) {
+            procMap.delete(oldKey);
+            procMap.set(key, {
+              ...existing,
+              procedimento: s.procedimento,
+              judicializado: s.judicializado || 'Não',
+              swallis: s.swallis || '—',
+              medico_responsavel: s.medico_responsavel || 'Não informado'
+            });
+          }
+        } else if (s.tipo === 'EXCLUIR') {
+          procMap.delete(key);
+        }
+      }
+
+      let procs = Array.from(procMap.values());
+
+      // Filtra por especialidade se o perfil for ESPECIALIDADE
+      if (especialidadeAtual) {
+        procs = procs.filter(p => p.especialidade && p.especialidade.toLowerCase().includes(especialidadeAtual));
+      }
+
+      if (procs.length === 0) {
+        toast.error('Nenhum procedimento ativo encontrado para este paciente' + (especialidadeAtual ? ' nesta especialidade' : '') + '.');
+        limparFormulario();
+        return;
+      }
+
+      procedimentosPaciente.value = procs;
+      formCarregadoDaSede.value = true;
+
+      // Se houver apenas um procedimento, preenchemos automaticamente
+      if (procs.length === 1) {
+        procedimentoSelecionadoParaEdicao.value = 0;
+        preencherCamposDoProc(procs[0]);
+        toast.success(`Procedimento encontrado: ${procs[0].procedimento}`);
+      } else {
+        toast.info(`${procs.length} procedimentos encontrados para este paciente. Selecione qual deseja editar.`);
+      }
     } else {
-      // Busca no Sistema LEC Sede (nossas solicitações ativas)
+      // EXCLUIR / STANDBY: Busca no Sistema LEC Sede (última solicitação aprovada)
       const { data } = await api.get(`/api/solicitacoes/paciente/${form.value.codigo_paciente}`);
       form.value.nome_paciente = data.nome_paciente;
       form.value.especialidade = data.especialidade || '';
@@ -520,13 +667,13 @@ const buscarDados = async () => {
       form.value.medico_responsavel = data.medico_responsavel || '';
       
       formCarregadoDaSede.value = true;
-      toast.success('Solicitação ativa localizada no Sistema LEC Sede!');
+      toast.success('Solicitação ativa localizada no Sistema LEC!');
     }
   } catch (error: any) {
     if (abaAtiva.value === 'INSERIR') {
       toast.error('Paciente não localizado no AGHU. Digite o nome manualmente.');
     } else {
-      toast.error('Prontuário sem solicitação ativa no Sistema LEC Sede. Não é possível editar, excluir ou colocar em standby.');
+      toast.error('Prontuário sem dados ativos no Sistema LEC. Não é possível prosseguir.');
       limparFormulario();
     }
   } finally {
@@ -550,9 +697,15 @@ const enviarSolicitacao = async () => {
   // Validação do limite de tempo do standby
   if (abaAtiva.value === 'STANDBY') {
     if (!form.value.tempo_standby || form.value.tempo_standby < 1 || form.value.tempo_standby > 90) {
-      toast.error('O tempo de stand-by deve ser entre 1 e 90 dias.');
+      toast.error('O tempo de standby deve ser entre 1 e 90 dias.');
       return;
     }
+  }
+
+  // Valida que para EDITAR o procedimento foi selecionado
+  if (abaAtiva.value === 'EDITAR' && procedimentosPaciente.value.length > 1 && procedimentoSelecionadoParaEdicao.value === null) {
+    toast.error('Selecione qual procedimento deseja editar.');
+    return;
   }
 
   submitting.value = true;
@@ -567,7 +720,9 @@ const enviarSolicitacao = async () => {
       swallis: form.value.swallis,
       medico_responsavel: form.value.medico_responsavel,
       detalhes: form.value.detalhes,
-      tempo_standby: form.value.tempo_standby || undefined
+      tempo_standby: form.value.tempo_standby || undefined,
+      perfil_executor: perfisStore.perfilAtivo.nome,
+      procedimento_anterior: form.value.procedimento_anterior || undefined
     });
     toast.success('Solicitação registrada com sucesso!');
     limparFormulario();
