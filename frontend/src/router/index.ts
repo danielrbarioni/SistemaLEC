@@ -7,7 +7,9 @@ import Admin from '../views/Admin.vue';
 import Exemplos from '../views/Exemplos.vue';
 import Pacientes from '../views/Pacientes.vue';
 import InteracoesLec from '../views/InteracoesLec.vue';
-import EspecialidadesLec from '../views/EspecialidadesLec.vue';
+import NavegacaoLec from '../views/NavegacaoLec.vue';
+import Perfis from '../views/Perfis.vue';
+import Historico from '../views/Historico.vue';
 
 
 const routes = [
@@ -47,9 +49,21 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/especialidades',
-    name: 'Especialidades LEC',
-    component: EspecialidadesLec,
+    path: '/navegacao',
+    name: 'Navegação',
+    component: NavegacaoLec,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/historico',
+    name: 'Histórico',
+    component: Historico,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/perfis',
+    name: 'Perfis',
+    component: Perfis,
     meta: { requiresAuth: true },
   },
 

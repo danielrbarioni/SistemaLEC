@@ -1,1 +1,1 @@
-id,tipo,codigo_paciente,nome_paciente,detalhes,status,data_criacao
+id,tipo,especialidade,procedimento,codigo_paciente,nome_paciente,judicializado,swallis,medico_responsavel,detalhes,tempo_standby,status,data_criacao,perfil_executor,procedimento_anterior

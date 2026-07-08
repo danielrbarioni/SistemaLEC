@@ -26,6 +26,8 @@ class SolicitacaoCreate(BaseModel):
     medico_responsavel: str = ""
     detalhes: str
     tempo_standby: int = None
+    perfil_executor: str = ""
+    procedimento_anterior: str = ""
 
 class SolicitacaoStatusUpdate(BaseModel):
     status: str

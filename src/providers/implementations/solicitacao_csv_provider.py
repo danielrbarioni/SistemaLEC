@@ -25,7 +25,26 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         if not os.path.exists(self.solicitacoes_path):
             with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swallis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao'])
+                writer.writerow(['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swallis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao', 'perfil_executor', 'procedimento_anterior'])
+        else:
+            # Verifica se precisa adicionar as novas colunas
+            with open(self.solicitacoes_path, mode='r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                header = next(reader, [])
+            if 'perfil_executor' not in header or 'procedimento_anterior' not in header:
+                solics = []
+                with open(self.solicitacoes_path, mode='r', encoding='utf-8') as f:
+                    r = csv.DictReader(f)
+                    for row in r:
+                        if 'perfil_executor' not in row:
+                            row['perfil_executor'] = ''
+                        if 'procedimento_anterior' not in row:
+                            row['procedimento_anterior'] = ''
+                        solics.append(row)
+                with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swallis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao', 'perfil_executor', 'procedimento_anterior'])
+                    writer.writeheader()
+                    writer.writerows(solics)
 
         # Inicializa arquivo de status locais
         if not os.path.exists(self.status_locais_path):
@@ -47,7 +66,9 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
             'detalhes': solicitacao.get('detalhes', ''),
             'tempo_standby': solicitacao.get('tempo_standby', ''),
             'status': 'PENDENTE',
-            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'perfil_executor': solicitacao.get('perfil_executor', ''),
+            'procedimento_anterior': solicitacao.get('procedimento_anterior', '')
         }
         
         with open(self.solicitacoes_path, mode='a', encoding='utf-8', newline='') as f:

@@ -26,7 +26,7 @@
     </div>
 
     <!-- Formulário -->
-    <Card class="rounded-t-none">
+    <Card v-if="perfisStore.perfilAtivo.tipo !== 'GESTAO_LEC'" class="rounded-t-none">
       <template #header>
         <div class="flex justify-between items-center">
           <h2 class="text-lg font-bold text-gray-800">Nova Solicitação de {{ tipoSolicitacaoNome }}</h2>
@@ -86,10 +86,10 @@
               id="especialidade"
               v-model="form.especialidade"
               class="form-control"
-              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
               required
               @change="form.procedimento = ''"
-              :disabled="camposDesabilitados"
+              :disabled="camposDesabilitados || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
             >
               <option value="" disabled>Selecione a especialidade...</option>
               <option v-for="esp in especialidades" :key="esp.nome" :value="esp.nome">
@@ -248,7 +248,7 @@
       <div v-if="loadingSolicitacoes" class="flex justify-center items-center py-6">
         <LoadingIndicator />
       </div>
-      <div v-else-if="solicitacoes.length === 0" class="text-center py-8 text-gray-500">
+      <div v-else-if="solicitacoesFiltradas.length === 0" class="text-center py-8 text-gray-500">
         Nenhuma solicitação enviada até o momento.
       </div>
       <div v-else class="overflow-x-auto">
@@ -268,7 +268,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200 text-sm">
-            <tr v-for="solic in solicitacoes" :key="solic.id">
+            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id">
               <td class="px-4 py-4 whitespace-nowrap text-gray-500 font-mono text-xs">#{{ solic.id }}</td>
               <td class="px-4 py-4 whitespace-nowrap">
                 <span :class="getTipoBadgeClass(solic.tipo)">{{ solic.tipo }}</span>
@@ -300,8 +300,10 @@
                 <div v-else class="text-gray-400">—</div>
               </td>
               <td class="px-4 py-4 whitespace-nowrap text-xs">
-                <div v-if="solic.status === 'PENDENTE'" class="flex space-x-1">
-                  <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">Aprovar</Button>
+                <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo.tipo === 'ADMIN')" class="flex space-x-1">
+                  <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
+                    {{ perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' ? 'Dar Baixa' : 'Aprovar' }}
+                  </Button>
                   <Button @click="atualizarStatus(solic.id, 'REJEITADO')" variant="danger" size="sm">Rejeitar</Button>
                 </div>
                 <span v-else class="text-gray-400">-</span>
@@ -315,7 +317,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import { 
   UserPlusIcon, 
@@ -327,8 +329,10 @@ import api from '../services/api';
 import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
+import { usePerfisStore } from '../stores/perfis';
 
 const toast = useToast();
+const perfisStore = usePerfisStore();
 
 // -------------------------------------------------------
 // Especialidades e Procedimentos
@@ -423,6 +427,31 @@ const selecionarAba = (id: string) => {
 const camposDesabilitados = computed(() => {
   return abaAtiva.value === 'EXCLUIR' || abaAtiva.value === 'STANDBY';
 });
+
+// Filtra a lista de solicitações de acordo com o perfil ativo
+const solicitacoesFiltradas = computed(() => {
+  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
+    const activeSpecialtyName = perfisStore.perfilAtivo.especialidade.toLowerCase();
+    return solicitacoes.value.filter(s => 
+      s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialtyName)
+    );
+  }
+  return solicitacoes.value;
+});
+
+// Trava a especialidade da nova solicitação caso o perfil ativo seja de uma especialidade específica
+watch(() => perfisStore.perfilAtivo, (newProfile) => {
+  if (newProfile.tipo === 'ESPECIALIDADE' && newProfile.especialidade) {
+    const found = especialidades.value.find(e => e.nome.toLowerCase().includes(newProfile.especialidade!.toLowerCase()));
+    if (found) {
+      form.value.especialidade = found.nome;
+    } else {
+      form.value.especialidade = newProfile.especialidade;
+    }
+  } else {
+    form.value.especialidade = '';
+  }
+}, { immediate: true });
 
 const tipoSolicitacaoNome = computed(() => {
   const match = abas.find(a => a.id === abaAtiva.value);
