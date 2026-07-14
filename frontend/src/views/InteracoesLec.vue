@@ -976,7 +976,7 @@ watch(() => form.value.especialidade, async (newEsp) => {
       console.error('Erro ao buscar procedimentos da especialidade Plástica no AGHU:', err);
     }
   }
-});
+}, { immediate: true });
 
 // Garante que "Pendentes" é a sub-aba ativa ao mudar de aba principal de acompanhamento
 watch(abaAcompanhamentoAtiva, () => {
