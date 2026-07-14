@@ -230,7 +230,7 @@ const solicitarApa = async (paciente: any) => {
       codigo_paciente: paciente.codigo.toString(),
       nome_paciente: paciente.nome,
       judicializado: 'Não',
-      swallis: '—',
+      Swalis: '—',
       medico_responsavel: '—',
       detalhes: 'Solicitação de APA via módulo de Navegação',
       perfil_executor: perfisStore.perfilAtivo.nome

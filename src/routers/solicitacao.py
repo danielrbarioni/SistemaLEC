@@ -23,6 +23,7 @@ class SolicitacaoCreate(BaseModel):
     codigo_paciente: str
     nome_paciente: str
     judicializado: str = "Não"
+    swalis: str = ""
     swallis: str = ""
     medico_responsavel: str = ""
     detalhes: str

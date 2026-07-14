@@ -12,7 +12,7 @@ import Historico from '../views/Historico.vue';
 const routes = [
   {
     path: '/',
-    redirect: '/interacoes'
+    redirect: '/interacoes',
   },
   {
     path: '/login',
@@ -50,7 +50,6 @@ const routes = [
     component: Perfis,
     meta: { requiresAuth: true },
   },
-
 ];
 
 const router = createRouter({

@@ -11,29 +11,34 @@
     <!-- Sidebar -->
     <aside :class="{ '-translate-x-full': !sidebarOpen }" class="bg-paper-sidebar text-gray-100 w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform md:relative md:translate-x-0 transition duration-200 ease-in-out z-20 h-full shrink-0">
       <div @click="() => router.push('/')" class="cursor-pointer text-white flex items-center space-x-2 px-4">
-        <ClipboardDocumentListIcon class="h-8 w-8"/>
+        <div class="h-12 w-12 shrink-0">
+          <HospitalIcon />
+        </div>
         <span class="text-2xl font-extrabold">Gestão LEC HC-UFPE</span>
       </div>
       <div class="px-4 my-6">
         <div class="border-t border-white border-opacity-20"></div>
       </div>
 
-      <nav>
-            <router-link v-if="authStore.isAuthenticated" to="/pacientes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
-              <UsersIcon class="h-6 w-6" />
-              <span>Pacientes</span>
-            </router-link>
-            <router-link v-if="authStore.isAuthenticated" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
-              <ComputerDesktopIcon class="h-6 w-6" />
-              <span>Sistema LEC</span>
-            </router-link>
-            <router-link v-if="authStore.isAuthenticated" to="/navegacao" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
-              <MapIcon class="h-6 w-6" />
-              <span>Navegação</span>
-              <ClockIcon class="h-4 w-4 text-amber-400 animate-pulse ml-auto" title="Aguardando liberação / Em desenvolvimento" />
-            </router-link>
+      <nav class="space-y-1">
+        <router-link v-if="authStore.isAuthenticated" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
+          <ComputerDesktopIcon class="h-6 w-6" />
+          <span>Sistema LEC</span>
+          <span v-if="mostrarBadgeSistemaLec" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+            {{ countPendentes }}
+          </span>
+        </router-link>
 
-        
+        <router-link v-if="authStore.isAuthenticated" to="/navegacao" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
+          <MapIcon class="h-6 w-6" />
+          <span>Navegação</span>
+          <ClockIcon class="h-4 w-4 text-amber-400 animate-pulse ml-auto" title="Aguardando liberação / Em desenvolvimento" />
+        </router-link>
+
+        <router-link v-if="authStore.isAuthenticated" to="/pacientes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+          <UsersIcon class="h-6 w-6" />
+          <span>Pacientes</span>
+        </router-link>
 
         <router-link v-if="authStore.isAuthenticated" to="/historico" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
           <ClockIcon class="h-6 w-6" />
@@ -44,8 +49,6 @@
           <UserGroupIcon class="h-6 w-6" />
           <span>Perfis</span>
         </router-link>
-
-
       </nav>
     </aside>
 
@@ -91,11 +94,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   UsersIcon,
-  ClipboardDocumentListIcon,
   Bars3Icon,
   ArrowRightOnRectangleIcon,
   ComputerDesktopIcon,
@@ -105,8 +107,10 @@ import {
 } from '@heroicons/vue/24/outline';
 import ProfileDropdown from '../components/ProfileDropdown.vue';
 import Button from '../components/Button.vue';
+import api from '../services/api';
 import { useAuthStore } from '../stores/auth';
 import { usePerfisStore } from '../stores/perfis';
+import HospitalIcon from '../components/HospitalIcon.vue';
 
 const sidebarOpen = ref(false);
 const route = useRoute();
@@ -114,6 +118,46 @@ const router = useRouter();
 const authStore = useAuthStore();
 const perfisStore = usePerfisStore();
 
+const countPendentes = ref(0);
+
+const carregarCountPendentes = async () => {
+  if (!authStore.isAuthenticated) return;
+  try {
+    const { data } = await api.get('/api/solicitacoes');
+    let list = data.filter((s: any) => s.status === 'PENDENTE');
+    
+    const pAtivo = perfisStore.perfilAtivo;
+    if (pAtivo && pAtivo.tipo === 'ESPECIALIDADE' && pAtivo.especialidade) {
+      const espName = pAtivo.especialidade.toLowerCase();
+      list = list.filter((s: any) => s.especialidade && s.especialidade.toLowerCase().includes(espName));
+    }
+    
+    countPendentes.value = list.length;
+  } catch (error) {
+    console.error('Erro ao carregar count pendentes', error);
+  }
+};
+
+const mostrarBadgeSistemaLec = computed(() => {
+  const p = perfisStore.perfilAtivo;
+  return p && (p.tipo === 'ADMIN' || p.tipo === 'GESTAO_LEC') && countPendentes.value > 0;
+});
+
+// Monitora login, perfil ativo e alterações de rotas para atualizar o count
+watch([() => authStore.isAuthenticated, () => perfisStore.perfilAtivoId, () => route.path], () => {
+  carregarCountPendentes();
+}, { immediate: true });
+
+let intervalId: any = null;
+
+onMounted(() => {
+  carregarCountPendentes();
+  intervalId = setInterval(carregarCountPendentes, 10000);
+});
+
+onUnmounted(() => {
+  if (intervalId) clearInterval(intervalId);
+});
 
 // Close sidebar on route change
 watch(() => route.path, () => {

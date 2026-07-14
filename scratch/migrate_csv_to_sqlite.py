@@ -115,7 +115,8 @@ def migrate():
             count = 0
             for row in reader:
                 try:
-                    tempo_standby = int(row['tempo_standby']) if row.get('tempo_standby') else None
+                    tempo_standby_val = row.get('tempo_standby')
+                    tempo_standby = int(tempo_standby_val) if tempo_standby_val and tempo_standby_val.isdigit() else None
                     cursor.execute("""
                     INSERT OR REPLACE INTO solicitacoes (
                         id, tipo, especialidade, procedimento, codigo_paciente, nome_paciente,
@@ -130,7 +131,7 @@ def migrate():
                         int(row['codigo_paciente']),
                         row['nome_paciente'],
                         row.get('judicializado'),
-                        row.get('swallis'),
+                        row.get('swallis') or row.get('swalis'),
                         row.get('medico_responsavel'),
                         row.get('detalhes'),
                         tempo_standby,

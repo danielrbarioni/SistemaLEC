@@ -2,7 +2,12 @@
   <div class="w-full max-w-md">
     <Card>
       <template #header>
-        <h1 class="text-xl font-semibold text-center">Login</h1>
+        <div class="flex flex-col items-center justify-center pt-3 pb-1">
+          <div class="w-80 h-20 mb-2">
+            <HospitalIcon />
+          </div>
+          <h2 class="text-2xl font-black text-gray-800 text-center tracking-tight">GESTÃO LEC HC-UFPE</h2>
+        </div>
       </template>
       <form @submit.prevent="handleLogin">
         <div class="mb-4">
@@ -58,6 +63,7 @@ import { useAuthStore } from '../stores/auth';
 import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
 import { ArrowRightOnRectangleIcon, EyeIcon, EyeSlashIcon, XCircleIcon } from '@heroicons/vue/24/outline';
+import HospitalIcon from '../components/HospitalIcon.vue';
 
 const username = ref('');
 const password = ref('');
@@ -87,7 +93,7 @@ const handleLogin = async () => {
   error.value = '';
   try {
     await authStore.login(username.value, password.value, rememberMe.value);
-    await router.push('/admin'); // Or wherever you want to redirect after login
+    await router.push('/interacoes');
   } catch (e: any) {
     error.value = e.response?.data?.detail || e.message || 'An unknown error occurred';
   } finally {

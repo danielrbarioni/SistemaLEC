@@ -25,13 +25,13 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         if not os.path.exists(self.solicitacoes_path):
             with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swallis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao', 'perfil_executor', 'procedimento_anterior'])
+                writer.writerow(['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swalis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao', 'perfil_executor', 'procedimento_anterior', 'data_acao'])
         else:
             # Verifica se precisa adicionar as novas colunas
             with open(self.solicitacoes_path, mode='r', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 header = next(reader, [])
-            if 'perfil_executor' not in header or 'procedimento_anterior' not in header:
+            if 'perfil_executor' not in header or 'procedimento_anterior' not in header or 'data_acao' not in header:
                 solics = []
                 with open(self.solicitacoes_path, mode='r', encoding='utf-8') as f:
                     r = csv.DictReader(f)
@@ -40,9 +40,11 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
                             row['perfil_executor'] = ''
                         if 'procedimento_anterior' not in row:
                             row['procedimento_anterior'] = ''
+                        if 'data_acao' not in row:
+                            row['data_acao'] = ''
                         solics.append(row)
                 with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
-                    writer = csv.DictWriter(f, fieldnames=['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swallis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao', 'perfil_executor', 'procedimento_anterior'])
+                    writer = csv.DictWriter(f, fieldnames=['id', 'tipo', 'especialidade', 'procedimento', 'codigo_paciente', 'nome_paciente', 'judicializado', 'swalis', 'medico_responsavel', 'detalhes', 'tempo_standby', 'status', 'data_criacao', 'perfil_executor', 'procedimento_anterior', 'data_acao'])
                     writer.writeheader()
                     writer.writerows(solics)
 
@@ -61,14 +63,15 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
             'codigo_paciente': str(solicitacao.get('codigo_paciente', '')),
             'nome_paciente': solicitacao.get('nome_paciente', ''),
             'judicializado': solicitacao.get('judicializado', 'Não'),
-            'swallis': solicitacao.get('swallis', ''),
+            'swalis': solicitacao.get('swalis') or solicitacao.get('swallis') or '',
             'medico_responsavel': solicitacao.get('medico_responsavel', ''),
             'detalhes': solicitacao.get('detalhes', ''),
             'tempo_standby': solicitacao.get('tempo_standby', ''),
             'status': 'PENDENTE',
             'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'perfil_executor': solicitacao.get('perfil_executor', ''),
-            'procedimento_anterior': solicitacao.get('procedimento_anterior', '')
+            'procedimento_anterior': solicitacao.get('procedimento_anterior', ''),
+            'data_acao': ''
         }
         
         with open(self.solicitacoes_path, mode='a', encoding='utf-8', newline='') as f:
@@ -96,6 +99,7 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         for solic in solicitacoes:
             if solic['id'] == id_solicitacao:
                 solic['status'] = novo_status.upper()
+                solic['data_acao'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 solicitacao_atualizada = solic
                 encontrado = True
                 break

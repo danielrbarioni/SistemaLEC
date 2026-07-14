@@ -91,9 +91,9 @@
                       </span>
                     </div>
                     <div>
-                      <span class="text-[10px] text-gray-400 uppercase block font-semibold">Swallis</span>
-                      <span :class="getSwallisClass(proc.swallis)">
-                        {{ proc.swallis }}
+                      <span class="text-[10px] text-gray-400 uppercase block font-semibold">Swalis</span>
+                      <span :class="getSwalisClass(proc.Swalis)">
+                        {{ proc.Swalis }}
                       </span>
                     </div>
                     <div>
@@ -187,8 +187,8 @@ const getStatusLabel = (status: string, tempo: number | null) => {
   return 'Ativo na fila';
 };
 
-const getSwallisClass = (swallis: string) => {
-  switch (swallis) {
+const getSwalisClass = (Swalis: string) => {
+  switch (Swalis) {
     case 'A1': return 'text-red-700 font-bold bg-red-50 px-1.5 py-0.5 rounded';
     case 'A2': return 'text-orange-700 font-bold bg-orange-50 px-1.5 py-0.5 rounded';
     case 'B':  return 'text-yellow-700 font-bold bg-yellow-50 px-1.5 py-0.5 rounded';
@@ -209,7 +209,17 @@ const pacientesProcessados = computed(() => {
       nome: p.nome,
       dt_nascimento: p.dt_nascimento,
       nome_mae: p.nome_mae,
-      procedimentos: []
+      procedimentos: p.procedimento ? [
+        {
+          especialidade: p.especialidade,
+          procedimento: p.procedimento,
+          judicializado: 'Não',
+          Swalis: p.swalis || p.swallis || p.Swalis || '—',
+          medico_responsavel: 'Não informado',
+          status: 'ATIVO',
+          tempo_standby: null
+        }
+      ] : []
     });
   }
 
@@ -239,14 +249,14 @@ const pacientesProcessados = computed(() => {
           especialidade: s.especialidade,
           procedimento: s.procedimento,
           judicializado: s.judicializado || 'Não',
-          swallis: s.swallis || '—',
+          Swalis: s.swalis || s.swallis || s.Swalis || s.Swallis || '—',
           medico_responsavel: s.medico_responsavel || 'Não informado',
           status: 'ATIVO',
           tempo_standby: null
         });
       } else {
         exists.judicializado = s.judicializado || 'Não';
-        exists.swallis = s.swallis || '—';
+        exists.Swalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '—';
         exists.medico_responsavel = s.medico_responsavel || 'Não informado';
         exists.status = 'ATIVO';
         exists.tempo_standby = null;
@@ -258,7 +268,8 @@ const pacientesProcessados = computed(() => {
       if (proc) {
         proc.procedimento = s.procedimento; // Atualiza o nome do procedimento se mudou
         proc.judicializado = s.judicializado || 'Não';
-        proc.swallis = s.swallis || '—';
+        const novoSwalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '';
+        proc.Swalis = novoSwalis || proc.Swalis || '—'; // Preserva o Swalis anterior se o novo vier vazio
         proc.medico_responsavel = s.medico_responsavel || 'Não informado';
       }
     } else if (s.tipo === 'EXCLUIR') {
