@@ -69,12 +69,11 @@
               id="nome_paciente" 
               v-model="form.nome_paciente" 
               type="text" 
-              placeholder="Preenchido automaticamente ou digitado manualmente" 
+              placeholder="Preenchido automaticamente" 
               class="form-control"
               required
-              :disabled="abaAtiva !== 'INSERIR'"
+              disabled
             />
-            <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
           </div>
         </div>
 
@@ -499,6 +498,8 @@ watch(() => perfisStore.perfilAtivo, (newProfile) => {
   }
 }, { immediate: true });
 
+
+
 const tipoSolicitacaoNome = computed(() => {
   const match = abas.find(a => a.id === abaAtiva.value);
   return match ? match.nome.replace('Solicitar ', '') : '';
@@ -561,9 +562,11 @@ const preencherCamposDoProc = (proc: any) => {
 };
 
 // Busca unificada com base no prontuário e na aba selecionada
-const buscarDados = async () => {
+const buscarDados = async (isAutomatic = false) => {
   if (!form.value.codigo_paciente) {
-    toast.error('Por favor, digite o número do prontuário.');
+    if (!isAutomatic) {
+      toast.error('Por favor, digite o número do prontuário.');
+    }
     return;
   }
   loadingBusca.value = true;
@@ -576,7 +579,9 @@ const buscarDados = async () => {
       // Busca no AGHU
       const { data } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
       form.value.nome_paciente = data.nome;
-      toast.success(`Paciente localizado no AGHU: ${data.nome}`);
+      if (!isAutomatic) {
+        toast.success(`Paciente localizado no AGHU: ${data.nome}`);
+      }
     } else if (abaAtiva.value === 'EDITAR') {
       // Busca procedimentos do paciente no módulo Pacientes
       const { data: solicsData } = await api.get('/api/solicitacoes');
@@ -591,7 +596,9 @@ const buscarDados = async () => {
       // Pega o nome do paciente
       const solicsDosPac = allSolics.filter(s => String(s.codigo_paciente) === codProntuario);
       if (solicsDosPac.length === 0) {
-        toast.error('Paciente não encontrado no Sistema LEC.');
+        if (!isAutomatic) {
+          toast.error('Paciente não encontrado no Sistema LEC.');
+        }
         limparFormulario();
         return;
       }
@@ -640,7 +647,9 @@ const buscarDados = async () => {
       }
 
       if (procs.length === 0) {
-        toast.error('Nenhum procedimento ativo encontrado para este paciente' + (especialidadeAtual ? ' nesta especialidade' : '') + '.');
+        if (!isAutomatic) {
+          toast.error('Nenhum procedimento ativo encontrado para este paciente' + (especialidadeAtual ? ' nesta especialidade' : '') + '.');
+        }
         limparFormulario();
         return;
       }
@@ -652,9 +661,13 @@ const buscarDados = async () => {
       if (procs.length === 1) {
         procedimentoSelecionadoParaEdicao.value = 0;
         preencherCamposDoProc(procs[0]);
-        toast.success(`Procedimento encontrado: ${procs[0].procedimento}`);
+        if (!isAutomatic) {
+          toast.success(`Procedimento encontrado: ${procs[0].procedimento}`);
+        }
       } else {
-        toast.info(`${procs.length} procedimentos encontrados para este paciente. Selecione qual deseja editar.`);
+        if (!isAutomatic) {
+          toast.info(`${procs.length} procedimentos encontrados para este paciente. Selecione qual deseja editar.`);
+        }
       }
     } else {
       // EXCLUIR / STANDBY: Busca no Sistema LEC Sede (última solicitação aprovada)
@@ -667,14 +680,18 @@ const buscarDados = async () => {
       form.value.medico_responsavel = data.medico_responsavel || '';
       
       formCarregadoDaSede.value = true;
-      toast.success('Solicitação ativa localizada no Sistema LEC!');
+      if (!isAutomatic) {
+        toast.success('Solicitação ativa localizada no Sistema LEC!');
+      }
     }
   } catch (error: any) {
-    if (abaAtiva.value === 'INSERIR') {
-      toast.error('Paciente não localizado no AGHU. Digite o nome manualmente.');
-    } else {
-      toast.error('Prontuário sem dados ativos no Sistema LEC. Não é possível prosseguir.');
-      limparFormulario();
+    if (!isAutomatic) {
+      if (abaAtiva.value === 'INSERIR') {
+        toast.error('Paciente não localizado no AGHU. Digite o nome manualmente.');
+      } else {
+        toast.error('Prontuário sem dados ativos no Sistema LEC. Não é possível prosseguir.');
+        limparFormulario();
+      }
     }
   } finally {
     loadingBusca.value = false;

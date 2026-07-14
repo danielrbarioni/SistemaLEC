@@ -7,7 +7,8 @@ from ..dependencies import get_solicitacao_provider
 from ..providers.interfaces.solicitacao_provider_interface import SolicitacaoProviderInterface
 from ..auth.auth import auth_handler
 
-STRATEGY = "csv"
+import os
+STRATEGY = os.getenv("SOLICITACOES_PROVIDER_TYPE", "sqlite")
 
 router = APIRouter(
     prefix="/api/solicitacoes",

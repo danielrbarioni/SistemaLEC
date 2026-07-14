@@ -19,17 +19,6 @@
       </div>
 
       <nav>
-        <router-link to="/" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-300">
-          <HomeIcon class="h-6 w-6 text-red-400"/>
-          <span>Home</span>
-        </router-link>
-
-
-
-            <router-link to="/exemplos" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-300">
-              <BeakerIcon class="h-6 w-6 text-red-400" />
-              <span>Exemplos</span>
-            </router-link>
             <router-link v-if="authStore.isAuthenticated" to="/pacientes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
               <UsersIcon class="h-6 w-6" />
               <span>Pacientes</span>
@@ -45,10 +34,6 @@
             </router-link>
 
         
-        <router-link v-if="authStore.isAdmin" to="/admin" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-300">
-          <ShieldCheckIcon class="h-6 w-6 text-red-400"/>
-          <span>Admin</span>
-        </router-link>
 
         <router-link v-if="authStore.isAuthenticated" to="/historico" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
           <ClockIcon class="h-6 w-6" />
@@ -109,10 +94,7 @@
 import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  HomeIcon,
-  BeakerIcon,
   UsersIcon,
-  ShieldCheckIcon,
   ClipboardDocumentListIcon,
   Bars3Icon,
   ArrowRightOnRectangleIcon,
@@ -120,7 +102,6 @@ import {
   MapIcon,
   ClockIcon,
   UserGroupIcon,
-
 } from '@heroicons/vue/24/outline';
 import ProfileDropdown from '../components/ProfileDropdown.vue';
 import Button from '../components/Button.vue';

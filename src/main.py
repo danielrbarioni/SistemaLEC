@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from .resources.database import DatabaseManager, Base
+from .models.paciente import Paciente
+from .models.solicitacao import Solicitacao
+from .models.status_local import StatusLocal
+from .models.refresh_token import RefreshToken
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

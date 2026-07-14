@@ -8,9 +8,9 @@ from ..providers.interfaces.paciente_provider_interface import PacienteProviderI
 
 from ..auth.auth import auth_handler
 
+import os
 # --- PONTO ÚNICO DE CONFIGURAÇÃO PARA ESTE ROTEADOR ---
-# Para usar o banco de dados em produção, altere esta linha para "postgres"
-STRATEGY = "csv"
+STRATEGY = os.getenv("PACIENTE_PROVIDER_TYPE", "sqlite")
 # ----------------------------------------------------
 
 router = APIRouter(
