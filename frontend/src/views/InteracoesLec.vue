@@ -77,6 +77,32 @@
           </div>
         </div>
 
+        <!-- Linha 1.5: Data de Nascimento + Nome da Mãe -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="form-group">
+            <label for="dt_nascimento" class="form-label font-semibold">Data de Nascimento</label>
+            <input 
+              id="dt_nascimento" 
+              v-model="form.dt_nascimento" 
+              type="text" 
+              placeholder="Preenchido automaticamente" 
+              class="form-control"
+              disabled
+            />
+          </div>
+          <div class="form-group md:col-span-2">
+            <label for="nome_mae" class="form-label font-semibold">Nome da Mãe</label>
+            <input 
+              id="nome_mae" 
+              v-model="form.nome_mae" 
+              type="text" 
+              placeholder="Preenchido automaticamente" 
+              class="form-control"
+              disabled
+            />
+          </div>
+        </div>
+
         <!-- Seleção de Procedimento para Edição (quando há múltiplos) -->
         <div v-if="abaAtiva === 'EDITAR' && procedimentosPaciente.length > 1" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <label class="form-label font-semibold text-amber-800">Qual procedimento deseja editar?</label>
@@ -138,7 +164,7 @@
                 :disabled="camposDesabilitados || !form.especialidade"
               />
               <datalist id="procedimentos-lista">
-                <option v-for="proc in procedimentosDaEspecialidade" :key="proc" :value="proc">{{ proc }}</option>
+                <option v-for="proc in procedimentosDaEspecialidade" :key="proc" :value="proc" />
               </datalist>
             </div>
           </div>
@@ -456,6 +482,8 @@ const form = ref({
   procedimento_anterior: '', // Armazena o procedimento original antes de editar
   codigo_paciente: '',
   nome_paciente: '',
+  dt_nascimento: '',
+  nome_mae: '',
   judicializado: '',
   swallis: '',
   medico_responsavel: '',
@@ -548,6 +576,8 @@ const limparFormulario = () => {
     procedimento_anterior: '',
     codigo_paciente: '',
     nome_paciente: '',
+    dt_nascimento: '',
+    nome_mae: '',
     judicializado: '',
     swallis: '',
     medico_responsavel: '',
@@ -594,6 +624,8 @@ const buscarDados = async (isAutomatic = false) => {
       // Busca no AGHU
       const { data } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
       form.value.nome_paciente = data.nome;
+      form.value.dt_nascimento = data.dt_nascimento ? new Date(data.dt_nascimento).toLocaleDateString('pt-BR') : '';
+      form.value.nome_mae = data.nome_mae || '';
       if (!isAutomatic) {
         toast.success(`Paciente localizado no AGHU: ${data.nome}`);
       }
@@ -618,6 +650,13 @@ const buscarDados = async (isAutomatic = false) => {
         return;
       }
       form.value.nome_paciente = solicsDosPac[0].nome_paciente;
+      try {
+        const { data: pacData } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
+        form.value.dt_nascimento = pacData.dt_nascimento ? new Date(pacData.dt_nascimento).toLocaleDateString('pt-BR') : '';
+        form.value.nome_mae = pacData.nome_mae || '';
+      } catch (e) {
+        console.error(e);
+      }
 
       // Reconstrói a lista de procedimentos aprovados do paciente
       const procMap = new Map<string, any>();
@@ -693,6 +732,13 @@ const buscarDados = async (isAutomatic = false) => {
       form.value.judicializado = data.judicializado || 'Não';
       form.value.swallis = data.swallis || '';
       form.value.medico_responsavel = data.medico_responsavel || '';
+      try {
+        const { data: pacData } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
+        form.value.dt_nascimento = pacData.dt_nascimento ? new Date(pacData.dt_nascimento).toLocaleDateString('pt-BR') : '';
+        form.value.nome_mae = pacData.nome_mae || '';
+      } catch (e) {
+        console.error(e);
+      }
       
       formCarregadoDaSede.value = true;
       if (!isAutomatic) {
