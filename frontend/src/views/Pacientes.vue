@@ -209,17 +209,7 @@ const pacientesProcessados = computed(() => {
       nome: p.nome,
       dt_nascimento: p.dt_nascimento,
       nome_mae: p.nome_mae,
-      procedimentos: [
-        {
-          especialidade: p.especialidade,
-          procedimento: p.procedimento,
-          judicializado: 'Não',
-          swallis: '—',
-          medico_responsavel: 'Não informado',
-          status: 'ATIVO',
-          tempo_standby: null
-        }
-      ]
+      procedimentos: []
     });
   }
 
