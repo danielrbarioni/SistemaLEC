@@ -26,6 +26,14 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from src.resources.database import Base
+# Import all models to ensure they are registered on Base
+from src.models.paciente import Paciente
+from src.models.solicitacao import Solicitacao
+from src.models.status_local import StatusLocal
+from src.models.refresh_token import RefreshToken
+from src.models.user import User
+from src.models.profile import Profile
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

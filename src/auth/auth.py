@@ -10,11 +10,24 @@ from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+import sqlite3
+import hashlib
 
 from ..resources.database import get_app_db_session
 from ..models.refresh_token import RefreshToken
 
 load_dotenv()
+
+def verify_password(password: str, hashed: str) -> bool:
+    """
+    Verifica se a senha coincide com o hash PBKDF2.
+    """
+    try:
+        salt, key_hex = hashed.split(":")
+        pbkdf2 = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+        return pbkdf2.hex() == key_hex
+    except Exception:
+        return False
 
 # --- Configurações --- 
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -161,16 +174,68 @@ class AuthHandler:
             self.provider: AuthProviderInterface = MockAuthProvider()
 
     def authenticate_user(self, username, password):
-        # Permitir login local do admin
+        # 1. Permitir login local do admin legado (Mock bypass)
         if username == "admin" and password == "admin":
             print("INFO: Local admin login detected (Mock bypass).")
-            return {
+            user_data = {
                 "username": "admin",
                 "displayName": ["Mock Admin"],
                 "groups": ["GLO-SEC-HCPE-SETISD", "Users"],
                 "email": "admin@mock.com"
             }
-        return self.provider.authenticate_user(username, password)
+        else:
+            # Autentica via AD / Mock
+            user_data = self.provider.authenticate_user(username, password)
+
+        # 2. Enriquecer o perfil usando o SQLite se o usuário estiver cadastrado localmente
+        print(f"DEBUG: user_data before enrichment = {user_data}")
+        if user_data:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            root_dir = os.path.dirname(os.path.dirname(current_dir))
+            db_path = os.path.join(root_dir, "data", "app.db")
+            print(f"DEBUG: Checking if database exists at {db_path}: {os.path.exists(db_path)}")
+            if os.path.exists(db_path):
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    print(f"DEBUG: Executing query with username = {user_data.get('username')}")
+                    cursor.execute(
+                        """
+                        SELECT u.nome, p.tipo, p.especialidade 
+                        FROM usuarios u
+                        JOIN perfis p ON u.perfil_id = p.id
+                        WHERE LOWER(u.username) = LOWER(?)
+                        """,
+                        (user_data["username"],)
+                    )
+                    row = cursor.fetchone()
+                    print(f"DEBUG: Query result row = {row}")
+                    conn.close()
+                    if row:
+                        db_nome, db_perfil_tipo, db_especialidade = row
+                        
+                        # Mapeia perfil_id/tipo para grupos correspondentes
+                        groups = []
+                        if db_perfil_tipo == "ADMIN":
+                            groups = ["GLO-SEC-HCPE-SETISD", "Users"]
+                        elif db_perfil_tipo == "GESTAO_LEC":
+                            groups = ["GESTAO_LEC", "Users"]
+                        else:
+                            groups = ["ESPECIALIDADE", "Users"]
+                            
+                        # Atualiza dados no token payload
+                        user_data["displayName"] = [db_nome]
+                        user_data["groups"] = groups
+                        user_data["perfil_tipo"] = db_perfil_tipo
+                        user_data["especialidade"] = db_especialidade
+                        print(f"INFO: Local profile enrichment successful for user: {user_data['username']}")
+                    else:
+                        print(f"DEBUG: No matching local user found for username: {user_data['username']}")
+                except Exception as e:
+                    print(f"Error enriching user from SQLite: {e}")
+                    
+        print(f"DEBUG: final user_data = {user_data}")
+        return user_data
 
     def create_access_token(self, data: dict, expires_delta: timedelta | None = None):
         to_encode = data.copy()

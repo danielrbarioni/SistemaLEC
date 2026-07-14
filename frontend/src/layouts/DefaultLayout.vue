@@ -150,7 +150,8 @@ watch([() => authStore.isAuthenticated, () => perfisStore.perfilAtivoId, () => r
 
 let intervalId: any = null;
 
-onMounted(() => {
+onMounted(async () => {
+  await perfisStore.fetchPerfis();
   carregarCountPendentes();
   intervalId = setInterval(carregarCountPendentes, 10000);
 });

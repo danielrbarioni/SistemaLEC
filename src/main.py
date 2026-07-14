@@ -13,6 +13,8 @@ from .models.paciente import Paciente
 from .models.solicitacao import Solicitacao
 from .models.status_local import StatusLocal
 from .models.refresh_token import RefreshToken
+from .models.user import User
+from .models.profile import Profile
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -63,7 +65,7 @@ app.mount("/assets", StaticFiles(directory="src/static/dist/assets"), name="asse
 app.mount("/static", StaticFiles(directory="src/static/dist"), name="static")
 
 # Placeholder para incluir os roteadores da API
-from .routers import paciente, auth, admin, aih, bpa, material, solicitacao
+from .routers import paciente, auth, admin, aih, bpa, material, solicitacao, perfil, usuario
 app.include_router(paciente.router)
 app.include_router(paciente.especialidade_router)
 app.include_router(auth.router)
@@ -73,6 +75,8 @@ app.include_router(bpa.router)
 app.include_router(material.router)
 app.include_router(solicitacao.router)
 app.include_router(solicitacao.pacientes_status_router)
+app.include_router(perfil.router)
+app.include_router(usuario.router)
 
 
 @app.get("/{full_path:path}")
