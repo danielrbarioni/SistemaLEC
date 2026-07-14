@@ -39,9 +39,9 @@ class HybridPacienteProvider(PacienteProviderInterface):
                 query = text("""
                     SELECT prontuario as codigo, nome, dt_nascimento, nome_mae 
                     FROM agh.aip_pacientes 
-                    WHERE prontuario IN :codigos
+                    WHERE prontuario = ANY(:codigos)
                 """)
-                res = await self.postgres.session.execute(query, {"codigos": tuple(list_codigos)})
+                res = await self.postgres.session.execute(query, {"codigos": list(list_codigos)})
                 return [dict(row) for row in res.mappings().all()]
             except Exception as e:
                 print(f"Erro ao obter dados dos pacientes do AGHU: {e}. Executando fallback para SQLite local.")

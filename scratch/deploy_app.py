@@ -105,6 +105,7 @@ def deploy():
         files_to_upload = [
             ("frontend/vite.config.ts", "/var/app/sistemalec/frontend/vite.config.ts"),
             ("frontend/src/views/InteracoesLec.vue", "/var/app/sistemalec/frontend/src/views/InteracoesLec.vue"),
+            ("frontend/src/views/Pacientes.vue", "/var/app/sistemalec/frontend/src/views/Pacientes.vue"),
             ("src/main.py", "/var/app/sistemalec/src/main.py"),
             ("src/dependencies.py", "/var/app/sistemalec/src/dependencies.py"),
             ("src/auth/auth.py", "/var/app/sistemalec/src/auth/auth.py"),

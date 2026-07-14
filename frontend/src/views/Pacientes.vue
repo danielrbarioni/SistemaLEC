@@ -159,10 +159,15 @@ const carregarDados = async () => {
 };
 
 const formatarData = (dataStr: string) => {
-  if (!dataStr) return '—';
+  if (!dataStr || dataStr === '—') return '—';
   try {
-    const [ano, mes, dia] = dataStr.split('-');
-    return `${dia}/${mes}/${ano}`;
+    const apenasData = dataStr.includes('T') ? dataStr.split('T')[0] : dataStr.split(' ')[0];
+    const partes = apenasData.split('-');
+    if (partes.length === 3) {
+      const [ano, mes, dia] = partes;
+      return `${dia}/${mes}/${ano}`;
+    }
+    return dataStr;
   } catch (e) {
     return dataStr;
   }
