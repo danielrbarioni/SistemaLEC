@@ -13,7 +13,7 @@ from .resources.database import DatabaseManager, Base
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("Starting up...")
+    print("Starting up Sistema LEC application...")
 
     # Initialize AGHU DB Manager and store in app.state
     aghu_dsn = os.getenv("POSTGRES_DSN")
@@ -80,6 +80,11 @@ async def serve_frontend(full_path: str):
     if full_path.startswith("api"):
         raise HTTPException(status_code=404, detail="API route not found")
     
+    # Verifica se o arquivo existe na pasta dist (como favicon.svg, etc.)
+    dist_file_path = os.path.join("src", "static", "dist", full_path)
+    if os.path.isfile(dist_file_path):
+        return FileResponse(dist_file_path)
+        
     index_path = os.path.join("src", "static", "dist", "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)

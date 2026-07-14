@@ -1,0 +1,25 @@
+<template>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" class="w-full h-full">
+    <!-- Gradient background -->
+    <rect width="64" height="64" rx="16" fill="url(#hospitalGrad)" />
+    <!-- Hospital building silhouette -->
+    <path d="M14 48 V32 H22 V20 H42 V32 H50 V48 Z" fill="#ffffff" fill-opacity="0.25" />
+    <!-- Medical Cross on the building -->
+    <path d="M32 24 V30 M29 27 H35" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Clipboard in foreground -->
+    <rect x="22" y="34" width="20" height="22" rx="3" fill="#ffffff" stroke="#2563eb" stroke-width="2" />
+    <!-- Clipboard clip -->
+    <rect x="28" y="31" width="8" height="4" rx="1" fill="#64748b" />
+    <!-- Clipboard lines -->
+    <line x1="26" y1="40" x2="38" y2="40" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+    <line x1="26" y1="45" x2="38" y2="45" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+    <line x1="26" y1="50" x2="34" y2="50" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" />
+    
+    <defs>
+      <linearGradient id="hospitalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1e3a8a" />
+        <stop offset="100%" stop-color="#3b82f6" />
+      </linearGradient>
+    </defs>
+  </svg>
+</template>

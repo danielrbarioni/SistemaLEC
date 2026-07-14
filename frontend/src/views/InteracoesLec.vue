@@ -1,38 +1,41 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-xl font-bold text-gray-800">Interações com o sistema LEC da Rede HU Brasil</h1>
+      <h1 class="text-xl font-bold text-gray-800">Interações com o Sistema LEC da Rede HU Brasil</h1>
       <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial → Gestão da LEC</span>
     </div>
 
-    <!-- Abas Principais -->
-    <div class="flex border-b border-gray-300 bg-white p-2 rounded-t-lg shadow-sm overflow-x-auto">
-      <button 
-        v-for="aba in abas" 
-        :key="aba.id" 
-        @click="selecionarAba(aba.id)"
-        :class="[
-          'flex-1 py-3 text-sm font-semibold rounded-md transition duration-200 whitespace-nowrap px-2',
-          abaAtiva === aba.id 
-            ? 'bg-paper-sidebar text-white shadow-md' 
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-        ]"
-      >
-        <span class="flex items-center justify-center space-x-2">
-          <component :is="aba.icon" class="h-5 w-5" />
-          <span>{{ aba.nome }}</span>
-        </span>
-      </button>
-    </div>
-
-    <!-- Formulário -->
-    <Card v-if="perfisStore.perfilAtivo.tipo !== 'GESTAO_LEC'" class="rounded-t-none">
+    <!-- Formulário e Abas de Solicitação Unidos -->
+    <Card v-if="perfisStore.perfilAtivo.tipo !== 'GESTAO_LEC'" class="overflow-hidden">
       <template #header>
-        <div class="flex justify-between items-center">
-          <h2 class="text-lg font-bold text-gray-800">Nova Solicitação de {{ tipoSolicitacaoNome }}</h2>
+        <div class="flex justify-between items-center w-full">
+          <div class="flex items-center space-x-3">
+            <h2 class="text-lg font-bold text-gray-800">Nova Solicitação de {{ tipoSolicitacaoNome }}</h2>
+            <span class="px-2.5 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded">ESPECIALIDADE</span>
+          </div>
           <span class="text-xs text-gray-500">HC-UFPE</span>
         </div>
       </template>
+
+      <!-- Abas de Solicitação integradas ao Card -->
+      <div class="flex border-b border-gray-200 bg-gray-50 p-2 overflow-x-auto -mt-6 -mx-6 mb-6">
+        <button 
+          v-for="aba in abas" 
+          :key="aba.id" 
+          @click="selecionarAba(aba.id)"
+          :class="[
+            'flex-1 py-2.5 text-sm font-semibold rounded-md transition duration-200 whitespace-nowrap px-4',
+            abaAtiva === aba.id 
+              ? 'bg-paper-sidebar text-white shadow-sm' 
+              : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+          ]"
+        >
+          <span class="flex items-center justify-center space-x-2">
+            <component :is="aba.icon" class="h-4 w-4" />
+            <span>{{ aba.nome }}</span>
+          </span>
+        </button>
+      </div>
 
       <!-- Alerta indicando a origem dos dados quando buscados na Sede -->
       <div v-if="abaAtiva !== 'INSERIR' && formCarregadoDaSede" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center space-x-2">
@@ -69,18 +72,41 @@
               id="nome_paciente" 
               v-model="form.nome_paciente" 
               type="text" 
-              placeholder="Preenchido automaticamente ou digitado manualmente" 
-              class="form-control"
+              placeholder="Preenchido automaticamente ao buscar prontuário..." 
+              class="form-control bg-gray-100 cursor-not-allowed opacity-75"
               required
-              :disabled="abaAtiva !== 'INSERIR'"
+              disabled
             />
-            <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
+            <p class="text-xs text-gray-400 mt-1">Importado automaticamente do prontuário</p>
           </div>
         </div>
 
-        <!-- Seleção de Procedimento para Edição (quando há múltiplos) -->
-        <div v-if="abaAtiva === 'EDITAR' && procedimentosPaciente.length > 1" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <label class="form-label font-semibold text-amber-800">Qual procedimento deseja editar?</label>
+        <!-- Dados Cadastrais Adicionais (Data de Nascimento e Nome da Mãe) -->
+        <div v-if="form.nome_paciente" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="form-group">
+            <label class="form-label font-semibold">Data de Nascimento</label>
+            <input
+              type="text"
+              :value="formatarData(form.dt_nascimento)"
+              class="form-control bg-gray-100 cursor-not-allowed opacity-75"
+              disabled
+            />
+          </div>
+          <div class="form-group md:col-span-2">
+            <label class="form-label font-semibold">Nome da Mãe</label>
+            <input
+              type="text"
+              :value="form.nome_mae || '—'"
+              class="form-control bg-gray-100 cursor-not-allowed opacity-75"
+              disabled
+            />
+          </div>
+        </div>
+        <!-- Seleção de Procedimento (quando há múltiplos) -->
+        <div v-if="abaAtiva !== 'INSERIR' && procedimentosPaciente.length > 1" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <label class="form-label font-semibold text-amber-800">
+            Qual procedimento deseja {{ abaAtiva === 'EDITAR' ? 'editar' : abaAtiva === 'EXCLUIR' ? 'excluir' : 'colocar em standby' }}?
+          </label>
           <div class="mt-2 space-y-2">
             <label 
               v-for="(proc, idx) in procedimentosPaciente" 
@@ -97,7 +123,7 @@
               />
               <div class="text-sm">
                 <div class="font-semibold text-gray-800">{{ proc.procedimento }}</div>
-                <div class="text-xs text-gray-500">{{ proc.especialidade }} · Swallis: {{ proc.swallis || '—' }}</div>
+                <div class="text-xs text-gray-500">{{ proc.especialidade }} · Swalis: {{ proc.swallis || '—' }}</div>
               </div>
             </label>
           </div>
@@ -111,10 +137,10 @@
               id="especialidade"
               v-model="form.especialidade"
               class="form-control"
-              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': isEspecialidadeDisabled }"
               required
               @change="form.procedimento = ''"
-              :disabled="camposDesabilitados || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
+              :disabled="isEspecialidadeDisabled"
             >
               <option value="" disabled>Selecione a especialidade...</option>
               <option v-for="esp in especialidades" :key="esp.nome" :value="esp.nome">
@@ -124,35 +150,105 @@
           </div>
 
           <div class="form-group">
-            <label for="procedimento" class="form-label font-semibold">Procedimento (Fila de Espera) <span class="text-red-500">*</span></label>
-            <!-- Campo combinado: digitar ou selecionar -->
-            <div class="relative">
+            <label class="form-label font-semibold">Procedimento (Fila de Espera) <span class="text-red-500">*</span></label>
+            
+            <!-- Mostra o procedimento originalmente cadastrado (como desabilitado) se não for INSERIR -->
+            <div v-if="abaAtiva !== 'INSERIR'" class="mb-3">
+              <input
+                type="text"
+                :value="form.procedimento_anterior || form.procedimento"
+                class="form-control bg-gray-100 cursor-not-allowed opacity-75"
+                disabled
+              />
+            </div>
+
+            <!-- Pergunta Sim/Não se deseja alterar o procedimento (apenas na aba EDITAR se tiver paciente carregado) -->
+            <div v-if="abaAtiva === 'EDITAR' && form.codigo_paciente" class="mb-3">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">
+                Deseja alterar o Procedimento (Fila de Espera)?
+              </label>
+              <div class="flex items-center space-x-6 p-2.5 border border-gray-200 rounded-lg bg-gray-50 w-full md:w-1/2">
+                <label class="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="desejaAlterar"
+                    value="Sim"
+                    v-model="desejaAlterarProcedimento"
+                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span class="text-sm font-semibold text-gray-700">Sim</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="desejaAlterar"
+                    value="Não"
+                    v-model="desejaAlterarProcedimento"
+                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span class="text-sm font-semibold text-gray-700">Não</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Custom Searchable Dropdown de procedimento (Apenas na inclusão ou se o usuário selecionou Sim na edição) -->
+            <div v-if="abaAtiva === 'INSERIR' || (abaAtiva === 'EDITAR' && desejaAlterarProcedimento === 'Sim')" class="relative">
               <input
                 id="procedimento"
-                v-model="form.procedimento"
                 type="text"
-                list="procedimentos-lista"
-                :placeholder="form.especialidade ? 'Digite ou selecione o procedimento...' : 'Selecione a especialidade primeiro'"
-                class="form-control"
-                :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados || !form.especialidade }"
+                v-model="form.procedimento"
+                @focus="dropdownAberto = true"
+                @blur="dropdownAberto = false"
+                :placeholder="form.especialidade ? 'Digite para pesquisar o novo procedimento...' : 'Selecione a especialidade primeiro'"
+                class="form-control pr-10"
+                :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': !form.especialidade }"
                 required
-                :disabled="camposDesabilitados || !form.especialidade"
+                :disabled="!form.especialidade"
+                autocomplete="off"
               />
-              <datalist id="procedimentos-lista">
-                <option v-for="proc in procedimentosDaEspecialidade" :key="proc" :value="proc">{{ proc }}</option>
-              </datalist>
+              
+              <!-- Ícone de seta de dropdown -->
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+
+              <!-- Lista flutuante de opções -->
+              <div
+                v-if="dropdownAberto && form.especialidade && procedimentosFiltrados.length > 0"
+                class="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none text-sm border border-gray-200"
+              >
+                <div
+                  v-for="proc in procedimentosFiltrados"
+                  :key="proc"
+                  @mousedown="selecionarProcedimento(proc)"
+                  class="cursor-pointer select-none py-2 px-4 text-gray-900 hover:bg-blue-600 hover:text-white transition duration-150"
+                  :class="{ 'bg-blue-50 font-semibold text-blue-900': form.procedimento === proc }"
+                >
+                  {{ proc }}
+                </div>
+              </div>
+              
+              <!-- Mensagem de nenhum resultado -->
+              <div
+                v-if="dropdownAberto && form.especialidade && procedimentosFiltrados.length === 0"
+                class="absolute z-50 mt-1 w-full rounded-md bg-white py-2 px-4 shadow-lg ring-1 ring-black ring-opacity-5 text-sm text-gray-500 border border-gray-200"
+              >
+                Nenhum procedimento encontrado.
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Linha 3: Judicializado + Swallis + Médico Responsável -->
+        <!-- Linha 3: Judicializado + Swalis + Médico Responsável -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
 
           <!-- Judicializado -->
           <div class="form-group">
             <label class="form-label font-semibold">Judicializado? <span class="text-red-500">*</span></label>
-            <div class="flex items-center space-x-6 mt-2 p-3 border border-gray-200 rounded-lg" :class="camposDesabilitados ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'">
-              <label class="flex items-center space-x-2" :class="camposDesabilitados ? 'cursor-not-allowed' : 'cursor-pointer'">
+            <div class="flex items-center space-x-6 mt-2 p-3 border border-gray-200 rounded-lg" :class="camposEdicaoBloqueados ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-gray-50'">
+              <label class="flex items-center space-x-2" :class="camposEdicaoBloqueados ? 'cursor-not-allowed' : 'cursor-pointer'">
                 <input
                   type="radio"
                   name="judicializado"
@@ -160,18 +256,18 @@
                   v-model="form.judicializado"
                   class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                   required
-                  :disabled="camposDesabilitados"
+                  :disabled="camposEdicaoBloqueados"
                 />
                 <span class="text-sm font-medium text-gray-700">Sim</span>
               </label>
-              <label class="flex items-center space-x-2" :class="camposDesabilitados ? 'cursor-not-allowed' : 'cursor-pointer'">
+              <label class="flex items-center space-x-2" :class="camposEdicaoBloqueados ? 'cursor-not-allowed' : 'cursor-pointer'">
                 <input
                   type="radio"
                   name="judicializado"
                   value="Não"
                   v-model="form.judicializado"
                   class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  :disabled="camposDesabilitados"
+                  :disabled="camposEdicaoBloqueados"
                 />
                 <span class="text-sm font-medium text-gray-700">Não</span>
               </label>
@@ -181,18 +277,18 @@
             </div>
           </div>
 
-          <!-- Swallis -->
+          <!-- Swalis -->
           <div class="form-group">
             <label for="swallis" class="form-label font-semibold">
-              Swallis (Priorização) <span class="text-red-500">*</span>
+              Swalis (Priorização) <span class="text-red-500">*</span>
             </label>
             <select
               id="swallis"
               v-model="form.swallis"
               class="form-control"
-              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados }"
               required
-              :disabled="camposDesabilitados"
+              :disabled="camposEdicaoBloqueados"
             >
               <option value="" disabled>Selecione...</option>
               <option value="A1">A1 — Prioridade Máxima</option>
@@ -216,9 +312,9 @@
               list="medicos-lista"
               placeholder="Digite o nome do médico solicitante"
               class="form-control"
-              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposDesabilitados }"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados }"
               required
-              :disabled="camposDesabilitados"
+              :disabled="camposEdicaoBloqueados"
             />
             <datalist id="medicos-lista">
               <option v-for="med in medicosConhecidos" :key="med" :value="med">{{ med }}</option>
@@ -273,56 +369,286 @@
     </Card>
 
     <!-- Tabela de Solicitações Enviadas -->
-    <Card>
+    <Card class="overflow-hidden">
       <template #header>
-        <h2 class="text-lg font-bold text-gray-800">Acompanhamento das Solicitações</h2>
+        <div class="flex items-center space-x-3">
+          <h2 class="text-lg font-bold text-gray-800">Acompanhamento das Solicitações de {{ tipoAcompanhamentoNome }}</h2>
+          <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded">GESTÃO LEC</span>
+        </div>
       </template>
+
+      <!-- Abas de Acompanhamento integradas ao Card -->
+      <div class="flex border-b border-gray-200 bg-gray-50 p-2 overflow-x-auto -mt-6 -mx-6 mb-6">
+        <button 
+          v-for="aba in abasAcompanhamento" 
+          :key="aba.id" 
+          @click="abaAcompanhamentoAtiva = aba.id"
+          :class="[
+            'flex-1 py-2.5 text-xs md:text-sm font-semibold rounded-md transition duration-200 whitespace-nowrap px-4',
+            abaAcompanhamentoAtiva === aba.id 
+              ? 'bg-paper-sidebar text-white shadow-sm' 
+              : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+          ]"
+        >
+          <span class="flex items-center justify-center space-x-2">
+            <component :is="aba.icon" class="h-4 w-4" />
+            <span>{{ aba.nome }}</span>
+            <span 
+              v-if="obterCountPendentesAba(aba.id) > 0"
+              :class="[
+                'ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                abaAcompanhamentoAtiva === aba.id ? 'bg-white text-paper-sidebar' : 'bg-red-500 text-white'
+              ]"
+            >
+              {{ obterCountPendentesAba(aba.id) }}
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Filtros da Seção de Acompanhamento -->
+      <div class="px-6 pb-4 pt-2 border-b border-gray-200 bg-gray-50/50 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
+        <!-- Especialidade -->
+        <div class="form-group" v-if="perfisStore.perfilAtivo.tipo !== 'ESPECIALIDADE'">
+          <label for="filtroEsp" class="text-xs font-semibold text-gray-600 block mb-1">Especialidade</label>
+          <input
+            id="filtroEsp"
+            type="text"
+            v-model="filtroEsp"
+            list="filtro-especialidades-lista"
+            placeholder="Buscar especialidade..."
+            class="form-control text-xs"
+          />
+          <datalist id="filtro-especialidades-lista">
+            <option v-for="esp in especialidades" :key="esp.nome" :value="esp.nome" />
+          </datalist>
+        </div>
+        <div class="form-group opacity-60" v-else>
+          <label class="text-xs font-semibold text-gray-600 block mb-1">Especialidade</label>
+          <input
+            type="text"
+            :value="perfisStore.perfilAtivo.especialidade"
+            class="form-control text-xs bg-gray-100 cursor-not-allowed"
+            disabled
+          />
+        </div>
+
+        <!-- Procedimento -->
+        <div class="form-group">
+          <label for="filtroProc" class="text-xs font-semibold text-gray-600 block mb-1">Procedimento</label>
+          <input
+            id="filtroProc"
+            type="text"
+            v-model="filtroProc"
+            list="filtro-procedimentos-lista"
+            placeholder="Buscar procedimento..."
+            class="form-control text-xs"
+          />
+          <datalist id="filtro-procedimentos-lista">
+            <option v-for="proc in procedimentosFiltradosDatalist" :key="proc" :value="proc" />
+          </datalist>
+        </div>
+
+        <!-- Prontuário / Paciente -->
+        <div class="form-group">
+          <label for="filtroPac" class="text-xs font-semibold text-gray-600 block mb-1">Prontuário / Paciente</label>
+          <input
+            id="filtroPac"
+            type="text"
+            v-model="filtroPac"
+            placeholder="Digite prontuário ou nome..."
+            class="form-control text-xs"
+          />
+        </div>
+
+        <!-- Judicialização -->
+        <div class="form-group">
+          <label for="filtroJud" class="text-xs font-semibold text-gray-600 block mb-1">Judicialização</label>
+          <select id="filtroJud" v-model="filtroJud" class="form-control text-xs">
+            <option value="">Todas</option>
+            <option value="Sim">⚖️ Sim</option>
+            <option value="Não">Não</option>
+          </select>
+        </div>
+
+        <!-- Swalis -->
+        <div class="form-group">
+          <label for="filtroSwalis" class="text-xs font-semibold text-gray-600 block mb-1">Swalis</label>
+          <select id="filtroSwalis" v-model="filtroSwalis" class="form-control text-xs">
+            <option value="">Todos</option>
+            <option value="A1">A1 — Máxima</option>
+            <option value="A2">A2 — Alta</option>
+            <option value="B">B — Intermediária</option>
+            <option value="C">C — Padrão</option>
+            <option value="D">D — Baixa</option>
+          </select>
+        </div>
+
+        <!-- Médico Responsável -->
+        <div class="form-group">
+          <label for="filtroMed" class="text-xs font-semibold text-gray-600 block mb-1">Médico Responsável</label>
+          <input
+            id="filtroMed"
+            type="text"
+            v-model="filtroMed"
+            list="filtro-medicos-lista"
+            placeholder="Digite para pesquisar médico..."
+            class="form-control text-xs"
+          />
+          <datalist id="filtro-medicos-lista">
+            <option v-for="med in medicosConhecidos" :key="med" :value="med" />
+          </datalist>
+        </div>
+      </div>
+
+      <!-- Sub-abas: Pendentes e Concluídas -->
+      <div class="flex border-b border-gray-200 bg-white px-6 py-2.5 space-x-2">
+        <button
+          @click="subAbaAcompanhamento = 'PENDENTE'"
+          :class="[
+            'px-4 py-1.5 text-xs font-bold rounded-full transition duration-200',
+            subAbaAcompanhamento === 'PENDENTE'
+              ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-300'
+              : 'text-gray-600 hover:bg-gray-100'
+          ]"
+        >
+          Pendentes
+        </button>
+        <button
+          @click="subAbaAcompanhamento = 'CONCLUIDO'"
+          :class="[
+            'px-4 py-1.5 text-xs font-bold rounded-full transition duration-200',
+            subAbaAcompanhamento === 'CONCLUIDO'
+              ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-300'
+              : 'text-gray-600 hover:bg-gray-100'
+          ]"
+        >
+          Concluídas
+        </button>
+      </div>
 
       <div v-if="loadingSolicitacoes" class="flex justify-center items-center py-6">
         <LoadingIndicator />
       </div>
       <div v-else-if="solicitacoesFiltradas.length === 0" class="text-center py-8 text-gray-500">
-        Nenhuma solicitação enviada até o momento.
+        Nenhuma solicitação encontrada para os filtros selecionados.
       </div>
       <div v-else class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATA/HORA SOLICITAÇÃO</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade / Procedimento</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade</th>
+              <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedimento</th>
+              <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedimento Anterior</th>
+              <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Novo Procedimento</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário / Paciente</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judicial</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Swallis</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Swalis</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info Extra</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATA/HORA AÇÃO</th>
+              <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200 text-sm">
             <tr v-for="solic in solicitacoesFiltradas" :key="solic.id">
+              <td class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
+                {{ formatarDataHora(solic.data_criacao) }}
+              </td>
               <td class="px-4 py-4 whitespace-nowrap text-gray-500 font-mono text-xs">#{{ solic.id }}</td>
               <td class="px-4 py-4 whitespace-nowrap">
-                <span :class="getTipoBadgeClass(solic.tipo)">{{ solic.tipo }}</span>
+                <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
               </td>
-              <td class="px-4 py-4 text-gray-700 text-xs">
-                <div class="font-semibold">{{ solic.especialidade || '—' }}</div>
-                <div class="text-gray-400">{{ solic.procedimento || '—' }}</div>
+              
+              <!-- Especialidade (Comum a todos) -->
+              <td class="px-4 py-4 text-gray-700 text-xs font-semibold">
+                {{ solic.especialidade || '—' }}
               </td>
+              
+              <!-- Procedimento (Não EDITAR) -->
+              <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-4 py-4 text-gray-700 text-xs">
+                {{ solic.procedimento || '—' }}
+              </td>
+              
+              <!-- Procedimento Anterior (EDITAR) -->
+              <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-4 text-gray-500 text-xs italic">
+                {{ solic.procedimento_anterior || '—' }}
+              </td>
+              
+              <!-- Novo Procedimento (EDITAR) -->
+              <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-4 text-xs">
+                <div v-if="solic.procedimento === solic.procedimento_anterior || !solic.procedimento_anterior" class="text-gray-400 italic">
+                  Não houve mudança
+                </div>
+                <div v-else class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block">
+                  {{ solic.procedimento }}
+                </div>
+              </td>
+
+              <!-- Prontuário / Paciente -->
               <td class="px-4 py-4 text-gray-700 text-xs">
                 <div class="font-mono">{{ solic.codigo_paciente }}</div>
                 <div class="font-medium">{{ solic.nome_paciente }}</div>
               </td>
+
+              <!-- Judicial (com destaque se editado) -->
               <td class="px-4 py-4 whitespace-nowrap text-xs">
-                <span v-if="solic.judicializado === 'Sim'" class="px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">⚖️ Sim</span>
-                <span v-else class="text-gray-400">Não</span>
+                <span 
+                  v-if="solic.judicializado === 'Sim'" 
+                  :class="[
+                    'px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800',
+                    abaAcompanhamentoAtiva === 'EDITAR' && solic.judicializado !== obterEstadoAnterior(solic).judicializado ? 'ring-2 ring-yellow-400 font-bold bg-yellow-100 text-yellow-900 border border-yellow-300' : ''
+                  ]"
+                >
+                  ⚖️ Sim
+                </span>
+                <span 
+                  v-else 
+                  :class="[
+                    'text-gray-400',
+                    abaAcompanhamentoAtiva === 'EDITAR' && solic.judicializado !== obterEstadoAnterior(solic).judicializado ? 'bg-yellow-100 text-yellow-800 font-bold px-1.5 py-0.5 rounded ring-2 ring-yellow-300' : ''
+                  ]"
+                >
+                  Não
+                </span>
               </td>
+
+              <!-- Swalis (com destaque se editado) -->
               <td class="px-4 py-4 whitespace-nowrap">
-                <span v-if="solic.swallis" :class="getSwallisClass(solic.swallis)">{{ solic.swallis }}</span>
-                <span v-else class="text-gray-400">—</span>
+                <span 
+                  v-if="solic.swalis || solic.swallis || solic.Swalis" 
+                  :class="[
+                    getSwallisClass(solic.swalis || solic.swallis || solic.Swalis),
+                    abaAcompanhamentoAtiva === 'EDITAR' && (solic.swalis || solic.swallis || solic.Swalis || '') !== obterEstadoAnterior(solic).swalis ? 'ring-2 ring-yellow-400 font-extrabold' : ''
+                  ]"
+                >
+                  {{ solic.swalis || solic.swallis || solic.Swalis }}
+                </span>
+                <span 
+                  v-else 
+                  :class="[
+                    'text-gray-400',
+                    abaAcompanhamentoAtiva === 'EDITAR' && '' !== obterEstadoAnterior(solic).swalis ? 'bg-yellow-100 text-yellow-800 font-bold px-1.5 py-0.5 rounded ring-2 ring-yellow-300' : ''
+                  ]"
+                >
+                  —
+                </span>
               </td>
-              <td class="px-4 py-4 whitespace-nowrap text-xs text-gray-600">{{ solic.medico_responsavel || '—' }}</td>
+
+              <!-- Médico (com destaque se editado) -->
+              <td 
+                class="px-4 py-4 whitespace-nowrap text-xs"
+                :class="[
+                  abaAcompanhamentoAtiva === 'EDITAR' && solic.medico_responsavel !== obterEstadoAnterior(solic).medico_responsavel ? 'text-blue-700 font-bold bg-yellow-50 px-1 rounded ring-2 ring-yellow-300' : 'text-gray-600'
+                ]"
+              >
+                {{ solic.medico_responsavel || '—' }}
+              </td>
+
               <td class="px-4 py-4 whitespace-nowrap">
                 <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
               </td>
@@ -332,10 +658,15 @@
                 </div>
                 <div v-else class="text-gray-400">—</div>
               </td>
-              <td class="px-4 py-4 whitespace-nowrap text-xs">
+              <!-- Data/Hora Ação (Condicional) -->
+              <td v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
+                {{ formatarDataHora(solic.data_acao) }}
+              </td>
+
+              <td v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-4 py-4 whitespace-nowrap text-xs">
                 <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo.tipo === 'ADMIN')" class="flex space-x-1">
                   <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
-                    {{ perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' ? 'Dar Baixa' : 'Aprovar' }}
+                    Aprovar
                   </Button>
                   <Button @click="atualizarStatus(solic.id, 'REJEITADO')" variant="danger" size="sm">Rejeitar</Button>
                 </div>
@@ -413,6 +744,24 @@ const especialidades = ref([
   }
 ]);
 
+// -------------------------------------------------------
+// Formulário
+// -------------------------------------------------------
+const form = ref({
+  especialidade: '',
+  procedimento: '',
+  procedimento_anterior: '', // Armazena o procedimento original antes de editar
+  codigo_paciente: '',
+  nome_paciente: '',
+  dt_nascimento: '',
+  nome_mae: '',
+  judicializado: '',
+  swallis: '',
+  medico_responsavel: '',
+  detalhes: '',
+  tempo_standby: undefined as number | undefined
+});
+
 // Procedimentos filtrados pela especialidade selecionada
 const procedimentosDaEspecialidade = computed(() => {
   const esp = especialidades.value.find(e => e.nome === form.value.especialidade);
@@ -433,8 +782,8 @@ const medicosConhecidos = computed(() => {
 const abas = [
   { id: 'INSERIR', nome: 'Solicitar Inclusão', icon: UserPlusIcon },
   { id: 'EDITAR', nome: 'Solicitar Edição', icon: PencilSquareIcon },
-  { id: 'EXCLUIR', nome: 'Solicitar Exclusão', icon: TrashIcon },
-  { id: 'STANDBY', nome: 'Solicitar Standby', icon: PauseIcon }
+  { id: 'STANDBY', nome: 'Solicitar Standby', icon: PauseIcon },
+  { id: 'EXCLUIR', nome: 'Solicitar Exclusão', icon: TrashIcon }
 ];
 
 const abaAtiva = ref('INSERIR');
@@ -443,29 +792,70 @@ const submitting = ref(false);
 const loadingSolicitacoes = ref(false);
 const solicitacoes = ref<any[]>([]);
 const formCarregadoDaSede = ref(false);
+const pacientesBase = ref<any[]>([]);
 
-// Para aba EDITAR com múltiplos procedimentos
+const filtroEsp = ref('');
+const filtroProc = ref('');
+const filtroPac = ref('');
+const filtroJud = ref('');
+const filtroSwalis = ref('');
+const filtroMed = ref('');
+const subAbaAcompanhamento = ref('PENDENTE');
+
+const procedimentosFiltradosDatalist = computed(() => {
+  const nomes = solicitacoes.value
+    .map(s => s.procedimento)
+    .filter(Boolean);
+  return [...new Set(nomes)].sort();
+});
+
+const abaAcompanhamentoAtiva = ref('INSERIR');
+const abasAcompanhamento = [
+  { id: 'INSERIR', nome: 'Solicitações de Inclusão', icon: UserPlusIcon },
+  { id: 'EDITAR', nome: 'Solicitações de Edição', icon: PencilSquareIcon },
+  { id: 'STANDBY', nome: 'Solicitações de Standby', icon: PauseIcon },
+  { id: 'EXCLUIR', nome: 'Solicitações de Exclusão', icon: TrashIcon }
+];
+
+// Para abas de ação com múltiplos procedimentos
 const procedimentosPaciente = ref<any[]>([]);
 const procedimentoSelecionadoParaEdicao = ref<number | null>(null);
 
-// -------------------------------------------------------
+const desejaAlterarProcedimento = ref('Não');
+const dropdownAberto = ref(false);
+
+const procedimentosFiltrados = computed(() => {
+  const query = form.value.procedimento.toLowerCase().trim();
+  if (!query) return procedimentosDaEspecialidade.value;
+  return procedimentosDaEspecialidade.value.filter(p => 
+    p.toLowerCase().includes(query)
+  );
+});
+
+const selecionarProcedimento = (proc: string) => {
+  form.value.procedimento = proc;
+  dropdownAberto.value = false;
+};
+
+// Sincroniza o valor ao alternar "Sim/Não" no desejaAlterarProcedimento
+watch(desejaAlterarProcedimento, (val) => {
+  if (val === 'Não') {
+    form.value.procedimento = form.value.procedimento_anterior;
+  } else {
+    form.value.procedimento = '';
+  }
+});
+
+const isEspecialidadeDisabled = computed(() => {
+  return camposDesabilitados.value || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' || abaAtiva.value === 'EDITAR';
+});
+
 // Formulário
 // -------------------------------------------------------
-const form = ref({
-  especialidade: '',
-  procedimento: '',
-  procedimento_anterior: '', // Armazena o procedimento original antes de editar
-  codigo_paciente: '',
-  nome_paciente: '',
-  judicializado: '',
-  swallis: '',
-  medico_responsavel: '',
-  detalhes: '',
-  tempo_standby: undefined as number | undefined
-});
 
 const selecionarAba = (id: string) => {
   abaAtiva.value = id;
+  desejaAlterarProcedimento.value = 'Não';
   limparFormulario();
 };
 
@@ -474,43 +864,126 @@ const camposDesabilitados = computed(() => {
   return abaAtiva.value === 'EXCLUIR' || abaAtiva.value === 'STANDBY';
 });
 
-// Filtra a lista de solicitações de acordo com o perfil ativo
+// Bloqueia campos da aba EDITAR até que o prontuário do paciente seja carregado/puxado
+const camposEdicaoBloqueados = computed(() => {
+  if (abaAtiva.value === 'EDITAR') {
+    return !formCarregadoDaSede.value;
+  }
+  return camposDesabilitados.value;
+});
+
+// Filtra a lista de solicitações de acordo com o perfil ativo, abas de acompanhamento, sub-abas e filtros de pesquisa
 const solicitacoesFiltradas = computed(() => {
+  let list = [...solicitacoes.value];
+  
+  // 1. Filtra pelo tipo correspondente à aba de acompanhamento (Inclusão, Edição, Standby, Exclusão)
+  list = list.filter(s => s.tipo === abaAcompanhamentoAtiva.value);
+
+  // 2. Filtra pelo status correspondente à sub-aba (PENDENTE ou CONCLUIDO)
+  if (subAbaAcompanhamento.value === 'PENDENTE') {
+    list = list.filter(s => s.status === 'PENDENTE');
+  } else {
+    list = list.filter(s => s.status === 'APROVADO' || s.status === 'REJEITADO');
+  }
+
+  // 3. Filtro de Especialidade (perfil restrito ou digitado)
   if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
     const activeSpecialtyName = perfisStore.perfilAtivo.especialidade.toLowerCase();
-    return solicitacoes.value.filter(s => 
+    list = list.filter(s => 
       s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialtyName)
     );
+  } else if (filtroEsp.value) {
+    const query = filtroEsp.value.toLowerCase().trim();
+    list = list.filter(s => s.especialidade && s.especialidade.toLowerCase().includes(query));
   }
-  return solicitacoes.value;
+
+  // 4. Filtro de Procedimento
+  if (filtroProc.value) {
+    const query = filtroProc.value.toLowerCase().trim();
+    list = list.filter(s => s.procedimento && s.procedimento.toLowerCase().includes(query));
+  }
+
+  // 5. Filtro de Prontuário / Paciente
+  if (filtroPac.value) {
+    const query = filtroPac.value.toLowerCase().trim();
+    list = list.filter(s => 
+      String(s.codigo_paciente).includes(query) || 
+      (s.nome_paciente && s.nome_paciente.toLowerCase().includes(query))
+    );
+  }
+
+  // 5. Filtro de Judicialização
+  if (filtroJud.value) {
+    list = list.filter(s => s.judicializado === filtroJud.value);
+  }
+
+  // 6. Filtro de Swalis
+  if (filtroSwalis.value) {
+    list = list.filter(s => {
+      const sw = s.swalis || s.swallis || s.Swalis || '';
+      return sw === filtroSwalis.value;
+    });
+  }
+
+  // 7. Filtro de Médico Responsável
+  if (filtroMed.value) {
+    const query = filtroMed.value.toLowerCase().trim();
+    list = list.filter(s => s.medico_responsavel && s.medico_responsavel.toLowerCase().includes(query));
+  }
+
+  // 8. Ordenação padrão
+  if (subAbaAcompanhamento.value === 'PENDENTE') {
+    // Da mais antiga para a mais nova (data_criacao ascendente)
+    return list.sort((a, b) => {
+      const dataA = a.data_criacao || '';
+      const dataB = b.data_criacao || '';
+      return dataA.localeCompare(dataB);
+    });
+  } else {
+    // Da última respondida para a primeira (data_acao decrescente, fallback para data_criacao decrescente)
+    return list.sort((a, b) => {
+      const dataA = a.data_acao || a.data_criacao || '';
+      const dataB = b.data_acao || b.data_criacao || '';
+      return dataB.localeCompare(dataA);
+    });
+  }
 });
 
 // Trava a especialidade da nova solicitação caso o perfil ativo seja de uma especialidade específica
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
   if (newProfile.tipo === 'ESPECIALIDADE' && newProfile.especialidade) {
     const found = especialidades.value.find(e => e.nome.toLowerCase().includes(newProfile.especialidade!.toLowerCase()));
-    if (found) {
-      form.value.especialidade = found.nome;
-    } else {
-      form.value.especialidade = newProfile.especialidade;
-    }
+    const finalEsp = found ? found.nome : newProfile.especialidade;
+    form.value.especialidade = finalEsp;
+    filtroEsp.value = finalEsp;
   } else {
     form.value.especialidade = '';
+    filtroEsp.value = '';
   }
 }, { immediate: true });
+
+// Garante que "Pendentes" é a sub-aba ativa ao mudar de aba principal de acompanhamento
+watch(abaAcompanhamentoAtiva, () => {
+  subAbaAcompanhamento.value = 'PENDENTE';
+});
 
 const tipoSolicitacaoNome = computed(() => {
   const match = abas.find(a => a.id === abaAtiva.value);
   return match ? match.nome.replace('Solicitar ', '') : '';
 });
 
+const tipoAcompanhamentoNome = computed(() => {
+  const match = abasAcompanhamento.find(a => a.id === abaAcompanhamentoAtiva.value);
+  return match ? match.nome.replace('Solicitações de ', '') : '';
+});
+
 const labelDetalhes = computed(() => {
   switch (abaAtiva.value) {
-    case 'INSERIR':  return 'Justificativa e Indicação Clínica para Inclusão';
-    case 'EDITAR':   return 'Campos e Dados que precisam ser atualizados e o motivo';
-    case 'EXCLUIR':  return 'Motivo detalhado para a Exclusão da Lista de Espera';
+    case 'INSERIR':  return 'Justificativa e indicação clínica para inclusão';
+    case 'EDITAR':   return 'Justificativa para o(s) campo(s) editado(s)';
+    case 'EXCLUIR':  return 'Motivo detalhado para a exclusão da lista de espera';
     case 'STANDBY':  return 'Motivo clínico ou administrativo para suspensão temporária (Standby)';
-    default:         return 'Detalhes da Solicitação';
+    default:         return 'Detalhes da solicitação';
   }
 });
 
@@ -525,6 +998,27 @@ const swallisBadgeClass = computed(() => {
   }
 });
 
+const formatarData = (dataStr: string) => {
+  if (!dataStr) return '—';
+  try {
+    const [ano, mes, dia] = dataStr.split('-');
+    return `${dia}/${mes}/${ano}`;
+  } catch (e) {
+    return dataStr;
+  }
+};
+
+const formatarDataHora = (dataStr: string) => {
+  if (!dataStr) return '—';
+  try {
+    const [data, hora] = dataStr.split(' ');
+    const [ano, mes, dia] = data.split('-');
+    return `${dia}/${mes}/${ano} ${hora.substring(0, 5)}`;
+  } catch (e) {
+    return dataStr;
+  }
+};
+
 const limparFormulario = () => {
   form.value = {
     especialidade: '',
@@ -532,6 +1026,8 @@ const limparFormulario = () => {
     procedimento_anterior: '',
     codigo_paciente: '',
     nome_paciente: '',
+    dt_nascimento: '',
+    nome_mae: '',
     judicializado: '',
     swallis: '',
     medico_responsavel: '',
@@ -541,6 +1037,7 @@ const limparFormulario = () => {
   formCarregadoDaSede.value = false;
   procedimentosPaciente.value = [];
   procedimentoSelecionadoParaEdicao.value = null;
+  desejaAlterarProcedimento.value = 'Não';
 
   // Reaplica especialidade travada pelo perfil
   const profile = perfisStore.perfilAtivo;
@@ -550,7 +1047,7 @@ const limparFormulario = () => {
   }
 };
 
-// Preenche o formulário ao selecionar o procedimento para edição
+// Preenche o formulário ao selecionar o procedimento para edição/exclusão/standby
 const preencherCamposDoProc = (proc: any) => {
   form.value.procedimento_anterior = proc.procedimento;
   form.value.procedimento = proc.procedimento;
@@ -558,6 +1055,7 @@ const preencherCamposDoProc = (proc: any) => {
   form.value.judicializado = proc.judicializado || 'Não';
   form.value.swallis = proc.swallis || '';
   form.value.medico_responsavel = proc.medico_responsavel || '';
+  desejaAlterarProcedimento.value = 'Não';
 };
 
 // Busca unificada com base no prontuário e na aba selecionada
@@ -572,67 +1070,96 @@ const buscarDados = async () => {
   procedimentoSelecionadoParaEdicao.value = null;
 
   try {
+    // 1. Busca dados cadastrais do paciente no AGHU (Cadastro de Pacientes)
+    let pacData;
+    try {
+      const resp = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
+      pacData = resp.data;
+      form.value.nome_paciente = pacData.nome;
+      form.value.dt_nascimento = pacData.dt_nascimento;
+      form.value.nome_mae = pacData.nome_mae;
+    } catch {
+      toast.error('Paciente não encontrado no AGHU (Cadastro de Pacientes).');
+      limparFormulario();
+      return;
+    }
+
     if (abaAtiva.value === 'INSERIR') {
-      // Busca no AGHU
-      const { data } = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
-      form.value.nome_paciente = data.nome;
-      toast.success(`Paciente localizado no AGHU: ${data.nome}`);
-    } else if (abaAtiva.value === 'EDITAR') {
-      // Busca procedimentos do paciente no módulo Pacientes
+      toast.success(`Paciente localizado no AGHU: ${pacData.nome}`);
+    } else {
+      // 2. EDITAR / EXCLUIR / STANDBY: Busca procedimentos do paciente no histórico de solicitações da LEC
       const { data: solicsData } = await api.get('/api/solicitacoes');
       const especialidadeAtual = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
         ? perfisStore.perfilAtivo.especialidade.toLowerCase()
         : null;
 
-      // Reconstrução dos procedimentos do paciente (igual ao módulo Pacientes)
       const allSolics: any[] = solicsData;
       const codProntuario = String(form.value.codigo_paciente);
 
-      // Pega o nome do paciente
       const solicsDosPac = allSolics.filter(s => String(s.codigo_paciente) === codProntuario);
-      if (solicsDosPac.length === 0) {
-        toast.error('Paciente não encontrado no Sistema LEC.');
-        limparFormulario();
-        return;
-      }
-      form.value.nome_paciente = solicsDosPac[0].nome_paciente;
-
-      // Reconstrói a lista de procedimentos aprovados do paciente
-      const procMap = new Map<string, any>();
-      const approvedSolics = solicsDosPac
-        .filter(s => s.status === 'APROVADO')
-        .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
-
-      for (const s of approvedSolics) {
-        const key = `${s.especialidade}||${s.procedimento}`;
-        if (s.tipo === 'INSERIR') {
-          procMap.set(key, {
-            especialidade: s.especialidade,
-            procedimento: s.procedimento,
-            judicializado: s.judicializado || 'Não',
-            swallis: s.swallis || '—',
-            medico_responsavel: s.medico_responsavel || 'Não informado',
+      let procs: any[] = [];
+      
+      if (solicsDosPac.length > 0) {
+        // Reconstrói a lista de procedimentos aprovados do paciente
+        const procMap = new Map<string, any>();
+        
+        // Inicializa com o procedimento base cadastrado no AGHU/pacientes.csv
+        if (pacData && pacData.procedimento) {
+          const baseKey = `${pacData.especialidade}||${pacData.procedimento}`;
+          procMap.set(baseKey, {
+            especialidade: pacData.especialidade,
+            procedimento: pacData.procedimento,
+            judicializado: 'Não',
+            swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
+            medico_responsavel: 'Não informado',
             status: 'ATIVO'
           });
-        } else if (s.tipo === 'EDITAR') {
-          const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
-          const existing = procMap.get(oldKey);
-          if (existing) {
-            procMap.delete(oldKey);
+        }
+
+        const approvedSolics = solicsDosPac
+          .filter(s => s.status === 'APROVADO')
+          .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
+
+        for (const s of approvedSolics) {
+          const key = `${s.especialidade}||${s.procedimento}`;
+          if (s.tipo === 'INSERIR') {
             procMap.set(key, {
-              ...existing,
+              especialidade: s.especialidade,
               procedimento: s.procedimento,
               judicializado: s.judicializado || 'Não',
-              swallis: s.swallis || '—',
-              medico_responsavel: s.medico_responsavel || 'Não informado'
+              swallis: s.swalis || s.swallis || s.Swalis || '—',
+              medico_responsavel: s.medico_responsavel || 'Não informado',
+              status: 'ATIVO'
             });
+          } else if (s.tipo === 'EDITAR') {
+            const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
+            const existing = procMap.get(oldKey);
+            if (existing) {
+              procMap.delete(oldKey);
+              procMap.set(key, {
+                ...existing,
+                procedimento: s.procedimento,
+                judicializado: s.judicializado || 'Não',
+                swallis: s.swalis || s.swallis || s.Swalis || '—',
+                medico_responsavel: s.medico_responsavel || 'Não informado'
+              });
+            }
+          } else if (s.tipo === 'EXCLUIR') {
+            procMap.delete(key);
           }
-        } else if (s.tipo === 'EXCLUIR') {
-          procMap.delete(key);
         }
+        procs = Array.from(procMap.values());
+      } else {
+        // Fallback: Usa o procedimento do cadastro inicial do paciente
+        procs = [{
+          especialidade: pacData.especialidade,
+          procedimento: pacData.procedimento,
+          judicializado: 'Não',
+          swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
+          medico_responsavel: 'Não informado',
+          status: 'ATIVO'
+        }];
       }
-
-      let procs = Array.from(procMap.values());
 
       // Filtra por especialidade se o perfil for ESPECIALIDADE
       if (especialidadeAtual) {
@@ -654,28 +1181,12 @@ const buscarDados = async () => {
         preencherCamposDoProc(procs[0]);
         toast.success(`Procedimento encontrado: ${procs[0].procedimento}`);
       } else {
-        toast.info(`${procs.length} procedimentos encontrados para este paciente. Selecione qual deseja editar.`);
+        toast.info(`${procs.length} procedimentos encontrados para este paciente. Selecione qual deseja prosseguir.`);
       }
-    } else {
-      // EXCLUIR / STANDBY: Busca no Sistema LEC Sede (última solicitação aprovada)
-      const { data } = await api.get(`/api/solicitacoes/paciente/${form.value.codigo_paciente}`);
-      form.value.nome_paciente = data.nome_paciente;
-      form.value.especialidade = data.especialidade || '';
-      form.value.procedimento = data.procedimento || '';
-      form.value.judicializado = data.judicializado || 'Não';
-      form.value.swallis = data.swallis || '';
-      form.value.medico_responsavel = data.medico_responsavel || '';
-      
-      formCarregadoDaSede.value = true;
-      toast.success('Solicitação ativa localizada no Sistema LEC!');
     }
   } catch (error: any) {
-    if (abaAtiva.value === 'INSERIR') {
-      toast.error('Paciente não localizado no AGHU. Digite o nome manualmente.');
-    } else {
-      toast.error('Prontuário sem dados ativos no Sistema LEC. Não é possível prosseguir.');
-      limparFormulario();
-    }
+    toast.error('Ocorreu um erro ao buscar os dados.');
+    limparFormulario();
   } finally {
     loadingBusca.value = false;
   }
@@ -702,10 +1213,34 @@ const enviarSolicitacao = async () => {
     }
   }
 
-  // Valida que para EDITAR o procedimento foi selecionado
-  if (abaAtiva.value === 'EDITAR' && procedimentosPaciente.value.length > 1 && procedimentoSelecionadoParaEdicao.value === null) {
-    toast.error('Selecione qual procedimento deseja editar.');
-    return;
+  // Valida que para EDITAR o procedimento foi selecionado e pelo menos um campo foi alterado
+  if (abaAtiva.value === 'EDITAR') {
+    if (procedimentosPaciente.value.length > 1 && procedimentoSelecionadoParaEdicao.value === null) {
+      toast.error('Selecione qual procedimento deseja editar.');
+      return;
+    }
+    const idx = procedimentoSelecionadoParaEdicao.value !== null ? procedimentoSelecionadoParaEdicao.value : 0;
+    const orig = procedimentosPaciente.value[idx];
+    if (orig) {
+      const origSw = orig.swalis || orig.swallis || orig.Swalis || '';
+      const formSw = form.value.swallis || '';
+      const origMed = orig.medico_responsavel || '';
+      const formMed = form.value.medico_responsavel || '';
+      const origJud = orig.judicializado || 'Não';
+      const formJud = form.value.judicializado || 'Não';
+      const origProc = orig.procedimento || '';
+      const formProc = form.value.procedimento || '';
+
+      const alterado = (origSw !== formSw) || 
+                       (origMed !== formMed) || 
+                       (origJud !== formJud) || 
+                       (origProc !== formProc);
+
+      if (!alterado) {
+        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Procedimento, Judicialização, Swalis, Médico Responsável) antes de enviar.');
+        return;
+      }
+    }
   }
 
   submitting.value = true;
@@ -717,6 +1252,7 @@ const enviarSolicitacao = async () => {
       codigo_paciente: form.value.codigo_paciente,
       nome_paciente: form.value.nome_paciente,
       judicializado: form.value.judicializado,
+      swalis: form.value.swallis,
       swallis: form.value.swallis,
       medico_responsavel: form.value.medico_responsavel,
       detalhes: form.value.detalhes,
@@ -734,7 +1270,24 @@ const enviarSolicitacao = async () => {
   }
 };
 
+const obterCountPendentesAba = (tipo: string) => {
+  let list = solicitacoes.value.filter(s => s.tipo === tipo && s.status === 'PENDENTE');
+  
+  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
+    const activeSpecialtyName = perfisStore.perfilAtivo.especialidade.toLowerCase();
+    list = list.filter(s => 
+      s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialtyName)
+    );
+  }
+  
+  return list.length;
+};
+
 const atualizarStatus = async (id: string, status: string) => {
+  const acaoText = status === 'APROVADO' ? 'aprovar (dar baixa na)' : 'rejeitar a';
+  const confirmacao = window.confirm(`Tem certeza que deseja ${acaoText} solicitação?`);
+  if (!confirmacao) return;
+
   try {
     await api.put(`/api/solicitacoes/${id}/status`, { status });
     toast.success(`Solicitação ${status.toLowerCase()} com sucesso!`);
@@ -744,12 +1297,22 @@ const atualizarStatus = async (id: string, status: string) => {
   }
 };
 
+const formatarTipo = (tipo: string) => {
+  switch (tipo) {
+    case 'INSERIR': return 'Inclusão';
+    case 'EDITAR':  return 'Edição';
+    case 'EXCLUIR': return 'Exclusão';
+    case 'STANDBY': return 'Standby';
+    default:        return tipo;
+  }
+};
+
 const getTipoBadgeClass = (tipo: string) => {
   switch (tipo) {
-    case 'INSERIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800';
-    case 'EDITAR':  return 'px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800';
-    case 'EXCLUIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800';
-    case 'STANDBY': return 'px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800';
+    case 'INSERIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 border border-green-200';
+    case 'EDITAR':  return 'px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200';
+    case 'EXCLUIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200';
+    case 'STANDBY': return 'px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200';
     default:        return 'px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800';
   }
 };
@@ -775,7 +1338,56 @@ const getStatusBadgeClass = (status: string) => {
   }
 };
 
+const carregarPacientesBase = async () => {
+  try {
+    const { data } = await api.get('/api/pacientes');
+    pacientesBase.value = data;
+  } catch (error) {
+    console.error('Erro ao carregar pacientes base', error);
+  }
+};
+
+const obterEstadoAnterior = (solic: any) => {
+  const pacienteBase = pacientesBase.value.find(p => String(p.prontuario) === String(solic.codigo_paciente));
+  
+  let estado = {
+    especialidade: pacienteBase ? pacienteBase.especialidade : '',
+    procedimento: pacienteBase ? pacienteBase.procedimento : '',
+    judicializado: pacienteBase ? (pacienteBase.judicializado || 'Não') : 'Não',
+    swalis: pacienteBase ? (pacienteBase.swalis || pacienteBase.swallis || pacienteBase.Swalis || '') : '',
+    medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : ''
+  };
+  
+  const aprovadasAnteriores = solicitacoes.value
+    .filter(s => 
+      String(s.codigo_paciente) === String(solic.codigo_paciente) && 
+      s.status === 'APROVADO' && 
+      s.data_criacao < solic.data_criacao
+    )
+    .sort((a, b) => a.data_criacao.localeCompare(b.data_criacao));
+    
+  for (const s of aprovadasAnteriores) {
+    if (s.tipo === 'INSERIR') {
+      estado.especialidade = s.especialidade;
+      estado.procedimento = s.procedimento;
+      estado.judicializado = s.judicializado || 'Não';
+      estado.swalis = s.swalis || s.swallis || s.Swalis || '';
+      estado.medico_responsavel = s.medico_responsavel || '';
+    } else if (s.tipo === 'EDITAR') {
+      if (s.especialidade) estado.especialidade = s.especialidade;
+      if (s.procedimento) estado.procedimento = s.procedimento;
+      if (s.judicializado) estado.judicializado = s.judicializado;
+      const sw = s.swalis || s.swallis || s.Swalis;
+      if (sw) estado.swalis = sw;
+      if (s.medico_responsavel) estado.medico_responsavel = s.medico_responsavel;
+    }
+  }
+  
+  return estado;
+};
+
 onMounted(() => {
   carregarSolicitacoes();
+  carregarPacientesBase();
 });
 </script>
