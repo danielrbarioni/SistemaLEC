@@ -39,3 +39,11 @@ class PacientePostgresProvider(PacienteProviderInterface):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paciente não encontrado")
             
         return dict(paciente)
+
+    async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:
+        query_string = get_sql_query("paciente/procedimentos_especialidade.sql")
+        query = text(query_string)
+        
+        result = await self.session.execute(query, {"id_especialidade": id_especialidade})
+        procedimentos = result.mappings().all()
+        return [dict(proc) for proc in procedimentos]

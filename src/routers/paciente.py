@@ -36,3 +36,17 @@ async def obter_paciente(
 ):
     """Obtém um paciente pelo código a partir da fonte de dados configurada no roteador."""
     return await paciente_controller.obter_paciente_por_codigo(codigo, provider)
+
+especialidade_router = APIRouter(
+    prefix="/api/especialidades",
+    tags=["Especialidades"],
+    dependencies=[Depends(auth_handler.decode_token)]
+)
+
+@especialidade_router.get("/{id_especialidade}/procedimentos", response_model=List[dict])
+async def obter_procedimentos_especialidade(
+    id_especialidade: int,
+    provider: PacienteProviderInterface = Depends(get_paciente_provider(STRATEGY))
+):
+    """Retorna os procedimentos cirúrgicos ativos associados a uma especialidade do AGHU."""
+    return await provider.obter_procedimentos_por_especialidade(id_especialidade)

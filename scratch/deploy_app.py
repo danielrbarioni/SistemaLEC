@@ -96,7 +96,7 @@ def deploy():
         execute_remote_cmd(ssh, git_setup)
 
         # Criar os diretórios necessários na VM
-        execute_remote_cmd(ssh, "mkdir -p /var/app/sistemalec/src/models /var/app/sistemalec/src/providers/implementations /var/app/sistemalec/scratch /var/app/sistemalec/src/auth /var/app/sistemalec/src/providers/sql/paciente")
+        execute_remote_cmd(ssh, "mkdir -p /var/app/sistemalec/src/models /var/app/sistemalec/src/providers/implementations /var/app/sistemalec/src/providers/interfaces /var/app/sistemalec/scratch /var/app/sistemalec/src/auth /var/app/sistemalec/src/providers/sql/paciente")
 
         # Copiar todos os arquivos novos e modificados para a VM
         print("\nEnviando arquivos novos e modificados localmente para a VM...")
@@ -116,8 +116,11 @@ def deploy():
             ("src/providers/implementations/solicitacao_sqlite_provider.py", "/var/app/sistemalec/src/providers/implementations/solicitacao_sqlite_provider.py"),
             ("src/routers/paciente.py", "/var/app/sistemalec/src/routers/paciente.py"),
             ("src/routers/solicitacao.py", "/var/app/sistemalec/src/routers/solicitacao.py"),
+            ("src/providers/interfaces/paciente_provider_interface.py", "/var/app/sistemalec/src/providers/interfaces/paciente_provider_interface.py"),
+            ("src/providers/implementations/paciente_postgres_provider.py", "/var/app/sistemalec/src/providers/implementations/paciente_postgres_provider.py"),
             ("src/providers/sql/paciente/listar_pacientes.sql", "/var/app/sistemalec/src/providers/sql/paciente/listar_pacientes.sql"),
             ("src/providers/sql/paciente/obter_paciente.sql", "/var/app/sistemalec/src/providers/sql/paciente/obter_paciente.sql"),
+            ("src/providers/sql/paciente/procedimentos_especialidade.sql", "/var/app/sistemalec/src/providers/sql/paciente/procedimentos_especialidade.sql"),
             ("frontend/index.html", "/var/app/sistemalec/frontend/index.html"),
             ("frontend/src/layouts/DefaultLayout.vue", "/var/app/sistemalec/frontend/src/layouts/DefaultLayout.vue"),
             ("frontend/src/router/index.ts", "/var/app/sistemalec/frontend/src/router/index.ts"),

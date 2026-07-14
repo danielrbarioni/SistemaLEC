@@ -57,3 +57,7 @@ class PacienteSqliteProvider(PacienteProviderInterface):
             "procedimento": p.procedimento,
             "ultima_consulta_epo": p.ultima_consulta_epo
         }
+
+    async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:
+        # O SQLite local não gerencia a tabela de especialidades/procedimentos cirúrgicos do AGHU
+        return []

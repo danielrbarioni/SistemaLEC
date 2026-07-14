@@ -65,6 +65,7 @@ app.mount("/static", StaticFiles(directory="src/static/dist"), name="static")
 # Placeholder para incluir os roteadores da API
 from .routers import paciente, auth, admin, aih, bpa, material, solicitacao
 app.include_router(paciente.router)
+app.include_router(paciente.especialidade_router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(aih.router)

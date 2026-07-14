@@ -498,6 +498,21 @@ watch(() => perfisStore.perfilAtivo, (newProfile) => {
   }
 }, { immediate: true });
 
+watch(() => form.value.especialidade, async (newEsp) => {
+  if (newEsp === 'Plástica') {
+    try {
+      const { data } = await api.get('/api/especialidades/1884/procedimentos');
+      const procedimentosDoAghu = data.map((p: any) => p.descricao);
+      const plast = especialidades.value.find(e => e.nome === 'Plástica');
+      if (plast) {
+        plast.procedimentos = procedimentosDoAghu;
+      }
+    } catch (err) {
+      console.error('Erro ao buscar procedimentos da especialidade Plástica no AGHU:', err);
+    }
+  }
+});
+
 
 
 const tipoSolicitacaoNome = computed(() => {

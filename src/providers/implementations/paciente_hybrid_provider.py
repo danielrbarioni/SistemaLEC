@@ -80,3 +80,11 @@ class HybridPacienteProvider(PacienteProviderInterface):
             except Exception as e:
                 print(f"Erro ao obter paciente {codigo} do AGHU: {e}. Executando fallback para SQLite local.")
         return await self.sqlite.obter_paciente_por_codigo(codigo)
+
+    async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:
+        if self.postgres:
+            try:
+                return await self.postgres.obter_procedimentos_por_especialidade(id_especialidade)
+            except Exception as e:
+                print(f"Erro ao obter procedimentos da especialidade {id_especialidade} do AGHU: {e}. Retornando lista vazia.")
+        return await self.sqlite.obter_procedimentos_por_especialidade(id_especialidade)

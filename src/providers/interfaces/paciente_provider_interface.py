@@ -13,3 +13,8 @@ class PacienteProviderInterface(ABC):
     async def obter_paciente_por_codigo(self, codigo: int) -> Dict[str, Any]:
         """Deve retornar um único paciente pelo seu código."""
         pass
+
+    @abstractmethod
+    async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:
+        """Deve retornar os procedimentos associados a uma especialidade."""
+        pass
