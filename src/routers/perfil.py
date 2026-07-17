@@ -8,6 +8,7 @@ from sqlalchemy import select
 from ..auth.auth import auth_handler
 from ..resources.database import get_app_db_session
 from ..models.profile import Profile
+from ..models.user import User
 
 router = APIRouter(prefix="/api/perfis", tags=["Perfis"])
 
@@ -110,3 +111,123 @@ async def create_perfil(
     await db.commit()
     await db.refresh(new_profile)
     return new_profile
+
+@router.put("/{perfil_id}", response_model=PerfilResponse)
+async def update_perfil(
+    perfil_id: str,
+    perfil_in: PerfilCreate,
+    db: AsyncSession = Depends(get_app_db_session),
+    current_user: dict = Depends(auth_handler.decode_token)
+):
+    """
+    Atualiza um perfil existente. Valida as regras hierárquicas.
+    """
+    role = get_current_user_role(current_user)
+    
+    # 1. Busca o perfil existente
+    stmt = select(Profile).where(Profile.id == perfil_id)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfil não encontrado."
+        )
+
+    # 2. Validações Hierárquicas de quem está editando
+    if role == "ESPECIALIDADE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários com perfil ESPECIALIDADE não podem editar perfis."
+        )
+    elif role == "GESTAO_LEC":
+        if existing.tipo != "ESPECIALIDADE":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuários GESTÃO LEC só podem editar perfis do tipo ESPECIALIDADE."
+            )
+    elif role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para editar perfis."
+        )
+
+    # 3. Validações sobre o novo estado do perfil
+    if existing.tipo == "ESPECIALIDADE" and not perfil_in.especialidade:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A especialidade correspondente é obrigatória para perfis do tipo ESPECIALIDADE."
+        )
+
+    # Se alterou a especialidade, verifica duplicidade
+    if existing.tipo == "ESPECIALIDADE" and existing.especialidade != perfil_in.especialidade:
+        stmt = select(Profile).where(Profile.especialidade == perfil_in.especialidade)
+        result = await db.execute(stmt)
+        duplicate = result.scalar_one_or_none()
+        if duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Já existe um perfil cadastrado para a especialidade {perfil_in.especialidade}."
+            )
+
+    # Atualiza campos
+    existing.nome = perfil_in.nome.upper()
+    if existing.tipo == "ESPECIALIDADE":
+        existing.especialidade = perfil_in.especialidade
+
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+@router.delete("/{perfil_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_perfil(
+    perfil_id: str,
+    db: AsyncSession = Depends(get_app_db_session),
+    current_user: dict = Depends(auth_handler.decode_token)
+):
+    """
+    Exclui um perfil existente. Valida as regras hierárquicas e associação com usuários.
+    """
+    role = get_current_user_role(current_user)
+    
+    # 1. Busca o perfil existente
+    stmt = select(Profile).where(Profile.id == perfil_id)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfil não encontrado."
+        )
+
+    # 2. Validações Hierárquicas
+    if role == "ESPECIALIDADE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários com perfil ESPECIALIDADE não podem excluir perfis."
+        )
+    elif role == "GESTAO_LEC":
+        if existing.tipo != "ESPECIALIDADE":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuários GESTÃO LEC só podem excluir perfis do tipo ESPECIALIDADE."
+            )
+    elif role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para excluir perfis."
+        )
+
+    # 3. Verifica associação com usuários
+    stmt = select(User).where(User.perfil_id == perfil_id)
+    result = await db.execute(stmt)
+    associated_user = result.scalar_one_or_none()
+    if associated_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível excluir um perfil associado a usuários."
+        )
+
+    await db.delete(existing)
+    await db.commit()
+    return None

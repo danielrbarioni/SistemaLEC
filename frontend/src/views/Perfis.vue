@@ -45,7 +45,7 @@
                 </div>
               </div>
 
-              <div>
+              <div class="flex items-center space-x-2">
                 <Button 
                   v-if="perfisStore.perfilAtivoId !== perf.id"
                   @click="alterarPerfilAtivo(perf.id)"
@@ -57,6 +57,22 @@
                 <span v-else class="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
                   <span>✓ Ativo atualmente</span>
                 </span>
+
+                <!-- Ações para o Perfil -->
+                <template v-if="podeEditarOuExcluirPerfil(perf)">
+                  <button 
+                    @click="iniciarEdicaoPerfil(perf)" 
+                    class="text-indigo-600 hover:text-indigo-950 text-xs font-bold cursor-pointer px-2 py-1"
+                  >
+                    Editar
+                  </button>
+                  <button 
+                    @click="excluirPerfil(perf)" 
+                    class="text-red-600 hover:text-red-950 text-xs font-bold cursor-pointer px-2 py-1"
+                  >
+                    Excluir
+                  </button>
+                </template>
               </div>
             </div>
           </div>
@@ -94,6 +110,7 @@
                   <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nome / Username</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Perfil ID</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Especialidade</th>
+                  <th scope="col" class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
@@ -110,6 +127,23 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {{ user.especialidade || '—' }}
                   </td>
+                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <template v-if="podeEditarOuExcluirUsuario(user)">
+                      <button 
+                        @click="iniciarEdicao(user)" 
+                        class="text-indigo-600 hover:text-indigo-900 font-semibold cursor-pointer mr-3"
+                      >
+                        Editar
+                      </button>
+                      <button 
+                        @click="excluirUsuario(user.id)" 
+                        class="text-red-600 hover:text-red-900 font-semibold cursor-pointer"
+                      >
+                        Excluir
+                      </button>
+                    </template>
+                    <span v-else class="text-xs text-gray-400 italic">—</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -119,13 +153,13 @@
 
       <!-- Formulários de Criação (Lateral) -->
       <div class="lg:col-span-1 space-y-6">
-        <!-- Formulário: Criar Usuário -->
+        <!-- Formulário: Criar/Editar Usuário -->
         <Card>
           <template #header>
-            <h2 class="text-lg font-bold text-gray-800">Criar Usuário</h2>
+            <h2 class="text-lg font-bold text-gray-800">{{ editingUserId ? 'Editar Usuário' : 'Criar Usuário' }}</h2>
           </template>
 
-          <form @submit.prevent="criarUsuario" class="space-y-4">
+          <form @submit.prevent="salvarUsuario" class="space-y-4">
             <div class="form-group">
               <label for="usr_username" class="form-label font-semibold">Usuário (usuário Ebserh) <span class="text-red-500">*</span></label>
               <input 
@@ -160,31 +194,42 @@
               </select>
             </div>
 
-            <Button type="submit" variant="primary" class="w-full justify-center">
-              Criar Usuário
-            </Button>
+            <div class="flex space-x-2">
+              <Button type="submit" variant="primary" class="w-full justify-center">
+                {{ editingUserId ? 'Salvar' : 'Criar Usuário' }}
+              </Button>
+              <Button 
+                v-if="editingUserId" 
+                type="button" 
+                variant="default" 
+                @click="cancelarEdicao" 
+                class="w-full justify-center"
+              >
+                Cancelar
+              </Button>
+            </div>
           </form>
         </Card>
 
-        <!-- Formulário: Criar Novo Perfil -->
+        <!-- Formulário: Criar Novo Perfil / Editar Perfil -->
         <Card v-if="podeCriarPerfil">
           <template #header>
-            <h2 class="text-lg font-bold text-gray-800">Criar Novo Perfil</h2>
+            <h2 class="text-lg font-bold text-gray-800">{{ editingPerfilId ? 'Editar Perfil' : 'Criar Novo Perfil' }}</h2>
           </template>
 
-          <form @submit.prevent="criarPerfil" class="space-y-4">
+          <form @submit.prevent="salvarPerfil" class="space-y-4">
             <div class="form-group">
               <label for="tipo_perfil" class="form-label font-semibold">Tipo</label>
               <input 
                 id="tipo_perfil" 
                 type="text" 
-                value="Especialidade Cirúrgica" 
+                :value="getTipoLabel(perfilForm.tipo)" 
                 class="form-control bg-gray-100 cursor-not-allowed"
                 disabled
               />
             </div>
 
-            <div class="form-group">
+            <div v-if="perfilForm.tipo === 'ESPECIALIDADE'" class="form-group">
               <label for="especialidade" class="form-label font-semibold">Nome da Especialidade <span class="text-red-500">*</span></label>
               <input 
                 id="especialidade" 
@@ -196,9 +241,32 @@
               />
             </div>
 
-            <Button type="submit" variant="primary" class="w-full justify-center">
-              Criar Perfil
-            </Button>
+            <div v-if="perfilForm.tipo !== 'ESPECIALIDADE'" class="form-group">
+              <label for="nome_perfil" class="form-label font-semibold">Nome do Perfil <span class="text-red-500">*</span></label>
+              <input 
+                id="nome_perfil" 
+                v-model="perfilForm.nome" 
+                type="text" 
+                placeholder="Ex: ADMIN" 
+                class="form-control"
+                required
+              />
+            </div>
+
+            <div class="flex space-x-2">
+              <Button type="submit" variant="primary" class="w-full justify-center">
+                {{ editingPerfilId ? 'Salvar' : 'Criar Perfil' }}
+              </Button>
+              <Button 
+                v-if="editingPerfilId" 
+                type="button" 
+                variant="default" 
+                @click="cancelarEdicaoPerfil" 
+                class="w-full justify-center"
+              >
+                Cancelar
+              </Button>
+            </div>
           </form>
         </Card>
       </div>
@@ -218,10 +286,13 @@ const toast = useToast();
 const perfisStore = usePerfisStore();
 
 const usuarios = ref<any[]>([]);
+const editingUserId = ref<number | null>(null);
+const editingPerfilId = ref<string | null>(null);
 
 // Formulários
 const perfilForm = ref({
   nome: '',
+  tipo: 'ESPECIALIDADE',
   especialidade: ''
 });
 
@@ -269,49 +340,134 @@ const alterarPerfilAtivo = (id: string) => {
   toast.success('Perfil de utilização alterado!');
 };
 
-const criarPerfil = async () => {
-  if (!perfilForm.value.especialidade) {
+// Regras de Visualização/Permissão baseadas no perfil ativo para ações de editar/excluir perfis
+const podeEditarOuExcluirPerfil = (perf: any) => {
+  const tipoAtivo = perfisStore.perfilAtivo.tipo;
+  if (tipoAtivo === 'ADMIN') return true;
+  if (tipoAtivo === 'GESTAO_LEC') return perf.tipo === 'ESPECIALIDADE';
+  return false;
+};
+
+// Regras de Visualização/Permissão baseadas no perfil ativo para ações de editar/excluir usuários
+const podeEditarOuExcluirUsuario = (user: any) => {
+  const tipoAtivo = perfisStore.perfilAtivo.tipo;
+  const espAtivo = perfisStore.perfilAtivo.especialidade;
+
+  if (tipoAtivo === 'ADMIN') return true;
+  if (tipoAtivo === 'GESTAO_LEC') {
+    const perf = perfisStore.perfis.find(p => p.id === user.perfil_id);
+    return perf?.tipo === 'ESPECIALIDADE';
+  }
+  if (tipoAtivo === 'ESPECIALIDADE') {
+    return user.especialidade === espAtivo;
+  }
+  return false;
+};
+
+const iniciarEdicaoPerfil = (perf: any) => {
+  editingPerfilId.value = perf.id;
+  perfilForm.value.nome = perf.nome;
+  perfilForm.value.tipo = perf.tipo;
+  perfilForm.value.especialidade = perf.especialidade || '';
+};
+
+const cancelarEdicaoPerfil = () => {
+  editingPerfilId.value = null;
+  perfilForm.value.nome = '';
+  perfilForm.value.tipo = 'ESPECIALIDADE';
+  perfilForm.value.especialidade = '';
+};
+
+const salvarPerfil = async () => {
+  if (perfilForm.value.tipo === 'ESPECIALIDADE' && !perfilForm.value.especialidade) {
     toast.error('Informe o nome da especialidade.');
+    return;
+  }
+  if (perfilForm.value.tipo !== 'ESPECIALIDADE' && !perfilForm.value.nome) {
+    toast.error('Informe o nome do perfil.');
     return;
   }
 
   try {
-    const nomePerfil = perfilForm.value.especialidade.trim().toUpperCase();
-    await perfisStore.adicionarPerfil(
-      nomePerfil,
-      perfilForm.value.especialidade.trim()
-    );
+    const nomePerfil = perfilForm.value.tipo === 'ESPECIALIDADE' 
+      ? perfilForm.value.especialidade.trim().toUpperCase() 
+      : perfilForm.value.nome.trim().toUpperCase();
 
-    toast.success('Perfil criado com sucesso!');
-    perfilForm.value.especialidade = '';
-    
-    // Atualiza perfis
+    if (editingPerfilId.value) {
+      await api.put(`/api/perfis/${editingPerfilId.value}`, {
+        nome: nomePerfil,
+        especialidade: perfilForm.value.tipo === 'ESPECIALIDADE' ? perfilForm.value.especialidade.trim() : null
+      });
+      toast.success('Perfil atualizado com sucesso!');
+    } else {
+      await perfisStore.adicionarPerfil(
+        nomePerfil,
+        perfilForm.value.especialidade.trim()
+      );
+      toast.success('Perfil criado com sucesso!');
+    }
+
+    cancelarEdicaoPerfil();
     await perfisStore.fetchPerfis();
   } catch (error: any) {
-    const detail = error.response?.data?.detail || 'Erro ao criar perfil.';
+    const detail = error.response?.data?.detail || 'Erro ao salvar perfil.';
     toast.error(detail);
   }
 };
 
-const criarUsuario = async () => {
+const excluirPerfil = async (perf: any) => {
+  if (!confirm(`Tem certeza que deseja excluir o perfil "${perf.nome}"?`)) {
+    return;
+  }
   try {
-    await api.post('/api/usuarios', {
-      nome: usuarioForm.value.nome,
-      username: usuarioForm.value.username.trim(),
-      perfil_id: usuarioForm.value.perfil_id
-    });
+    await api.delete(`/api/perfis/${perf.id}`);
+    toast.success('Perfil excluído com sucesso!');
+    if (editingPerfilId.value === perf.id) {
+      cancelarEdicaoPerfil();
+    }
+    await perfisStore.fetchPerfis();
+  } catch (error: any) {
+    const detail = error.response?.data?.detail || 'Erro ao excluir perfil.';
+    toast.error(detail);
+  }
+};
 
-    toast.success('Usuário vinculado com sucesso!');
-    
-    // Limpa form
-    usuarioForm.value.nome = '';
-    usuarioForm.value.username = '';
-    usuarioForm.value.perfil_id = '';
+const iniciarEdicao = (user: any) => {
+  editingUserId.value = user.id;
+  usuarioForm.value.nome = user.nome;
+  usuarioForm.value.username = user.username;
+  usuarioForm.value.perfil_id = user.perfil_id;
+};
 
-    // Recarrega lista
+const cancelarEdicao = () => {
+  editingUserId.value = null;
+  usuarioForm.value.nome = '';
+  usuarioForm.value.username = '';
+  usuarioForm.value.perfil_id = '';
+};
+
+const salvarUsuario = async () => {
+  try {
+    if (editingUserId.value) {
+      await api.put(`/api/usuarios/${editingUserId.value}`, {
+        nome: usuarioForm.value.nome,
+        username: usuarioForm.value.username.trim(),
+        perfil_id: usuarioForm.value.perfil_id
+      });
+      toast.success('Usuário atualizado com sucesso!');
+    } else {
+      await api.post('/api/usuarios', {
+        nome: usuarioForm.value.nome,
+        username: usuarioForm.value.username.trim(),
+        perfil_id: usuarioForm.value.perfil_id
+      });
+      toast.success('Usuário vinculado com sucesso!');
+    }
+
+    cancelarEdicao();
     await loadUsuarios();
   } catch (error: any) {
-    const detail = error.response?.data?.detail || 'Erro ao vincular usuário.';
+    const detail = error.response?.data?.detail || 'Erro ao salvar usuário.';
     toast.error(detail);
   }
 };
@@ -331,6 +487,23 @@ const getTipoLabel = (tipo: string) => {
     case 'GESTAO_LEC': return 'Gestão da LEC';
     case 'ESPECIALIDADE': return 'Especialidade Cirúrgica';
     default: return tipo;
+  }
+};
+
+const excluirUsuario = async (id: number) => {
+  if (!confirm('Tem certeza que deseja excluir este usuário?')) {
+    return;
+  }
+  try {
+    await api.delete(`/api/usuarios/${id}`);
+    toast.success('Usuário excluído com sucesso!');
+    if (editingUserId.value === id) {
+      cancelarEdicao();
+    }
+    await loadUsuarios();
+  } catch (error: any) {
+    const detail = error.response?.data?.detail || 'Erro ao excluir usuário.';
+    toast.error(detail);
   }
 };
 
