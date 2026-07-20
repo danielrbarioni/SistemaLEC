@@ -9,3 +9,5 @@ class User(Base):
     nome = Column(String, nullable=False)
     perfil_id = Column(String, nullable=False) # Armazena o ID ou nome do perfil do usuário
     especialidade = Column(String, nullable=True) # Se for perfil Especialidade
+    funcao = Column(String, nullable=True) # "Médico", "Residente", "Enfermeiro" (para especialidades)
+

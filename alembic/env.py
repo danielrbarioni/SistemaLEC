@@ -33,6 +33,7 @@ from src.models.status_local import StatusLocal
 from src.models.refresh_token import RefreshToken
 from src.models.user import User
 from src.models.profile import Profile
+from src.models.user_creation_request import UserCreationRequest
 
 target_metadata = Base.metadata
 

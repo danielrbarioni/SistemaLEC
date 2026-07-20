@@ -45,9 +45,12 @@
           <span>Histórico</span>
         </router-link>
 
-        <router-link v-if="authStore.isAuthenticated" to="/perfis" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+        <router-link v-if="authStore.isAuthenticated" to="/perfis" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
           <UserGroupIcon class="h-6 w-6" />
           <span>Perfis</span>
+          <span v-if="mostrarBadgePerfis" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+            {{ countUsuarioSolicitacoesPendentes }}
+          </span>
         </router-link>
       </nav>
     </aside>
@@ -119,6 +122,7 @@ const authStore = useAuthStore();
 const perfisStore = usePerfisStore();
 
 const countPendentes = ref(0);
+const countUsuarioSolicitacoesPendentes = ref(0);
 
 const carregarCountPendentes = async () => {
   if (!authStore.isAuthenticated) return;
@@ -138,14 +142,35 @@ const carregarCountPendentes = async () => {
   }
 };
 
+const carregarCountUsuarioSolicitacoes = async () => {
+  if (!authStore.isAuthenticated) return;
+  const pAtivo = perfisStore.perfilAtivo;
+  if (!pAtivo || (pAtivo.tipo !== 'ADMIN' && pAtivo.tipo !== 'GESTAO_LEC')) {
+    countUsuarioSolicitacoesPendentes.value = 0;
+    return;
+  }
+  try {
+    const { data } = await api.get('/api/usuarios/solicitacoes/count');
+    countUsuarioSolicitacoesPendentes.value = data.count;
+  } catch (error) {
+    console.error('Erro ao carregar count de solicitações de usuário', error);
+  }
+};
+
 const mostrarBadgeSistemaLec = computed(() => {
   const p = perfisStore.perfilAtivo;
   return p && (p.tipo === 'ADMIN' || p.tipo === 'GESTAO_LEC') && countPendentes.value > 0;
 });
 
+const mostrarBadgePerfis = computed(() => {
+  const p = perfisStore.perfilAtivo;
+  return p && (p.tipo === 'ADMIN' || p.tipo === 'GESTAO_LEC') && countUsuarioSolicitacoesPendentes.value > 0;
+});
+
 // Monitora login, perfil ativo e alterações de rotas para atualizar o count
 watch([() => authStore.isAuthenticated, () => perfisStore.perfilAtivoId, () => route.path], () => {
   carregarCountPendentes();
+  carregarCountUsuarioSolicitacoes();
 }, { immediate: true });
 
 let intervalId: any = null;
@@ -153,7 +178,11 @@ let intervalId: any = null;
 onMounted(async () => {
   await perfisStore.fetchPerfis();
   carregarCountPendentes();
-  intervalId = setInterval(carregarCountPendentes, 10000);
+  carregarCountUsuarioSolicitacoes();
+  intervalId = setInterval(() => {
+    carregarCountPendentes();
+    carregarCountUsuarioSolicitacoes();
+  }, 10000);
 });
 
 onUnmounted(() => {

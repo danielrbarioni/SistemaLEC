@@ -96,7 +96,7 @@ async def serve_frontend(full_path: str):
         
     index_path = os.path.join("src", "static", "dist", "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path)
+        return FileResponse(index_path, headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"})
     return {"error": "Frontend build not found"}
 
 # Exemplo:
