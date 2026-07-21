@@ -1476,7 +1476,9 @@ const atualizarStatus = async (id: string, status: string) => {
   if (!confirmacao) return;
 
   try {
-    await api.put(`/api/solicitacoes/${id}/status`, { status });
+    const perfil_executor = perfisStore.perfilAtivo?.tipo || 'GESTAO_LEC';
+    const usuario = authStore.user?.username || 'Usuário Sistema';
+    await api.put(`/api/solicitacoes/${id}/status`, { status, perfil_executor, usuario });
     toast.success(`Solicitação ${status.toLowerCase()} com sucesso!`);
     await carregarSolicitacoes();
   } catch (error) {

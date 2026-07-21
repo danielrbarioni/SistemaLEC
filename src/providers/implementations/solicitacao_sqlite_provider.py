@@ -81,12 +81,13 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'perfil_executor': s.perfil_executor,
                 'usuario': getattr(s, 'usuario', '') or '',
                 'procedimento_anterior': s.procedimento_anterior,
-                'origem_menu': getattr(s, 'origem_menu', 'Sistema LEC') or 'Sistema LEC'
+                'origem_menu': getattr(s, 'origem_menu', 'Sistema LEC') or 'Sistema LEC',
+                'evento_tipo': getattr(s, 'evento_tipo', 'SOLICITACAO') or 'SOLICITACAO'
             }
             for s in solicitacoes
         ]
 
-    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str) -> Dict[str, Any]:
+    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
         stmt = select(Solicitacao).where(Solicitacao.id == id_solicitacao)
         result = await self.session.execute(stmt)
         solic = result.scalar_one_or_none()
@@ -94,7 +95,35 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         if not solic:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada no SQLite")
             
-        solic.status = novo_status.upper()
+        status_upper = novo_status.upper()
+        solic.status = status_upper
+        
+        # Cria uma nova entrada no histórico representando a RESPOSTA (decisão de gestão/admin)
+        data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
+        detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo})"
+
+        resposta_solic = Solicitacao(
+            id=str(uuid.uuid4())[:8],
+            tipo=solic.tipo,
+            especialidade=solic.especialidade,
+            procedimento=solic.procedimento,
+            codigo_paciente=solic.codigo_paciente,
+            nome_paciente=solic.nome_paciente,
+            judicializado=solic.judicializado,
+            swallis=solic.swallis,
+            medico_responsavel=solic.medico_responsavel,
+            detalhes=detalhes_resposta,
+            tempo_standby=solic.tempo_standby,
+            status=status_upper,
+            data_criacao=data_resposta,
+            perfil_executor=perfil_executor or "GESTAO_LEC",
+            usuario=usuario_executor or solic.usuario,
+            procedimento_anterior=solic.procedimento_anterior,
+            origem_menu=solic.origem_menu or "Sistema LEC",
+            evento_tipo="RESPOSTA"
+        )
+        self.session.add(resposta_solic)
         await self.session.commit()
         
         return {
@@ -112,7 +141,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'status': solic.status,
             'data_criacao': solic.data_criacao,
             'perfil_executor': solic.perfil_executor,
-            'procedimento_anterior': solic.procedimento_anterior
+            'procedimento_anterior': solic.procedimento_anterior,
+            'evento_tipo': 'SOLICITACAO'
         }
 
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:

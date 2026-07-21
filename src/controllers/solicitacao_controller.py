@@ -74,9 +74,11 @@ async def listar_solicitacoes(
 async def atualizar_status_solicitacao(
     id_solicitacao: str,
     novo_status: str,
-    provider: SolicitacaoProviderInterface
+    provider: SolicitacaoProviderInterface,
+    perfil_executor: str = "",
+    usuario_executor: str = ""
 ) -> Dict[str, Any]:
-    return await provider.atualizar_status_solicitacao(id_solicitacao, novo_status)
+    return await provider.atualizar_status_solicitacao(id_solicitacao, novo_status, perfil_executor, usuario_executor)
 
 async def salvar_status_local_paciente(
     codigo_paciente: str,

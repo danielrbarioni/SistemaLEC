@@ -35,6 +35,8 @@ class SolicitacaoCreate(BaseModel):
 
 class SolicitacaoStatusUpdate(BaseModel):
     status: str
+    perfil_executor: str = ""
+    usuario: str = ""
 
 class StatusLocalUpdate(BaseModel):
     status_local: str
@@ -47,11 +49,9 @@ async def criar_solicitacao(
 ):
     """Envia uma nova solicitação (Inserir, Editar, Excluir, Stand-by)."""
     data = solic.model_dump()
+    data["evento_tipo"] = "SOLICITACAO"
     if not data.get("usuario") and user_info:
-        display_name = user_info.get("displayName")
-        if isinstance(display_name, list) and len(display_name) > 0:
-            display_name = display_name[0]
-        data["usuario"] = display_name or user_info.get("name") or user_info.get("username") or user_info.get("sub", "")
+        data["usuario"] = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
     return await solicitacao_controller.criar_solicitacao(data, provider)
 
 @router.get("", response_model=List[dict])
@@ -82,10 +82,21 @@ async def obter_solicitacao_por_paciente(
 async def atualizar_status_solicitacao(
     id_solicitacao: str,
     status_update: SolicitacaoStatusUpdate,
-    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY))
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    user_info: dict = Depends(auth_handler.decode_token)
 ):
-    """Atualiza o status de processamento da solicitação."""
-    return await solicitacao_controller.atualizar_status_solicitacao(id_solicitacao, status_update.status, provider)
+    """Atualiza o status de processamento da solicitação e grava uma linha de Resposta no histórico."""
+    usuario_executor = status_update.usuario
+    if not usuario_executor and user_info:
+        usuario_executor = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
+
+    return await solicitacao_controller.atualizar_status_solicitacao(
+        id_solicitacao=id_solicitacao,
+        novo_status=status_update.status,
+        perfil_executor=status_update.perfil_executor,
+        usuario_executor=usuario_executor,
+        provider=provider
+    )
 
 # Rotas extras para status locais sob o prefixo /api/pacientes para conveniência
 pacientes_status_router = APIRouter(

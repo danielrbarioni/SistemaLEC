@@ -7,35 +7,115 @@
       </span>
     </div>
 
-    <!-- Filtros -->
+    <!-- Filtros de Busca -->
     <Card>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Filtro por Especialidade -->
-        <div class="form-group">
-          <label for="filtroEspecialidade" class="form-label font-semibold">Especialidade</label>
-          <select id="filtroEspecialidade" v-model="filtroEspecialidade" class="form-control">
-            <option value="">Todas</option>
-            <option v-for="esp in especialidades" :key="esp" :value="esp">
-              {{ esp }}
-            </option>
-          </select>
+      <div class="space-y-4">
+        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+          <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">Filtros de Busca</h2>
+          <button 
+            @click="limparFiltros" 
+            class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+          >
+            🔄 Limpar Filtros
+          </button>
         </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- 1. Especialidade -->
+          <div class="form-group">
+            <label for="filtroEspecialidade" class="form-label font-semibold">Especialidade</label>
+            <select id="filtroEspecialidade" v-model="filtroEspecialidade" class="form-control text-xs">
+              <option value="">Todas</option>
+              <option v-for="esp in especialidades" :key="esp" :value="esp">
+                {{ esp }}
+              </option>
+            </select>
+          </div>
 
-        <!-- Filtro por Data Inicial -->
-        <div class="form-group">
-          <label for="dataInicio" class="form-label font-semibold">Data De</label>
-          <input id="dataInicio" v-model="dataInicio" type="date" class="form-control" />
-        </div>
+          <!-- 2. Data De -->
+          <div class="form-group">
+            <label for="dataInicio" class="form-label font-semibold">Data De</label>
+            <input id="dataInicio" v-model="dataInicio" type="date" class="form-control text-xs" />
+          </div>
 
-        <!-- Filtro por Data Final -->
-        <div class="form-group">
-          <label for="dataFim" class="form-label font-semibold">Data Até</label>
-          <input id="dataFim" v-model="dataFim" type="date" class="form-control" />
+          <!-- 3. Data Até -->
+          <div class="form-group">
+            <label for="dataFim" class="form-label font-semibold">Data Até</label>
+            <input id="dataFim" v-model="dataFim" type="date" class="form-control text-xs" />
+          </div>
+
+          <!-- 4. Origem / Menu -->
+          <div class="form-group">
+            <label for="filtroOrigemMenu" class="form-label font-semibold">Origem / Menu</label>
+            <select id="filtroOrigemMenu" v-model="filtroOrigemMenu" class="form-control text-xs">
+              <option value="">Todas</option>
+              <option value="Sistema LEC">Sistema LEC</option>
+              <option value="Pacientes">Pacientes</option>
+              <option value="Perfis">Perfis</option>
+            </select>
+          </div>
+
+          <!-- 5. Prontuário / Paciente -->
+          <div class="form-group">
+            <label for="filtroPaciente" class="form-label font-semibold">Prontuário / Paciente</label>
+            <input 
+              id="filtroPaciente" 
+              v-model="filtroPaciente" 
+              type="text" 
+              placeholder="Digite o prontuário ou nome..." 
+              class="form-control text-xs" 
+            />
+          </div>
+
+          <!-- 6. Ação / Tipo -->
+          <div class="form-group">
+            <label for="filtroAcaoTipo" class="form-label font-semibold">Ação / Tipo</label>
+            <select id="filtroAcaoTipo" v-model="filtroAcaoTipo" class="form-control text-xs">
+              <option value="">Todas</option>
+              <option value="INSERIR">Inclusão</option>
+              <option value="EDITAR">Edição</option>
+              <option value="STANDBY">Standby</option>
+              <option value="EXCLUIR">Exclusão</option>
+              <option value="SOLICITAR_APA">Solicitação APA</option>
+            </select>
+          </div>
+
+          <!-- 7. Solicitação ou Resposta -->
+          <div class="form-group">
+            <label for="filtroEventoTipo" class="form-label font-semibold">Solicitação ou Resposta</label>
+            <select id="filtroEventoTipo" v-model="filtroEventoTipo" class="form-control text-xs">
+              <option value="">Todas</option>
+              <option value="SOLICITACAO">Solicitação</option>
+              <option value="RESPOSTA">Resposta</option>
+            </select>
+          </div>
+
+          <!-- 8. Status -->
+          <div class="form-group">
+            <label for="filtroStatus" class="form-label font-semibold">Status</label>
+            <select id="filtroStatus" v-model="filtroStatus" class="form-control text-xs">
+              <option value="">Todos</option>
+              <option value="PENDENTE">PENDENTE</option>
+              <option value="APROVADO">APROVADO</option>
+              <option value="REJEITADO">REJEITADO</option>
+            </select>
+          </div>
+
+          <!-- 9. Usuário Executor -->
+          <div class="form-group md:col-span-4">
+            <label for="filtroUsuario" class="form-label font-semibold">Usuário Executor (Ebserh)</label>
+            <input 
+              id="filtroUsuario" 
+              v-model="filtroUsuario" 
+              type="text" 
+              placeholder="Digite o nome de usuário (ex.: nome.sobrenome)..." 
+              class="form-control text-xs" 
+            />
+          </div>
         </div>
       </div>
     </Card>
 
-    <!-- Lista de Solicitações -->
+    <!-- Lista de Solicitações/Respostas -->
     <Card>
       <div v-if="loading" class="flex justify-center items-center py-8">
         <LoadingIndicator />
@@ -96,7 +176,7 @@
               <!-- 6. Solicitação ou Resposta -->
               <td class="px-4 py-4 text-xs text-gray-600 max-w-xs" :title="solic.detalhes">
                 <div class="flex items-center space-x-1.5 mb-1">
-                  <span v-if="solic.is_resposta || solic.status === 'APROVADO' || solic.status === 'REJEITADO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span v-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     Resposta
                   </span>
                   <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
@@ -142,9 +222,16 @@ const toast = useToast();
 const solicitacoes = ref<any[]>([]);
 const loading = ref(false);
 
+// Filtros
 const filtroEspecialidade = ref('');
 const dataInicio = ref('');
 const dataFim = ref('');
+const filtroOrigemMenu = ref('');
+const filtroPaciente = ref('');
+const filtroAcaoTipo = ref('');
+const filtroEventoTipo = ref('');
+const filtroStatus = ref('');
+const filtroUsuario = ref('');
 
 const especialidades = [
   'Cardiologia',
@@ -158,6 +245,18 @@ const especialidades = [
   'Torácica',
   'Urologia'
 ];
+
+const limparFiltros = () => {
+  filtroEspecialidade.value = '';
+  dataInicio.value = '';
+  dataFim.value = '';
+  filtroOrigemMenu.value = '';
+  filtroPaciente.value = '';
+  filtroAcaoTipo.value = '';
+  filtroEventoTipo.value = '';
+  filtroStatus.value = '';
+  filtroUsuario.value = '';
+};
 
 const carregarHistorico = async () => {
   loading.value = true;
@@ -218,25 +317,57 @@ const getStatusBadgeClass = (status: string) => {
 const solicitacoesFiltradas = computed(() => {
   return solicitacoes.value
     .filter(s => {
-      // 1. Filtro de Especialidade (case insensitive / partial matching)
-      let matchEsp = true;
-      if (filtroEspecialidade.value) {
-        matchEsp = !!(s.especialidade && s.especialidade.toLowerCase().includes(filtroEspecialidade.value.toLowerCase()));
+      // 1. Especialidade
+      if (filtroEspecialidade.value && !(s.especialidade && s.especialidade.toLowerCase().includes(filtroEspecialidade.value.toLowerCase()))) {
+        return false;
       }
 
       // 2. Filtro de Data
-      let matchData = true;
       if (s.data_criacao) {
         const solicDataOnly = s.data_criacao.split(' ')[0]; // YYYY-MM-DD
-        if (dataInicio.value && solicDataOnly < dataInicio.value) {
-          matchData = false;
-        }
-        if (dataFim.value && solicDataOnly > dataFim.value) {
-          matchData = false;
-        }
+        if (dataInicio.value && solicDataOnly < dataInicio.value) return false;
+        if (dataFim.value && solicDataOnly > dataFim.value) return false;
       }
 
-      return matchEsp && matchData;
+      // 3. Origem / Menu
+      if (filtroOrigemMenu.value) {
+        const origem = s.origem_menu || 'Sistema LEC';
+        if (origem.toLowerCase() !== filtroOrigemMenu.value.toLowerCase()) return false;
+      }
+
+      // 4. Prontuário / Paciente
+      if (filtroPaciente.value) {
+        const term = filtroPaciente.value.toLowerCase();
+        const codMatch = String(s.codigo_paciente || '').toLowerCase().includes(term);
+        const nomeMatch = (s.nome_paciente || '').toLowerCase().includes(term);
+        if (!codMatch && !nomeMatch) return false;
+      }
+
+      // 5. Ação / Tipo
+      if (filtroAcaoTipo.value && s.tipo !== filtroAcaoTipo.value) {
+        return false;
+      }
+
+      // 6. Solicitação ou Resposta
+      if (filtroEventoTipo.value) {
+        const isResp = s.evento_tipo === 'RESPOSTA' || s.is_resposta;
+        if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
+        if (filtroEventoTipo.value === 'SOLICITACAO' && isResp) return false;
+      }
+
+      // 7. Status
+      if (filtroStatus.value && s.status !== filtroStatus.value) {
+        return false;
+      }
+
+      // 8. Usuário Executor
+      if (filtroUsuario.value) {
+        const termUser = filtroUsuario.value.toLowerCase();
+        const uName = (s.username || s.usuario || s.user || '').toLowerCase();
+        if (!uName.includes(termUser)) return false;
+      }
+
+      return true;
     })
     // Ordena do mais recente para o mais antigo (descending)
     .sort((a, b) => b.data_criacao.localeCompare(a.data_criacao));

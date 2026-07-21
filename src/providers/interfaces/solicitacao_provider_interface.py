@@ -15,8 +15,8 @@ class SolicitacaoProviderInterface(ABC):
         pass
 
     @abstractmethod
-    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str) -> Dict[str, Any]:
-        """Atualiza o status de uma solicitação (Pendente, Aprovada, Rejeitada)."""
+    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
+        """Atualiza o status de uma solicitação e registra o evento de resposta no histórico."""
         pass
 
     @abstractmethod
