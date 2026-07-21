@@ -101,6 +101,7 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         
         for solic in solicitacoes:
             if solic['id'] == id_solicitacao:
+                solic['status'] = novo_status.upper()
                 solic_original = solic
                 encontrado = True
                 break
