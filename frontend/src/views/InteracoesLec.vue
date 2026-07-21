@@ -423,15 +423,26 @@
           :key="aba.id" 
           @click="abaAcompanhamentoAtiva = aba.id"
           :class="[
-            'flex-1 py-2 text-xs font-bold rounded-md transition duration-200 whitespace-nowrap px-3',
+            'flex-1 py-2 text-xs font-bold rounded-md transition duration-200 whitespace-nowrap px-3 flex items-center justify-center space-x-2',
             abaAcompanhamentoAtiva === aba.id 
               ? 'bg-indigo-600 text-white shadow-sm' 
               : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
           ]"
         >
-          <span class="flex items-center justify-center space-x-1.5">
+          <span class="flex items-center space-x-1.5">
             <component :is="aba.icon" class="h-4 w-4" />
             <span>{{ aba.nome }}</span>
+          </span>
+          <span 
+            v-if="contagemPendenciasPorTipo[aba.id] > 0"
+            :class="[
+              'px-2 py-0.5 text-[11px] font-bold rounded-full transition-colors',
+              abaAcompanhamentoAtiva === aba.id
+                ? 'bg-white text-indigo-700 shadow-sm'
+                : 'bg-red-600 text-white'
+            ]"
+          >
+            {{ contagemPendenciasPorTipo[aba.id] }}
           </span>
         </button>
       </div>
@@ -861,6 +872,32 @@ const abasAcompanhamento = [
   { id: 'STANDBY', nome: 'Solicitações de Standby', icon: PauseIcon },
   { id: 'EXCLUIR', nome: 'Solicitações de Exclusão', icon: TrashIcon }
 ];
+
+// Contagem de solicitações PENDENTES por tipo (respeitando o filtro de especialidade do perfil ativo)
+const contagemPendenciasPorTipo = computed(() => {
+  const counts: Record<string, number> = {
+    INSERIR: 0,
+    EDITAR: 0,
+    STANDBY: 0,
+    EXCLUIR: 0
+  };
+
+  const activeSpecialty = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
+    ? perfisStore.perfilAtivo.especialidade.toLowerCase()
+    : null;
+
+  solicitacoes.value.forEach(s => {
+    if (s.status === 'PENDENTE') {
+      if (!activeSpecialty || (s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialty))) {
+        if (counts[s.tipo] !== undefined) {
+          counts[s.tipo]++;
+        }
+      }
+    }
+  });
+
+  return counts;
+});
 
 // Para abas de ação com múltiplos procedimentos
 const procedimentosPaciente = ref<any[]>([]);
