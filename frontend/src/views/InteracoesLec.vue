@@ -1191,6 +1191,18 @@ const buscarDados = async (isAutomatic = false) => {
       const codProntuario = String(form.value.codigo_paciente);
 
       const solicsDosPac = allSolics.filter(s => String(s.codigo_paciente) === codProntuario);
+      
+      // Verifica se o paciente possui inclusão no sistema LEC (solicitação de INSERIR)
+      const temInclusaoNaLec = solicsDosPac.some(s => s.tipo === 'INSERIR');
+      
+      if (!temInclusaoNaLec) {
+        if (!isAutomatic) {
+          toast.error('Paciente não incluído no Sistema de Gestão LEC HC-UFPE');
+        }
+        limparFormulario();
+        return;
+      }
+
       let procs: any[] = [];
       
       if (solicsDosPac.length > 0) {
