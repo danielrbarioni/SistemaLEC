@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-800">Histórico de Solicitações</h1>
+      <h1 class="text-2xl font-bold text-gray-800">Histórico de Solicitações/Respostas</h1>
       <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full border border-gray-200">
         Acompanhamento de Ações
       </span>
@@ -41,7 +41,7 @@
         <LoadingIndicator />
       </div>
       <div v-else-if="solicitacoesFiltradas.length === 0" class="text-center py-10 text-gray-500">
-        Nenhuma solicitação encontrada para os filtros selecionados.
+        Nenhuma solicitação ou resposta encontrada para os filtros selecionados.
       </div>
       <div v-else class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -94,8 +94,16 @@
               </td>
 
               <!-- 6. Solicitação ou Resposta -->
-              <td class="px-4 py-4 text-xs text-gray-600 max-w-xs truncate" :title="solic.detalhes">
-                {{ solic.detalhes || '—' }}
+              <td class="px-4 py-4 text-xs text-gray-600 max-w-xs" :title="solic.detalhes">
+                <div class="flex items-center space-x-1.5 mb-1">
+                  <span v-if="solic.is_resposta || solic.status === 'APROVADO' || solic.status === 'REJEITADO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                    Resposta
+                  </span>
+                  <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                    Solicitação
+                  </span>
+                </div>
+                <div class="truncate">{{ solic.detalhes || '—' }}</div>
               </td>
 
               <!-- 7. Status -->
@@ -103,15 +111,15 @@
                 <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
               </td>
 
-              <!-- 8. Perfil executor/Usuário Executor -->
+              <!-- 8. Perfil executor/Usuário Executor (Usuário Ebserh) -->
               <td class="px-4 py-4 text-xs">
                 <div v-if="solic.perfil_executor" class="mb-0.5">
                   <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200">
                     {{ solic.perfil_executor }}
                   </span>
                 </div>
-                <div class="text-gray-700 font-medium">
-                  {{ solic.usuario || solic.username || solic.user || '—' }}
+                <div class="text-indigo-900 font-mono font-medium">
+                  {{ solic.username || solic.usuario || solic.user || '—' }}
                 </div>
               </td>
             </tr>
