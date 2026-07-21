@@ -96,9 +96,9 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada no SQLite")
             
         status_upper = novo_status.upper()
-        solic.status = status_upper
+        # Não alteramos o solic.status da solicitação original (permanece PENDENTE / SOLICITACAO)
         
-        # Cria uma nova entrada no histórico representando a RESPOSTA (decisão de gestão/admin)
+        # Cria uma nova entrada no histórico representando especificamente a RESPOSTA
         data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
         detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo})"

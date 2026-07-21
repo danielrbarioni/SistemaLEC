@@ -94,30 +94,62 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
                 solicitacoes.append(row)
         return solicitacoes
 
-    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str) -> Dict[str, Any]:
+    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
         solicitacoes = await self.listar_solicitacoes()
         encontrado = False
-        solicitacao_atualizada = {}
+        solic_original = None
         
         for solic in solicitacoes:
             if solic['id'] == id_solicitacao:
-                solic['status'] = novo_status.upper()
-                solic['data_acao'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                solicitacao_atualizada = solic
+                solic_original = solic
                 encontrado = True
                 break
                 
-        if not encontrado:
+        if not encontrado or not solic_original:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
-            
+
+        # Registra a nova linha de RESPOSTA
+        status_upper = novo_status.upper()
+        acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
+        detalhes_resposta = f"{acao_verb} a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')})"
+
+        resposta_solic = {
+            'id': str(uuid.uuid4())[:8],
+            'tipo': solic_original.get('tipo', 'INSERIR'),
+            'especialidade': solic_original.get('especialidade', ''),
+            'procedimento': solic_original.get('procedimento', ''),
+            'codigo_paciente': solic_original.get('codigo_paciente', ''),
+            'nome_paciente': solic_original.get('nome_paciente', ''),
+            'judicializado': solic_original.get('judicializado', 'Não'),
+            'swalis': solic_original.get('swalis', ''),
+            'medico_responsavel': solic_original.get('medico_responsavel', ''),
+            'detalhes': detalhes_resposta,
+            'tempo_standby': solic_original.get('tempo_standby', ''),
+            'status': status_upper,
+            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'perfil_executor': perfil_executor or "GESTAO_LEC",
+            'usuario': usuario_executor or solic_original.get('usuario', ''),
+            'procedimento_anterior': solic_original.get('procedimento_anterior', ''),
+            'origem_menu': solic_original.get('origem_menu', 'Sistema LEC'),
+            'evento_tipo': 'RESPOSTA',
+            'data_acao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        solicitacoes.append(resposta_solic)
+
         # Re-escrever o arquivo
         with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
             if solicitacoes:
-                writer = csv.DictWriter(f, fieldnames=solicitacoes[0].keys())
+                fieldnames = list(solicitacoes[0].keys())
+                if 'evento_tipo' not in fieldnames:
+                    fieldnames.append('evento_tipo')
+                if 'origem_menu' not in fieldnames:
+                    fieldnames.append('origem_menu')
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
                 writer.writeheader()
                 writer.writerows(solicitacoes)
                 
-        return solicitacao_atualizada
+        return solic_original
 
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:
         status_atualizados = []

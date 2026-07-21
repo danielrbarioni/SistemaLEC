@@ -20,30 +20,19 @@
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <!-- 1. Especialidade -->
-          <div class="form-group">
-            <label for="filtroEspecialidade" class="form-label font-semibold">Especialidade</label>
-            <select id="filtroEspecialidade" v-model="filtroEspecialidade" class="form-control text-xs">
-              <option value="">Todas</option>
-              <option v-for="esp in especialidades" :key="esp" :value="esp">
-                {{ esp }}
-              </option>
-            </select>
-          </div>
-
-          <!-- 2. Data De -->
+          <!-- 1. Data De -->
           <div class="form-group">
             <label for="dataInicio" class="form-label font-semibold">Data De</label>
             <input id="dataInicio" v-model="dataInicio" type="date" class="form-control text-xs" />
           </div>
 
-          <!-- 3. Data Até -->
+          <!-- 2. Data Até -->
           <div class="form-group">
             <label for="dataFim" class="form-label font-semibold">Data Até</label>
             <input id="dataFim" v-model="dataFim" type="date" class="form-control text-xs" />
           </div>
 
-          <!-- 4. Origem / Menu -->
+          <!-- 3. Origem / Menu -->
           <div class="form-group">
             <label for="filtroOrigemMenu" class="form-label font-semibold">Origem / Menu</label>
             <select id="filtroOrigemMenu" v-model="filtroOrigemMenu" class="form-control text-xs">
@@ -54,7 +43,7 @@
             </select>
           </div>
 
-          <!-- 5. Prontuário / Paciente -->
+          <!-- 4. Prontuário / Paciente -->
           <div class="form-group">
             <label for="filtroPaciente" class="form-label font-semibold">Prontuário / Paciente</label>
             <input 
@@ -66,9 +55,20 @@
             />
           </div>
 
-          <!-- 6. Ação / Tipo -->
+          <!-- 5. Especialidade -->
           <div class="form-group">
-            <label for="filtroAcaoTipo" class="form-label font-semibold">Ação / Tipo</label>
+            <label for="filtroEspecialidade" class="form-label font-semibold">Especialidade</label>
+            <select id="filtroEspecialidade" v-model="filtroEspecialidade" class="form-control text-xs">
+              <option value="">Todas</option>
+              <option v-for="esp in especialidadesDisponiveis" :key="esp" :value="esp">
+                {{ esp }}
+              </option>
+            </select>
+          </div>
+
+          <!-- 6. Ação -->
+          <div class="form-group">
+            <label for="filtroAcaoTipo" class="form-label font-semibold">Ação</label>
             <select id="filtroAcaoTipo" v-model="filtroAcaoTipo" class="form-control text-xs">
               <option value="">Todas</option>
               <option value="INSERIR">Inclusão</option>
@@ -102,7 +102,7 @@
 
           <!-- 9. Usuário Executor -->
           <div class="form-group md:col-span-4">
-            <label for="filtroUsuario" class="form-label font-semibold">Usuário Executor (Ebserh)</label>
+            <label for="filtroUsuario" class="form-label font-semibold">Usuário Executor</label>
             <input 
               id="filtroUsuario" 
               v-model="filtroUsuario" 
@@ -131,7 +131,7 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origem / Menu</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário / Paciente</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade / Procedimento</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação / Tipo</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitação ou Resposta</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perfil Executor / Usuário Executor</th>
@@ -216,8 +216,10 @@ import { useToast } from 'vue-toastification';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
+import { usePerfisStore } from '../stores/perfis';
 
 const toast = useToast();
+const perfisStore = usePerfisStore();
 
 const solicitacoes = ref<any[]>([]);
 const loading = ref(false);
@@ -233,18 +235,28 @@ const filtroEventoTipo = ref('');
 const filtroStatus = ref('');
 const filtroUsuario = ref('');
 
-const especialidades = [
-  'Cardiologia',
-  'Cirurgia Geral',
-  'Ginecologia',
-  'Neurocirurgia',
-  'Oftalmologia',
-  'Ortopedia',
-  'Otorrinolaringologia',
-  'Plástica',
-  'Torácica',
-  'Urologia'
-];
+const especialidadesDisponiveis = computed(() => {
+  const perfisEspecialidades = perfisStore.perfis
+    .filter(p => p.tipo === 'ESPECIALIDADE')
+    .map(p => p.especialidade || p.nome)
+    .filter(Boolean);
+
+  const setEsp = new Set([
+    ...perfisEspecialidades,
+    'Cardiologia',
+    'Cirurgia Geral',
+    'Ginecologia',
+    'Neurocirurgia',
+    'Oftalmologia',
+    'Ortopedia',
+    'Otorrinolaringologia',
+    'Plástica',
+    'Torácica',
+    'Urologia'
+  ]);
+
+  return Array.from(setEsp).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+});
 
 const limparFiltros = () => {
   filtroEspecialidade.value = '';
@@ -374,6 +386,7 @@ const solicitacoesFiltradas = computed(() => {
 });
 
 onMounted(() => {
+  perfisStore.fetchPerfis();
   carregarHistorico();
 });
 </script>
