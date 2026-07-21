@@ -62,10 +62,11 @@
           <h1 class="text-2xl font-semibold text-paper-text">{{ $route.name }}</h1>
         </div>
         <div class="flex items-center space-x-4">
-          <!-- Profile Switcher for Dev/Testing -->
+          <!-- Profile Switcher -->
           <div v-if="authStore.isAuthenticated" class="flex items-center space-x-2 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 shadow-sm">
             <span class="text-[10px] uppercase font-bold text-gray-400">Perfil:</span>
             <select 
+              v-if="authStore.isAdmin"
               v-model="perfisStore.perfilAtivoId"
               @change="perfisStore.setPerfilAtivo(perfisStore.perfilAtivoId)"
               class="text-xs font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer"
@@ -74,6 +75,9 @@
                 {{ perf.nome }}
               </option>
             </select>
+            <span v-else class="text-xs font-semibold text-gray-700 px-1">
+              {{ perfisStore.perfilAtivo.nome }}
+            </span>
           </div>
 
           <router-link v-if="!authStore.isAuthenticated" to="/login">

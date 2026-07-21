@@ -24,7 +24,7 @@
 
           <div class="divide-y divide-gray-200">
             <div 
-              v-for="perf in perfisStore.perfis" 
+              v-for="perf in perfisOrdenados" 
               :key="perf.id" 
               class="py-4 flex items-center justify-between first:pt-0 last:pb-0"
             >
@@ -47,14 +47,14 @@
 
               <div class="flex items-center space-x-2">
                 <Button 
-                  v-if="perfisStore.perfilAtivoId !== perf.id"
+                  v-if="authStore.isAdmin && perfisStore.perfilAtivoId !== perf.id"
                   @click="alterarPerfilAtivo(perf.id)"
                   variant="primary" 
                   size="sm"
                 >
                   Ativar Perfil
                 </Button>
-                <span v-else class="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
+                <span v-else-if="perfisStore.perfilAtivoId === perf.id" class="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
                   <span>✓ Ativo atualmente</span>
                 </span>
 
@@ -492,12 +492,14 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import { usePerfisStore } from '../stores/perfis';
+import { useAuthStore } from '../stores/auth';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
+const authStore = useAuthStore();
 
 const usuarios = ref<any[]>([]);
 const solicitacoes = ref<any[]>([]);
@@ -574,9 +576,27 @@ const uniquePerfisIds = computed(() => {
   return Array.from(new Set(ids));
 });
 
-// Tabela filtrada
+// Ordenação customizada de Perfis: 1) ADMIN, 2) GESTÃO LEC, 3) ESPECIALIDADES CIRÚRGICAS (alfabética)
+const perfisOrdenados = computed(() => {
+  return [...perfisStore.perfis].sort((a, b) => {
+    const getPeso = (p: any) => {
+      if (p.tipo === 'ADMIN') return 1;
+      if (p.tipo === 'GESTAO_LEC') return 2;
+      return 3;
+    };
+    const pesoA = getPeso(a);
+    const pesoB = getPeso(b);
+    if (pesoA !== pesoB) return pesoA - pesoB;
+
+    const nomeA = (a.especialidade || a.nome || '').trim();
+    const nomeB = (b.especialidade || b.nome || '').trim();
+    return nomeA.localeCompare(nomeB, 'pt-BR');
+  });
+});
+
+// Tabela filtrada e ordenada: 1) ADMIN, 2) GESTÃO LEC, 3) Especialidades (alfabética) e Usuários (alfabética)
 const usuariosFiltrados = computed(() => {
-  return usuarios.value.filter(user => {
+  const lista = usuarios.value.filter(user => {
     // Filtro obrigatório para perfil ESPECIALIDADE
     if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE') {
       if (user.especialidade !== perfisStore.perfilAtivo.especialidade) {
@@ -604,6 +624,36 @@ const usuariosFiltrados = computed(() => {
     }
 
     return true;
+  });
+
+  return lista.sort((a, b) => {
+    const perfA = perfisStore.perfis.find(p => p.id === a.perfil_id) || { tipo: 'ESPECIALIDADE', especialidade: a.especialidade || '' };
+    const perfB = perfisStore.perfis.find(p => p.id === b.perfil_id) || { tipo: 'ESPECIALIDADE', especialidade: b.especialidade || '' };
+
+    const getPeso = (p: any) => {
+      if (p.tipo === 'ADMIN') return 1;
+      if (p.tipo === 'GESTAO_LEC') return 2;
+      return 3;
+    };
+
+    const pesoA = getPeso(perfA);
+    const pesoB = getPeso(perfB);
+
+    if (pesoA !== pesoB) return pesoA - pesoB;
+
+    // Se ambos forem ADMIN ou GESTÃO LEC, ordena por nome do usuário
+    if (pesoA === 1 || pesoA === 2) {
+      return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
+    }
+
+    // Se forem de especialidades, ordena primeiro por especialidade (alfabética)
+    const espA = (a.especialidade || perfA.especialidade || '').trim();
+    const espB = (b.especialidade || perfB.especialidade || '').trim();
+    const diffEsp = espA.localeCompare(espB, 'pt-BR');
+    if (diffEsp !== 0) return diffEsp;
+
+    // Dentro da mesma especialidade, ordena por nome do usuário (alfabética)
+    return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
   });
 });
 

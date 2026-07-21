@@ -29,7 +29,9 @@ class SolicitacaoCreate(BaseModel):
     detalhes: str
     tempo_standby: int = None
     perfil_executor: str = ""
+    usuario: str = ""
     procedimento_anterior: str = ""
+    origem_menu: str = "Sistema LEC"
 
 class SolicitacaoStatusUpdate(BaseModel):
     status: str
@@ -40,10 +42,17 @@ class StatusLocalUpdate(BaseModel):
 @router.post("", response_model=dict)
 async def criar_solicitacao(
     solic: SolicitacaoCreate,
-    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY))
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    user_info: dict = Depends(auth_handler.decode_token)
 ):
     """Envia uma nova solicitação (Inserir, Editar, Excluir, Stand-by)."""
-    return await solicitacao_controller.criar_solicitacao(solic.model_dump(), provider)
+    data = solic.model_dump()
+    if not data.get("usuario") and user_info:
+        display_name = user_info.get("displayName")
+        if isinstance(display_name, list) and len(display_name) > 0:
+            display_name = display_name[0]
+        data["usuario"] = display_name or user_info.get("name") or user_info.get("username") or user_info.get("sub", "")
+    return await solicitacao_controller.criar_solicitacao(data, provider)
 
 @router.get("", response_model=List[dict])
 async def listar_solicitacoes(

@@ -29,7 +29,9 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             status='PENDENTE',
             data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             perfil_executor=solicitacao.get('perfil_executor', ''),
-            procedimento_anterior=solicitacao.get('procedimento_anterior', '')
+            usuario=solicitacao.get('usuario', ''),
+            procedimento_anterior=solicitacao.get('procedimento_anterior', ''),
+            origem_menu=solicitacao.get('origem_menu', 'Sistema LEC')
         )
         
         self.session.add(nova_solic)
@@ -51,7 +53,9 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'status': nova_solic.status,
             'data_criacao': nova_solic.data_criacao,
             'perfil_executor': nova_solic.perfil_executor,
-            'procedimento_anterior': nova_solic.procedimento_anterior
+            'usuario': nova_solic.usuario,
+            'procedimento_anterior': nova_solic.procedimento_anterior,
+            'origem_menu': nova_solic.origem_menu
         }
 
     async def listar_solicitacoes(self) -> List[Dict[str, Any]]:
@@ -75,7 +79,9 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'status': s.status,
                 'data_criacao': s.data_criacao,
                 'perfil_executor': s.perfil_executor,
-                'procedimento_anterior': s.procedimento_anterior
+                'usuario': getattr(s, 'usuario', '') or '',
+                'procedimento_anterior': s.procedimento_anterior,
+                'origem_menu': getattr(s, 'origem_menu', 'Sistema LEC') or 'Sistema LEC'
             }
             for s in solicitacoes
         ]

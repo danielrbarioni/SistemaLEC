@@ -36,9 +36,17 @@ async def lifespan(app: FastAPI):
     app.state.app_db = DatabaseManager(app_dsn)
     print("App SQLite connection pool initialized.")
 
-    # Create tables for App DB (if they don't exist) - for development only, Alembic handles this in production
     async with app.state.app_db.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        from sqlalchemy import text
+        try:
+            await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN usuario TEXT;"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN origem_menu TEXT;"))
+        except Exception:
+            pass
     print("App SQLite tables checked/created.")
 
     yield

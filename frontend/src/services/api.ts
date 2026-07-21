@@ -45,6 +45,15 @@ const mockPacientesEspecialidades = [
   { codigo: 'HC-7750386', nome: 'FABIO AZEVEDO CUNHA',     procedimento: 'Ressecção de Nódulo Pulmonar', especialidade: 'Torácica',     ultima_consulta_epo: '2025-04-13' },
 ];
 
+const mockUsuarios = [
+  { id: 1, username: 'helena.souza', nome: 'Dra. Helena Souza', perfil_id: 'p1', especialidade: 'Cirurgia Geral', funcao: 'Médico' },
+  { id: 2, username: 'roberto.cruz', nome: 'Dr. Roberto Cruz', perfil_id: 'p2', especialidade: 'Ortopedia', funcao: 'Médico' },
+  { id: 3, username: 'carlos.melo', nome: 'Dr. Carlos Melo', perfil_id: 'p3', especialidade: 'Urologia', funcao: 'Médico' },
+  { id: 4, username: 'ana.ferreira', nome: 'Dra. Ana Ferreira', perfil_id: 'p4', especialidade: 'Plástica', funcao: 'Médico' },
+  { id: 5, username: 'antonio.cavalcante', nome: 'Dr. Antonio Cavalcante', perfil_id: 'p5', especialidade: 'Oftalmologia', funcao: 'Médico' },
+  { id: 6, username: 'eliana.bastos', nome: 'Dra. Eliana Bastos', perfil_id: 'p6', especialidade: 'Torácica', funcao: 'Médico' },
+];
+
 const getLocalSolicitacoes = () => {
   const data = localStorage.getItem('demo_solicitacoes');
   if (!data) {
@@ -62,7 +71,9 @@ const getLocalSolicitacoes = () => {
         medico_responsavel: 'Dra. Helena Souza',
         detalhes: 'Paciente com colelitíase sintomática recorrente.',
         status: 'PENDENTE',
-        data_criacao: '2026-06-25 14:30:00'
+        data_criacao: '2026-06-25 14:30:00',
+        perfil_executor: 'Gestão LEC',
+        usuario: 'Dra. Helena Souza'
       },
       {
         id: 'e5f6g7h8',
@@ -78,7 +89,9 @@ const getLocalSolicitacoes = () => {
         detalhes: 'Aguardando liberação cardiológica devido a arritmia recente.',
         tempo_standby: 30,
         status: 'APROVADO',
-        data_criacao: '2026-06-25 15:45:00'
+        data_criacao: '2026-06-25 15:45:00',
+        perfil_executor: 'Especialidade Ortopedia',
+        usuario: 'Dr. Roberto Cruz'
       }
     ];
     localStorage.setItem('demo_solicitacoes', JSON.stringify(defaultData));
@@ -170,6 +183,11 @@ if (isGitHubPages) {
     // Rota: POST /api/logout
     if (url.includes('/api/logout')) {
       return { data: { success: true }, status: 200, headers: {}, config };
+    }
+
+    // Rota: GET /api/usuarios
+    if ((url.endsWith('/api/usuarios') || url.endsWith('/api/usuarios?')) && method === 'get') {
+      return { data: mockUsuarios, status: 200, headers: {}, config };
     }
 
     // Rota: GET /api/pacientes  (lista para o módulo Especialidades)

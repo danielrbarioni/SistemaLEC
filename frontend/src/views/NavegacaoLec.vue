@@ -143,10 +143,12 @@ import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
+import { useAuthStore } from '../stores/auth';
 
 const toast = useToast();
 const router = useRouter();
 const perfisStore = usePerfisStore();
+const authStore = useAuthStore();
 const showModal = ref(true);
 
 const irParaHome = () => {
@@ -233,7 +235,8 @@ const solicitarApa = async (paciente: any) => {
       Swalis: '—',
       medico_responsavel: '—',
       detalhes: 'Solicitação de APA via módulo de Navegação',
-      perfil_executor: perfisStore.perfilAtivo.nome
+      perfil_executor: perfisStore.perfilAtivo.nome,
+      usuario: authStore.user?.givenName?.[0] || authStore.user?.username || 'Usuário Sistema'
     });
     toast.success(`APA (Avaliação Pré-Anestésica) solicitada com sucesso para o paciente ${paciente.nome}!`);
   } catch (error) {

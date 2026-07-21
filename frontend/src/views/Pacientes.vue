@@ -25,12 +25,18 @@
         <!-- Filtro por Especialidade -->
         <div class="form-group">
           <label for="filtroEspecialidade" class="form-label font-semibold">Filtrar por Especialidade</label>
-          <select id="filtroEspecialidade" v-model="filtroEspecialidade" class="form-control">
-            <option value="">Todas</option>
-            <option v-for="esp in especialidades" :key="esp" :value="esp">
-              {{ esp }}
-            </option>
-          </select>
+            <select 
+              id="filtroEspecialidade" 
+              v-model="filtroEspecialidade" 
+              class="form-control"
+              :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
+              :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
+            >
+              <option value="">Todas</option>
+              <option v-for="esp in especialidades" :key="esp" :value="esp">
+                {{ esp }}
+              </option>
+            </select>
         </div>
       </div>
     </Card>
@@ -92,7 +98,7 @@
                     </div>
                     <div>
                       <span class="text-[10px] text-gray-400 uppercase block font-semibold">Swalis</span>
-                      <span :class="getSwalisClass(proc.Swalis)">
+                      <span :class="getSwalisClass(proc.Swalis)" :title="getSwalisLabel(proc.Swalis)">
                         {{ proc.Swalis }}
                       </span>
                     </div>
@@ -114,13 +120,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
+import { usePerfisStore } from '../stores/perfis';
 
 const toast = useToast();
+const perfisStore = usePerfisStore();
 
 const basePacientes = ref<any[]>([]);
 const solicitacoes = ref<any[]>([]);
@@ -141,6 +149,12 @@ const especialidades = [
   'Torácica',
   'Urologia'
 ];
+
+watch(() => perfisStore.perfilAtivo, (newProfile) => {
+  if (newProfile.tipo === 'ESPECIALIDADE' && newProfile.especialidade) {
+    filtroEspecialidade.value = newProfile.especialidade;
+  }
+}, { immediate: true });
 
 const carregarDados = async () => {
   loading.value = true;
@@ -173,6 +187,22 @@ const formatarData = (dataStr: string) => {
   }
 };
 
+const calcularTempoStandbyRestante = (tempoOriginal: number | null, dataStr?: string) => {
+  if (!tempoOriginal || tempoOriginal <= 0) return null;
+  if (!dataStr) return tempoOriginal;
+  try {
+    const dataInicio = new Date(dataStr.includes('T') ? dataStr : dataStr.replace(' ', 'T'));
+    if (isNaN(dataInicio.getTime())) return tempoOriginal;
+    const agora = new Date();
+    const diffMs = agora.getTime() - dataInicio.getTime();
+    const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDias <= 0) return tempoOriginal;
+    return Math.max(0, tempoOriginal - diffDias);
+  } catch (e) {
+    return tempoOriginal;
+  }
+};
+
 const getStatusBadgeClass = (status: string, _tempo?: number | null) => {
   if (status === 'STANDBY') {
     return 'px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
@@ -182,9 +212,20 @@ const getStatusBadgeClass = (status: string, _tempo?: number | null) => {
 
 const getStatusLabel = (status: string, tempo: number | null) => {
   if (status === 'STANDBY') {
-    return `Standby (${tempo || '—'}d)`;
+    return `Standby (${tempo !== null && tempo !== undefined ? tempo : '—'}d)`;
   }
   return 'Ativo na fila';
+};
+
+const getSwalisLabel = (code: string) => {
+  switch (code) {
+    case 'A1': return 'A1 - Prioridade máxima';
+    case 'A2': return 'A2 - Prioridade alta';
+    case 'B':  return 'B - Prioridade média';
+    case 'C':  return 'C - Prioridade baixa';
+    case 'D':  return 'D - Prioridade mínima';
+    default:   return code || '—';
+  }
 };
 
 const getSwalisClass = (Swalis: string) => {
@@ -262,14 +303,13 @@ const pacientesProcessados = computed(() => {
         exists.tempo_standby = null;
       }
     } else if (s.tipo === 'EDITAR') {
-      // Se procedimento_anterior foi salvo na solicitação, busca por ele, caso contrário busca pelo procedimento atual
       const targetProcName = s.procedimento_anterior || s.procedimento;
       const proc = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === targetProcName);
       if (proc) {
-        proc.procedimento = s.procedimento; // Atualiza o nome do procedimento se mudou
+        proc.procedimento = s.procedimento;
         proc.judicializado = s.judicializado || 'Não';
         const novoSwalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '';
-        proc.Swalis = novoSwalis || proc.Swalis || '—'; // Preserva o Swalis anterior se o novo vier vazio
+        proc.Swalis = novoSwalis || proc.Swalis || '—';
         proc.medico_responsavel = s.medico_responsavel || 'Não informado';
       }
     } else if (s.tipo === 'EXCLUIR') {
@@ -278,28 +318,42 @@ const pacientesProcessados = computed(() => {
       const proc = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === s.procedimento);
       if (proc) {
         proc.status = 'STANDBY';
-        proc.tempo_standby = s.tempo_standby || null;
+        proc.tempo_standby = calcularTempoStandbyRestante(s.tempo_standby || null, s.data_acao || s.data_criacao);
+      }
+    } else if (s.tipo === 'CANCELAR_STANDBY') {
+      const proc = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === s.procedimento);
+      if (proc) {
+        proc.status = 'ATIVO';
+        proc.tempo_standby = null;
       }
     }
   }
 
-  // Convert map to array and apply search/specialty filters
+  // Se o perfil ativo for ESPECIALIDADE, filtra obrigatoriamente essa especialidade tanto para o paciente quanto para os procedimentos
+  const espAtiva = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
+    ? perfisStore.perfilAtivo.especialidade.toLowerCase().trim()
+    : (filtroEspecialidade.value ? filtroEspecialidade.value.toLowerCase().trim() : null);
+
   return Array.from(pacMap.values())
+    .map(pac => {
+      if (espAtiva) {
+        return {
+          ...pac,
+          procedimentos: pac.procedimentos.filter((p: any) => p.especialidade && p.especialidade.toLowerCase().trim().includes(espAtiva))
+        };
+      }
+      return pac;
+    })
     .filter(pac => {
-      // Filtro de Busca (Nome ou Código Prontuário)
+      if (pac.procedimentos.length === 0) return false;
+
       let matchBusca = true;
       if (buscaProntuario.value) {
         const query = buscaProntuario.value.toLowerCase();
         matchBusca = pac.codigo.includes(query) || pac.nome.toLowerCase().includes(query);
       }
 
-      // Filtro de Especialidade (se o paciente tem pelo menos um procedimento nessa especialidade)
-      let matchEsp = true;
-      if (filtroEspecialidade.value) {
-        matchEsp = pac.procedimentos.some((p: any) => p.especialidade && p.especialidade.toLowerCase().includes(filtroEspecialidade.value.toLowerCase()));
-      }
-
-      return matchBusca && matchEsp;
+      return matchBusca;
     });
 });
 

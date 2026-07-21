@@ -291,14 +291,14 @@
               :disabled="camposEdicaoBloqueados"
             >
               <option value="" disabled>Selecione...</option>
-              <option value="A1">A1 — Prioridade Máxima</option>
-              <option value="A2">A2 — Alta Prioridade</option>
-              <option value="B">B — Prioridade Intermediária</option>
-              <option value="C">C — Prioridade Padrão</option>
-              <option value="D">D — Eletivo / Baixa Prioridade</option>
+              <option value="A1">A1 - Prioridade máxima</option>
+              <option value="A2">A2 - Prioridade alta</option>
+              <option value="B">B - Prioridade média</option>
+              <option value="C">C - Prioridade baixa</option>
+              <option value="D">D - Prioridade mínima</option>
             </select>
             <div v-if="form.swallis" class="mt-2 px-3 py-2 rounded-lg text-xs font-semibold" :class="swallisBadgeClass">
-              Classificação: {{ form.swallis }}
+              Classificação: {{ getSwalisLabel(form.swallis) }}
             </div>
           </div>
 
@@ -310,34 +310,72 @@
               v-model="form.medico_responsavel"
               type="text"
               list="medicos-lista"
-              placeholder="Digite o nome do médico solicitante"
+              :placeholder="!especialidadeForm ? 'Selecione a especialidade primeiro' : 'Digite o nome do médico solicitante'"
               class="form-control"
-              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados }"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados || !especialidadeForm }"
               required
-              :disabled="camposEdicaoBloqueados"
+              :disabled="camposEdicaoBloqueados || !especialidadeForm"
             />
             <datalist id="medicos-lista">
-              <option v-for="med in medicosConhecidos" :key="med" :value="med">{{ med }}</option>
+              <option v-for="med in medicosDaEspecialidade" :key="med" :value="med">{{ med }}</option>
             </datalist>
-            <p v-if="abaAtiva === 'INSERIR'" class="text-xs text-gray-400 mt-1">Futuramente integrado ao AGHU</p>
           </div>
         </div>
 
-        <!-- Linha Opcional: Tempo de Standby (Apenas na aba STANDBY) -->
-        <div v-if="abaAtiva === 'STANDBY'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="form-group md:col-span-1">
-            <label for="tempo_standby" class="form-label font-semibold">Tempo de Standby (em dias) <span class="text-red-500">*</span></label>
-            <input
-              id="tempo_standby"
-              v-model.number="form.tempo_standby"
-              type="number"
-              min="1"
-              max="90"
-              placeholder="Ex: 30"
-              class="form-control text-lg font-bold text-center"
-              required
-            />
-            <p class="text-xs text-red-500 mt-1 font-semibold">⚠️ Limite máximo permitido de 90 dias.</p>
+        <!-- Aba STANDBY: Opções e Gestão de Standby Vigente -->
+        <div v-if="abaAtiva === 'STANDBY'" class="space-y-4 mb-4">
+          <!-- Alerta de Standby Vigente Existente -->
+          <div v-if="standbyVigenteAtual" class="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
+            <div class="flex items-center space-x-2 text-purple-900 font-bold text-sm">
+              <span class="text-lg">⏱️</span>
+              <span>Standby Vigente Detectado para este procedimento!</span>
+            </div>
+            <div class="text-xs text-purple-800 space-y-1 pl-7">
+              <p>
+                <strong>Tempo restante atual:</strong> 
+                <span class="font-extrabold text-purple-950 text-sm px-2 py-0.5 bg-purple-100 rounded border border-purple-300 ml-1">
+                  {{ standbyVigenteAtual.tempoRestante }} dias
+                </span>
+                <span class="text-purple-600 font-medium ml-1">
+                  (de {{ standbyVigenteAtual.tempoOriginal }} dias aprovados em {{ formatarData(standbyVigenteAtual.dataAprovacao) }})
+                </span>
+              </p>
+            </div>
+
+            <!-- Seleção da Ação de Standby -->
+            <div class="pt-2 border-t border-purple-200/60 pl-7 space-y-2">
+              <span class="text-xs font-bold text-purple-900 block">O que você deseja solicitar?</span>
+              <div class="flex flex-wrap gap-4 text-xs">
+                <label class="flex items-center space-x-2 cursor-pointer font-medium text-purple-900">
+                  <input type="radio" v-model="opcaoStandbyVigente" value="ALTERAR" class="text-purple-600 focus:ring-purple-500" />
+                  <span>Alterar tempo de standby</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer font-medium text-purple-900">
+                  <input type="radio" v-model="opcaoStandbyVigente" value="CANCELAR" class="text-purple-600 focus:ring-purple-500" />
+                  <span>Solicitar cancelamento de standby</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campo de Tempo de Standby (Novo ou Alteração) -->
+          <div v-if="!standbyVigenteAtual || opcaoStandbyVigente === 'ALTERAR'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="form-group md:col-span-1">
+              <label for="tempo_standby" class="form-label font-semibold">
+                {{ standbyVigenteAtual ? 'Novo Tempo de Standby (em dias)' : 'Tempo de Standby (em dias)' }} <span class="text-red-500">*</span>
+              </label>
+              <input
+                id="tempo_standby"
+                v-model.number="form.tempo_standby"
+                type="number"
+                min="1"
+                max="90"
+                placeholder="Ex: 30"
+                class="form-control text-lg font-bold text-center"
+                :required="!standbyVigenteAtual || opcaoStandbyVigente === 'ALTERAR'"
+              />
+              <p class="text-xs text-red-500 mt-1 font-semibold">⚠️ Limite máximo permitido de 90 dias.</p>
+            </div>
           </div>
         </div>
 
@@ -361,102 +399,47 @@
           <Button type="button" @click="limparFormulario" variant="secondary">
             Limpar
           </Button>
-          <Button type="submit" :disabled="submitting" variant="primary">
-            {{ submitting ? 'Enviando...' : 'Enviar Solicitação' }}
+          <Button type="submit" :disabled="submitting" :variant="abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary'">
+            {{ submitting ? 'Enviando...' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação') }}
           </Button>
         </div>
       </form>
     </Card>
 
     <!-- Tabela de Solicitações Enviadas -->
-    <Card class="overflow-hidden">
+    <Card>
       <template #header>
-        <div class="flex items-center space-x-3">
-          <h2 class="text-lg font-bold text-gray-800">Acompanhamento das Solicitações de {{ tipoAcompanhamentoNome }}</h2>
-          <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded">GESTÃO LEC</span>
+        <div class="flex justify-between items-center w-full">
+          <h2 class="text-lg font-bold text-gray-800">
+            Acompanhamento das Solicitações — {{ tipoAcompanhamentoNome }}
+          </h2>
         </div>
       </template>
 
-      <!-- Abas de Acompanhamento integradas ao Card -->
-      <div class="flex border-b border-gray-200 bg-gray-50 p-2 overflow-x-auto -mt-6 -mx-6 mb-6">
-        <button 
-          v-for="aba in abasAcompanhamento" 
-          :key="aba.id" 
-          @click="abaAcompanhamentoAtiva = aba.id"
-          :class="[
-            'flex-1 py-2.5 text-xs md:text-sm font-semibold rounded-md transition duration-200 whitespace-nowrap px-4',
-            abaAcompanhamentoAtiva === aba.id 
-              ? 'bg-paper-sidebar text-white shadow-sm' 
-              : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
-          ]"
-        >
-          <span class="flex items-center justify-center space-x-2">
-            <component :is="aba.icon" class="h-4 w-4" />
-            <span>{{ aba.nome }}</span>
-            <span 
-              v-if="obterCountPendentesAba(aba.id) > 0"
-              :class="[
-                'ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full',
-                abaAcompanhamentoAtiva === aba.id ? 'bg-white text-paper-sidebar' : 'bg-red-500 text-white'
-              ]"
-            >
-              {{ obterCountPendentesAba(aba.id) }}
-            </span>
-          </span>
-        </button>
-      </div>
-
-      <!-- Filtros da Seção de Acompanhamento -->
-      <div class="px-6 pb-4 pt-2 border-b border-gray-200 bg-gray-50/50 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
+      <!-- Filtros da Tabela -->
+      <div class="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
         <!-- Especialidade -->
-        <div class="form-group" v-if="perfisStore.perfilAtivo.tipo !== 'ESPECIALIDADE'">
+        <div class="form-group">
           <label for="filtroEsp" class="text-xs font-semibold text-gray-600 block mb-1">Especialidade</label>
           <input
             id="filtroEsp"
             type="text"
             v-model="filtroEsp"
-            list="filtro-especialidades-lista"
-            placeholder="Buscar especialidade..."
+            :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
+            placeholder="Filtrar por especialidade..."
             class="form-control text-xs"
+            :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
           />
-          <datalist id="filtro-especialidades-lista">
-            <option v-for="esp in especialidades" :key="esp.nome" :value="esp.nome" />
-          </datalist>
-        </div>
-        <div class="form-group opacity-60" v-else>
-          <label class="text-xs font-semibold text-gray-600 block mb-1">Especialidade</label>
-          <input
-            type="text"
-            :value="perfisStore.perfilAtivo.especialidade"
-            class="form-control text-xs bg-gray-100 cursor-not-allowed"
-            disabled
-          />
-        </div>
-
-        <!-- Procedimento -->
-        <div class="form-group">
-          <label for="filtroProc" class="text-xs font-semibold text-gray-600 block mb-1">Procedimento</label>
-          <input
-            id="filtroProc"
-            type="text"
-            v-model="filtroProc"
-            list="filtro-procedimentos-lista"
-            placeholder="Buscar procedimento..."
-            class="form-control text-xs"
-          />
-          <datalist id="filtro-procedimentos-lista">
-            <option v-for="proc in procedimentosFiltradosDatalist" :key="proc" :value="proc" />
-          </datalist>
         </div>
 
         <!-- Prontuário / Paciente -->
         <div class="form-group">
-          <label for="filtroPac" class="text-xs font-semibold text-gray-600 block mb-1">Prontuário / Paciente</label>
+          <label for="filtroPac" class="text-xs font-semibold text-gray-600 block mb-1">Paciente / Prontuário</label>
           <input
             id="filtroPac"
             type="text"
             v-model="filtroPac"
-            placeholder="Digite prontuário ou nome..."
+            placeholder="Nome ou prontuário..."
             class="form-control text-xs"
           />
         </div>
@@ -476,11 +459,11 @@
           <label for="filtroSwalis" class="text-xs font-semibold text-gray-600 block mb-1">Swalis</label>
           <select id="filtroSwalis" v-model="filtroSwalis" class="form-control text-xs">
             <option value="">Todos</option>
-            <option value="A1">A1 — Máxima</option>
-            <option value="A2">A2 — Alta</option>
-            <option value="B">B — Intermediária</option>
-            <option value="C">C — Padrão</option>
-            <option value="D">D — Baixa</option>
+            <option value="A1">A1 - Prioridade máxima</option>
+            <option value="A2">A2 - Prioridade alta</option>
+            <option value="B">B - Prioridade média</option>
+            <option value="C">C - Prioridade baixa</option>
+            <option value="D">D - Prioridade mínima</option>
           </select>
         </div>
 
@@ -508,22 +491,22 @@
           :class="[
             'px-4 py-1.5 text-xs font-bold rounded-full transition duration-200',
             subAbaAcompanhamento === 'PENDENTE'
-              ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-300'
+              ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-sm'
               : 'text-gray-600 hover:bg-gray-100'
           ]"
         >
-          Pendentes
+          ⏳ Solicitações Pendentes
         </button>
         <button
           @click="subAbaAcompanhamento = 'CONCLUIDO'"
           :class="[
             'px-4 py-1.5 text-xs font-bold rounded-full transition duration-200',
             subAbaAcompanhamento === 'CONCLUIDO'
-              ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-300'
+              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-sm'
               : 'text-gray-600 hover:bg-gray-100'
           ]"
         >
-          Concluídas
+          ✅ Histórico Concluído (Aprovadas/Rejeitadas)
         </button>
       </div>
 
@@ -537,7 +520,7 @@
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATA/HORA SOLICITAÇÃO</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data / Hora</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade</th>
@@ -550,6 +533,7 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info Extra</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
               <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATA/HORA AÇÃO</th>
               <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
             </tr>
@@ -621,6 +605,7 @@
               <td class="px-4 py-4 whitespace-nowrap">
                 <span 
                   v-if="solic.swalis || solic.swallis || solic.Swalis" 
+                  :title="getSwalisLabel(solic.swalis || solic.swallis || solic.Swalis)"
                   :class="[
                     getSwallisClass(solic.swalis || solic.swallis || solic.Swalis),
                     abaAcompanhamentoAtiva === 'EDITAR' && (solic.swalis || solic.swallis || solic.Swalis || '') !== obterEstadoAnterior(solic).swalis ? 'ring-2 ring-yellow-400 font-extrabold' : ''
@@ -658,6 +643,18 @@
                 </div>
                 <div v-else class="text-gray-400">—</div>
               </td>
+              <!-- Descrição com botão modal -->
+              <td class="px-4 py-4 whitespace-nowrap text-xs">
+                <button 
+                  type="button"
+                  @click="abrirModalDescricao(solic)" 
+                  class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded border border-indigo-200 transition cursor-pointer text-xs flex items-center space-x-1"
+                  title="Clique para ver a justificativa completa"
+                >
+                  <span>📄 Ver Descrição</span>
+                </button>
+              </td>
+
               <!-- Data/Hora Ação (Condicional) -->
               <td v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
                 {{ formatarDataHora(solic.data_acao) }}
@@ -677,6 +674,45 @@
         </table>
       </div>
     </Card>
+
+    <!-- Modal de Descrição / Justificativa -->
+    <div v-if="modalDescricao.aberto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-gray-200">
+        <div class="flex justify-between items-start border-b border-gray-150 pb-3">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900">Justificativa da Solicitação</h3>
+            <p class="text-xs text-gray-500">
+              Solicitação #{{ modalDescricao.solic?.id }} · {{ formatarTipo(modalDescricao.solic?.tipo) }}
+            </p>
+          </div>
+          <button @click="modalDescricao.aberto = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold">
+            ✕
+          </button>
+        </div>
+
+        <div v-if="modalDescricao.solic" class="space-y-3 text-xs text-gray-700">
+          <div class="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Paciente:</span> <br/><span class="font-bold text-gray-900">{{ modalDescricao.solic.nome_paciente }}</span></div>
+            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Prontuário:</span> <br/><span class="font-mono font-bold text-gray-900">#{{ modalDescricao.solic.codigo_paciente }}</span></div>
+            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Especialidade:</span> <br/><span class="font-medium text-gray-800">{{ modalDescricao.solic.especialidade }}</span></div>
+            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Procedimento:</span> <br/><span class="font-medium text-gray-800">{{ modalDescricao.solic.procedimento }}</span></div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-gray-800 text-xs mb-1">Descrição / Justificativa Clínica:</label>
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap font-medium">
+              {{ modalDescricao.solic.detalhes || modalDescricao.solic.campos_modificados || 'Nenhuma justificativa detalhada foi fornecida.' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-2 border-t border-gray-100">
+          <Button @click="modalDescricao.aberto = false" variant="primary" size="sm">
+            Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -694,55 +730,51 @@ import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
+import { useAuthStore } from '../stores/auth';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
+const authStore = useAuthStore();
 
-// -------------------------------------------------------
-// Especialidades e Procedimentos
-// -------------------------------------------------------
-const especialidades = ref([
-  {
-    nome: 'Cardiologia / Cirurgia Cardíaca',
-    procedimentos: ['Revascularização do Miocárdio (Ponte de Safena)', 'Troca de Valva Aórtica', 'Troca de Valva Mitral', 'Implante de Marcapasso', 'Correção de CIA / CIV']
-  },
-  {
-    nome: 'Cirurgia Geral',
-    procedimentos: ['Colecistectomia', 'Herniorrafia Inguinal', 'Apendicectomia', 'Gastrectomia', 'Colostomia']
-  },
-  {
-    nome: 'Ginecologia',
-    procedimentos: ['Histerectomia', 'Miomectomia', 'Laparoscopia Diagnóstica', 'Colpoperineoplastia', 'Ooforectomia']
-  },
-  {
-    nome: 'Neurocirurgia',
-    procedimentos: ['Craniectomia Descompressiva', 'Clipagem de Aneurisma', 'Derivação Ventrículo-Peritoneal', 'Microdiscectomia', 'Tumor Cerebral — Ressecção']
-  },
-  {
-    nome: 'Oftalmologia',
-    procedimentos: ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser']
-  },
-  {
-    nome: 'Ortopedia',
-    procedimentos: ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna']
-  },
-  {
-    nome: 'Otorrinolaringologia',
-    procedimentos: ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe']
-  },
-  {
-    nome: 'Plástica',
-    procedimentos: ['Mamoplastia', 'Rinoplastia', 'Blefaroplastia', 'Reconstrução Mamária', 'Abdominoplastia']
-  },
-  {
-    nome: 'Torácica',
-    procedimentos: ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia']
-  },
-  {
-    nome: 'Urologia',
-    procedimentos: ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
+// Lista base de procedimentos por nome de especialidade
+const procedimentosBaseMap: Record<string, string[]> = {
+  'Cardiologia / Cirurgia Cardíaca': ['Revascularização do Miocárdio (Ponte de Safena)', 'Troca de Valva Aórtica', 'Troca de Valva Mitral', 'Implante de Marcapasso', 'Correção de CIA / CIV'],
+  'Cirurgia Geral': ['Colecistectomia', 'Herniorrafia Inguinal', 'Apendicectomia', 'Gastrectomia', 'Colostomia'],
+  'Ginecologia': ['Histerectomia', 'Miomectomia', 'Laparoscopia Diagnóstica', 'Colpoperineoplastia', 'Ooforectomia'],
+  'Neurocirurgia': ['Craniectomia Descompressiva', 'Clipagem de Aneurisma', 'Derivação Ventrículo-Peritoneal', 'Microdiscectomia', 'Tumor Cerebral — Ressecção'],
+  'Oftalmologia': ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser'],
+  'Ortopedia': ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna'],
+  'Otorrinolaringologia': ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe'],
+  'Plástica': ['Mamoplastia', 'Rinoplastia', 'Blefaroplastia', 'Reconstrução Mamária', 'Abdominoplastia'],
+  'Torácica': ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia'],
+  'Urologia': ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
+};
+
+const especialidades = computed(() => {
+  const perfis = perfisStore.perfis;
+  // Filtra apenas perfis com p.tipo === 'ESPECIALIDADE' e que possuem especialidade ou nome definido
+  const perfisEspecialidade = perfis.filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'));
+  
+  const listaEspecialidades = perfisEspecialidade
+    .map(p => (p.especialidade || p.nome).trim())
+    .filter((nome, index, self) => nome && self.indexOf(nome) === index)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  // Se perfis ainda não foram carregados, retorna a lista padrão ordenada
+  if (listaEspecialidades.length === 0) {
+    return Object.keys(procedimentosBaseMap)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map(nome => ({
+        nome,
+        procedimentos: procedimentosBaseMap[nome] || []
+      }));
   }
-]);
+
+  return listaEspecialidades.map(nome => ({
+    nome,
+    procedimentos: procedimentosBaseMap[nome] || []
+  }));
+});
 
 // -------------------------------------------------------
 // Formulário
@@ -802,13 +834,6 @@ const filtroSwalis = ref('');
 const filtroMed = ref('');
 const subAbaAcompanhamento = ref('PENDENTE');
 
-const procedimentosFiltradosDatalist = computed(() => {
-  const nomes = solicitacoes.value
-    .map(s => s.procedimento)
-    .filter(Boolean);
-  return [...new Set(nomes)].sort();
-});
-
 const abaAcompanhamentoAtiva = ref('INSERIR');
 const abasAcompanhamento = [
   { id: 'INSERIR', nome: 'Solicitações de Inclusão', icon: UserPlusIcon },
@@ -848,6 +873,39 @@ watch(desejaAlterarProcedimento, (val) => {
 
 const isEspecialidadeDisabled = computed(() => {
   return camposDesabilitados.value || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' || abaAtiva.value === 'EDITAR';
+});
+
+const especialidadeForm = computed(() => {
+  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
+    return perfisStore.perfilAtivo.especialidade;
+  }
+  return form.value.especialidade || '';
+});
+
+const usuariosLocais = ref<any[]>([]);
+
+const carregarUsuariosLocais = async () => {
+  try {
+    const { data } = await api.get('/api/usuarios');
+    usuariosLocais.value = data;
+  } catch (error) {
+    console.error('Erro ao carregar usuários para médicos responsáveis:', error);
+  }
+};
+
+const medicosDaEspecialidade = computed(() => {
+  if (!especialidadeForm.value) return [];
+  const espNorm = especialidadeForm.value.toLowerCase().trim();
+  
+  const medicosEncontrados = usuariosLocais.value
+    .filter(u => {
+      const isMedico = u.funcao === 'Médico';
+      const matchEsp = u.especialidade && u.especialidade.toLowerCase().trim().includes(espNorm);
+      return isMedico && matchEsp;
+    })
+    .map(u => u.nome);
+
+  return Array.from(new Set(medicosEncontrados)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 // Formulário
@@ -1001,6 +1059,17 @@ const labelDetalhes = computed(() => {
     default:         return 'Detalhes da solicitação';
   }
 });
+
+const getSwalisLabel = (code: string) => {
+  switch (code) {
+    case 'A1': return 'A1 - Prioridade máxima';
+    case 'A2': return 'A2 - Prioridade alta';
+    case 'B':  return 'B - Prioridade média';
+    case 'C':  return 'C - Prioridade baixa';
+    case 'D':  return 'D - Prioridade mínima';
+    default:   return code || '—';
+  }
+};
 
 const swallisBadgeClass = computed(() => {
   switch (form.value.swallis) {
@@ -1240,6 +1309,25 @@ const carregarSolicitacoes = async () => {
 };
 
 const enviarSolicitacao = async () => {
+  // Validação do Médico Responsável (deve ser um médico cadastrado na especialidade)
+  if (abaAtiva.value === 'INSERIR' || abaAtiva.value === 'EDITAR') {
+    const medDigitado = (form.value.medico_responsavel || '').trim();
+    if (!medDigitado) {
+      toast.error('O Médico Responsável é obrigatório.');
+      return;
+    }
+    const medicosValidos = medicosDaEspecialidade.value;
+    const isValido = medicosValidos.some(m => m.toLowerCase().trim() === medDigitado.toLowerCase());
+    if (!isValido) {
+      if (medicosValidos.length === 0) {
+        toast.error(`Não há médicos cadastrados na especialidade "${especialidadeForm.value}". Crie um usuário com perfil médico nessa especialidade no menu Perfis.`);
+      } else {
+        toast.error(`O Médico Responsável "${medDigitado}" não é um médico cadastrado na especialidade ${especialidadeForm.value}. Selecione um médico da lista: ${medicosValidos.join(', ')}.`);
+      }
+      return;
+    }
+  }
+
   // Validação do limite de tempo do standby
   if (abaAtiva.value === 'STANDBY') {
     if (!form.value.tempo_standby || form.value.tempo_standby < 1 || form.value.tempo_standby > 90) {
@@ -1278,10 +1366,18 @@ const enviarSolicitacao = async () => {
     }
   }
 
+  let tipoFinal = abaAtiva.value;
+  let tempoStandbyFinal = form.value.tempo_standby || undefined;
+
+  if (abaAtiva.value === 'STANDBY' && standbyVigenteAtual.value && opcaoStandbyVigente.value === 'CANCELAR') {
+    tipoFinal = 'CANCELAR_STANDBY';
+    tempoStandbyFinal = undefined;
+  }
+
   submitting.value = true;
   try {
     await api.post('/api/solicitacoes', {
-      tipo: abaAtiva.value,
+      tipo: tipoFinal,
       especialidade: form.value.especialidade,
       procedimento: form.value.procedimento,
       codigo_paciente: form.value.codigo_paciente,
@@ -1291,8 +1387,9 @@ const enviarSolicitacao = async () => {
       swallis: form.value.swallis,
       medico_responsavel: form.value.medico_responsavel,
       detalhes: form.value.detalhes,
-      tempo_standby: form.value.tempo_standby || undefined,
+      tempo_standby: tempoStandbyFinal,
       perfil_executor: perfisStore.perfilAtivo.nome,
+      usuario: authStore.user?.givenName?.[0] || authStore.user?.username || 'Usuário Sistema',
       procedimento_anterior: form.value.procedimento_anterior || undefined
     });
     toast.success('Solicitação registrada com sucesso!');
@@ -1303,19 +1400,6 @@ const enviarSolicitacao = async () => {
   } finally {
     submitting.value = false;
   }
-};
-
-const obterCountPendentesAba = (tipo: string) => {
-  let list = solicitacoes.value.filter(s => s.tipo === tipo && s.status === 'PENDENTE');
-  
-  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
-    const activeSpecialtyName = perfisStore.perfilAtivo.especialidade.toLowerCase();
-    list = list.filter(s => 
-      s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialtyName)
-    );
-  }
-  
-  return list.length;
 };
 
 const atualizarStatus = async (id: string, status: string) => {
@@ -1332,23 +1416,79 @@ const atualizarStatus = async (id: string, status: string) => {
   }
 };
 
+const opcaoStandbyVigente = ref('ALTERAR');
+
+const calcularTempoStandbyRestante = (tempoOriginal: number | null, dataStr?: string) => {
+  if (!tempoOriginal || tempoOriginal <= 0) return null;
+  if (!dataStr) return tempoOriginal;
+  try {
+    const dataInicio = new Date(dataStr.includes('T') ? dataStr : dataStr.replace(' ', 'T'));
+    if (isNaN(dataInicio.getTime())) return tempoOriginal;
+    const agora = new Date();
+    const diffMs = agora.getTime() - dataInicio.getTime();
+    const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDias <= 0) return tempoOriginal;
+    return Math.max(0, tempoOriginal - diffDias);
+  } catch (e) {
+    return tempoOriginal;
+  }
+};
+
+const standbyVigenteAtual = computed(() => {
+  if (abaAtiva.value !== 'STANDBY' || !form.value.codigo_paciente || !form.value.procedimento) {
+    return null;
+  }
+  const cod = String(form.value.codigo_paciente);
+  const procName = form.value.procedimento;
+  
+  const historicoProc = solicitacoes.value
+    .filter(s => String(s.codigo_paciente) === cod && s.procedimento === procName && s.status === 'APROVADO')
+    .sort((a, b) => (b.data_acao || b.data_criacao || '').localeCompare(a.data_acao || a.data_criacao || ''));
+    
+  if (historicoProc.length > 0 && historicoProc[0].tipo === 'STANDBY') {
+    const s = historicoProc[0];
+    const tempoRestante = calcularTempoStandbyRestante(s.tempo_standby, s.data_acao || s.data_criacao);
+    return {
+      solicitacaoOriginal: s,
+      tempoOriginal: s.tempo_standby,
+      tempoRestante: tempoRestante,
+      dataAprovacao: s.data_acao || s.data_criacao
+    };
+  }
+  return null;
+});
+
+const modalDescricao = ref<{ aberto: boolean; solic: any }>({
+  aberto: false,
+  solic: null
+});
+
+const abrirModalDescricao = (solic: any) => {
+  modalDescricao.value = {
+    aberto: true,
+    solic: solic
+  };
+};
+
 const formatarTipo = (tipo: string) => {
   switch (tipo) {
-    case 'INSERIR': return 'Inclusão';
-    case 'EDITAR':  return 'Edição';
-    case 'EXCLUIR': return 'Exclusão';
-    case 'STANDBY': return 'Standby';
-    default:        return tipo;
+    case 'INSERIR':          return 'Inclusão';
+    case 'EDITAR':           return 'Edição';
+    case 'EXCLUIR':          return 'Exclusão';
+    case 'STANDBY':          return 'Standby';
+    case 'CANCELAR_STANDBY': return 'Cancelamento de Standby';
+    default:                 return tipo;
   }
 };
 
 const getTipoBadgeClass = (tipo: string) => {
   switch (tipo) {
-    case 'INSERIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 border border-green-200';
-    case 'EDITAR':  return 'px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200';
-    case 'EXCLUIR': return 'px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200';
-    case 'STANDBY': return 'px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200';
-    default:        return 'px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800';
+    case 'INSERIR':          return 'px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 border border-green-200';
+    case 'EDITAR':           return 'px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200';
+    case 'EXCLUIR':          return 'px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200';
+    case 'STANDBY':          return 'px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200';
+    case 'CANCELAR_STANDBY': return 'px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200';
+    default:                 return 'px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800';
   }
 };
 
@@ -1424,5 +1564,6 @@ const obterEstadoAnterior = (solic: any) => {
 onMounted(() => {
   carregarSolicitacoes();
   carregarPacientesBase();
+  carregarUsuariosLocais();
 });
 </script>

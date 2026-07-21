@@ -18,4 +18,6 @@ class Solicitacao(Base):
     status = Column(String, nullable=False)
     data_criacao = Column(String, nullable=False)
     perfil_executor = Column(String, nullable=True)
+    usuario = Column(String, nullable=True)
     procedimento_anterior = Column(String, nullable=True)
+    origem_menu = Column(String, nullable=True)
