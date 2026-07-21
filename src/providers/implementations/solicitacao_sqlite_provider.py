@@ -118,7 +118,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             status=status_upper,
             data_criacao=data_resposta,
             perfil_executor=perfil_executor or "GESTAO_LEC",
-            usuario=usuario_executor or solic.usuario,
+            usuario=usuario_executor or "GESTAO_LEC",
             procedimento_anterior=solic.procedimento_anterior,
             origem_menu=solic.origem_menu or "Sistema LEC",
             evento_tipo="RESPOSTA"

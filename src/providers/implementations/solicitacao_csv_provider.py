@@ -129,7 +129,7 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
             'status': status_upper,
             'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'perfil_executor': perfil_executor or "GESTAO_LEC",
-            'usuario': usuario_executor or solic_original.get('usuario', ''),
+            'usuario': usuario_executor or "GESTAO_LEC",
             'procedimento_anterior': solic_original.get('procedimento_anterior', ''),
             'origem_menu': solic_original.get('origem_menu', 'Sistema LEC'),
             'evento_tipo': 'RESPOSTA',

@@ -1457,7 +1457,7 @@ const enviarSolicitacao = async () => {
       detalhes: form.value.detalhes,
       tempo_standby: tempoStandbyFinal,
       perfil_executor: perfisStore.perfilAtivo.nome,
-      usuario: authStore.user?.givenName?.[0] || authStore.user?.username || 'Usuário Sistema',
+      usuario: authStore.user?.username || 'Usuário Sistema',
       procedimento_anterior: form.value.procedimento_anterior || undefined
     });
     toast.success('Solicitação registrada com sucesso!');

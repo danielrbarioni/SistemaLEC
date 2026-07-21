@@ -241,21 +241,7 @@ const especialidadesDisponiveis = computed(() => {
     .map(p => p.especialidade || p.nome)
     .filter(Boolean);
 
-  const setEsp = new Set([
-    ...perfisEspecialidades,
-    'Cardiologia',
-    'Cirurgia Geral',
-    'Ginecologia',
-    'Neurocirurgia',
-    'Oftalmologia',
-    'Ortopedia',
-    'Otorrinolaringologia',
-    'Plástica',
-    'Torácica',
-    'Urologia'
-  ]);
-
-  return Array.from(setEsp).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return Array.from(new Set(perfisEspecialidades)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 const limparFiltros = () => {

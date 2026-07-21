@@ -236,7 +236,7 @@ const solicitarApa = async (paciente: any) => {
       medico_responsavel: '—',
       detalhes: 'Solicitação de APA via módulo de Navegação',
       perfil_executor: perfisStore.perfilAtivo.nome,
-      usuario: authStore.user?.givenName?.[0] || authStore.user?.username || 'Usuário Sistema'
+      usuario: authStore.user?.username || 'Usuário Sistema'
     });
     toast.success(`APA (Avaliação Pré-Anestésica) solicitada com sucesso para o paciente ${paciente.nome}!`);
   } catch (error) {
