@@ -407,7 +407,7 @@
     </Card>
 
     <!-- Tabela de Solicitações Enviadas -->
-    <Card>
+    <Card class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <h2 class="text-lg font-bold text-gray-800">
@@ -415,6 +415,26 @@
           </h2>
         </div>
       </template>
+
+      <!-- Abas de Acompanhamento das Solicitações -->
+      <div class="flex border-b border-gray-200 bg-gray-50 p-2 overflow-x-auto -mt-6 -mx-6 mb-4">
+        <button 
+          v-for="aba in abasAcompanhamento" 
+          :key="aba.id" 
+          @click="abaAcompanhamentoAtiva = aba.id"
+          :class="[
+            'flex-1 py-2 text-xs font-bold rounded-md transition duration-200 whitespace-nowrap px-3',
+            abaAcompanhamentoAtiva === aba.id 
+              ? 'bg-indigo-600 text-white shadow-sm' 
+              : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+          ]"
+        >
+          <span class="flex items-center justify-center space-x-1.5">
+            <component :is="aba.icon" class="h-4 w-4" />
+            <span>{{ aba.nome }}</span>
+          </span>
+        </button>
+      </div>
 
       <!-- Filtros da Tabela -->
       <div class="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
