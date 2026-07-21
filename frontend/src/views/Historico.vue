@@ -50,30 +50,34 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data / Hora</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origem / Menu</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário / Paciente</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade / Procedimento</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação / Tipo</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Detalhes / Justificativa</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perfil Executor</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário Executor</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitação ou Resposta</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perfil Executor / Usuário Executor</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200 text-sm">
             <tr v-for="solic in solicitacoesFiltradas" :key="solic.id">
+              <!-- 1. Data/Hora -->
               <td class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
                 {{ formatarDataHora(solic.data_criacao) }}
               </td>
+
+              <!-- 2. Origem/Menu -->
               <td class="px-4 py-4 whitespace-nowrap text-xs font-semibold text-indigo-700">
                 <span class="px-2 py-1 rounded bg-indigo-50 border border-indigo-100">
                   {{ solic.origem_menu || 'Sistema LEC' }}
                 </span>
               </td>
+
+              <!-- 3. Prontuário/Paciente -->
               <td class="px-4 py-4 text-xs">
                 <div class="font-mono font-semibold text-gray-800">#{{ solic.codigo_paciente }}</div>
                 <div class="text-gray-900 font-medium">{{ solic.nome_paciente }}</div>
               </td>
-              <td class="px-4 py-4 whitespace-nowrap">
-                <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
-              </td>
+
+              <!-- 4. Especialidade/Procedimento -->
               <td class="px-4 py-4 text-xs text-gray-700">
                 <div class="font-semibold">{{ solic.especialidade || '—' }}</div>
                 <div class="text-gray-400">
@@ -83,20 +87,32 @@
                   {{ solic.procedimento || '—' }}
                 </div>
               </td>
+
+              <!-- 5. Ação/Tipo -->
+              <td class="px-4 py-4 whitespace-nowrap">
+                <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
+              </td>
+
+              <!-- 6. Solicitação ou Resposta -->
               <td class="px-4 py-4 text-xs text-gray-600 max-w-xs truncate" :title="solic.detalhes">
                 {{ solic.detalhes || '—' }}
               </td>
-              <td class="px-4 py-4 whitespace-nowrap text-xs">
-                <span v-if="solic.perfil_executor" class="px-2 py-1 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200">
-                  {{ solic.perfil_executor }}
-                </span>
-                <span v-else class="text-gray-400">—</span>
-              </td>
-              <td class="px-4 py-4 whitespace-nowrap text-xs text-gray-700 font-medium">
-                {{ solic.usuario || solic.username || solic.user || '—' }}
-              </td>
+
+              <!-- 7. Status -->
               <td class="px-4 py-4 whitespace-nowrap">
                 <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
+              </td>
+
+              <!-- 8. Perfil executor/Usuário Executor -->
+              <td class="px-4 py-4 text-xs">
+                <div v-if="solic.perfil_executor" class="mb-0.5">
+                  <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                    {{ solic.perfil_executor }}
+                  </span>
+                </div>
+                <div class="text-gray-700 font-medium">
+                  {{ solic.usuario || solic.username || solic.user || '—' }}
+                </div>
               </td>
             </tr>
           </tbody>
