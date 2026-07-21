@@ -1109,12 +1109,13 @@ const formatarDataHora = (dataStr: string) => {
   }
 };
 
-const limparFormulario = () => {
+const limparFormulario = (manterCodigo = false) => {
+  const codSalvo = manterCodigo ? form.value.codigo_paciente : '';
   form.value = {
     especialidade: '',
     procedimento: '',
     procedimento_anterior: '',
-    codigo_paciente: '',
+    codigo_paciente: codSalvo,
     nome_paciente: '',
     dt_nascimento: '',
     nome_mae: '',
@@ -1192,14 +1193,12 @@ const buscarDados = async (isAutomatic = false) => {
 
       const solicsDosPac = allSolics.filter(s => String(s.codigo_paciente) === codProntuario);
       
-      // Verifica se o paciente possui inclusão no sistema LEC (solicitação de INSERIR)
-      const temInclusaoNaLec = solicsDosPac.some(s => s.tipo === 'INSERIR');
+      // Verifica se o paciente possui inclusão no sistema LEC (solicitação de INSERIR ou paciente da base)
+      const temInclusaoNaLec = solicsDosPac.some(s => s.tipo === 'INSERIR' || s.status === 'APROVADO');
       
-      if (!temInclusaoNaLec) {
-        if (!isAutomatic) {
-          toast.error('Paciente não incluído no Sistema de Gestão LEC HC-UFPE');
-        }
-        limparFormulario();
+      if (!temInclusaoNaLec && solicsDosPac.length === 0) {
+        toast.error('Paciente não incluído no Sistema de Gestão LEC HC-UFPE');
+        limparFormulario(true);
         return;
       }
 
