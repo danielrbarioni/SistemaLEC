@@ -174,7 +174,7 @@
 
           <div v-else>
             <!-- Filtros de Usuários -->
-            <div class="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="form-group">
                 <label for="filtro_nome" class="text-xs font-semibold text-gray-500">Nome / Username</label>
                 <input 
@@ -185,19 +185,19 @@
                   class="form-control text-xs w-full"
                 />
               </div>
-              
+
               <div class="form-group">
-                <label for="filtro_especialidade" class="text-xs font-semibold text-gray-500">Especialidade</label>
+                <label for="filtro_perfil_id" class="text-xs font-semibold text-gray-500">Perfil ID</label>
                 <select 
-                  id="filtro_especialidade" 
-                  v-model="filtros.especialidade" 
+                  id="filtro_perfil_id" 
+                  v-model="filtros.perfil_id" 
                   class="form-control text-xs w-full"
                   :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
                   :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
                 >
-                  <option value="">Todas</option>
-                  <option v-for="esp in uniqueEspecialidades" :key="esp" :value="esp">
-                    {{ esp }}
+                  <option value="">Todos</option>
+                  <option v-for="p in uniquePerfisIds" :key="p" :value="p">
+                    {{ p }}
                   </option>
                 </select>
               </div>
@@ -209,16 +209,6 @@
                   <option value="Médico">Médico</option>
                   <option value="Residente">Residente</option>
                   <option value="Enfermeiro">Enfermeiro</option>
-                </select>
-              </div>
-
-              <div v-if="podeCriarPerfil" class="form-group">
-                <label for="filtro_perfil_id" class="text-xs font-semibold text-gray-500">Perfil ID</label>
-                <select id="filtro_perfil_id" v-model="filtros.perfil_id" class="form-control text-xs w-full">
-                  <option value="">Todos</option>
-                  <option v-for="p in uniquePerfisIds" :key="p" :value="p">
-                    {{ p }}
-                  </option>
                 </select>
               </div>
             </div>
@@ -516,7 +506,6 @@ const editingPerfilId = ref<string | null>(null);
 // Filtros da tabela
 const filtros = ref({
   nome: '',
-  especialidade: '',
   funcao: '',
   perfil_id: ''
 });
@@ -580,14 +569,6 @@ const exibirCampoFuncao = computed(() => {
   return selectedPerfil?.tipo === 'ESPECIALIDADE';
 });
 
-// Filtros dinâmicos extraídos dos dados
-const uniqueEspecialidades = computed(() => {
-  const exps = perfisStore.perfis
-    .map(p => p.especialidade)
-    .filter((e): e is string => !!e);
-  return Array.from(new Set(exps)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-});
-
 const uniquePerfisIds = computed(() => {
   return perfisOrdenados.value.map(p => p.id);
 });
@@ -598,10 +579,6 @@ const usuariosFiltrados = computed(() => {
     // Filtro obrigatório para perfil ESPECIALIDADE
     if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE') {
       if (user.especialidade !== perfisStore.perfilAtivo.especialidade) {
-        return false;
-      }
-    } else {
-      if (filtros.value.especialidade && user.especialidade !== filtros.value.especialidade) {
         return false;
       }
     }
@@ -967,12 +944,12 @@ const getTipoLabel = (tipo: string) => {
 // Monitora o perfil ativo para aplicar o filtro mandatório e definir perfil_id padrão no form (se não estiver editando)
 watch(() => perfisStore.perfilAtivo, (newPerfil) => {
   if (newPerfil.tipo === 'ESPECIALIDADE') {
-    filtros.value.especialidade = newPerfil.especialidade || '';
+    filtros.value.perfil_id = newPerfil.id;
     if (!editingUserId.value) {
       usuarioForm.value.perfil_id = newPerfil.id;
     }
   } else {
-    filtros.value.especialidade = '';
+    filtros.value.perfil_id = '';
     if (!editingUserId.value) {
       usuarioForm.value.perfil_id = '';
     }
