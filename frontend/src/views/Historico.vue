@@ -259,8 +259,36 @@ const limparFiltros = () => {
 const carregarHistorico = async () => {
   loading.value = true;
   try {
-    const { data } = await api.get('/api/solicitacoes');
-    solicitacoes.value = data;
+    const [solicRes, pacRes] = await Promise.allSettled([
+      api.get('/api/solicitacoes'),
+      api.get('/api/pacientes')
+    ]);
+
+    const solicitacoesData = solicRes.status === 'fulfilled' ? solicRes.value.data : [];
+    const pacientesData = pacRes.status === 'fulfilled' ? pacRes.value.data : [];
+
+    const pacMap = new Map<string, string>();
+    for (const p of pacientesData) {
+      const cod = String(p.codigo || p.prontuario || '').trim();
+      const nome = p.nome || p.nome_paciente;
+      if (cod && nome) {
+        pacMap.set(cod, nome);
+      }
+    }
+
+    solicitacoes.value = solicitacoesData.map((s: any) => {
+      const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
+      let nomeReal = s.nome_paciente || s.nome;
+      if (!nomeReal || nomeReal.startsWith('Paciente #') || nomeReal === 'Não informado') {
+        if (pacMap.has(codStr)) {
+          nomeReal = pacMap.get(codStr);
+        }
+      }
+      return {
+        ...s,
+        nome_paciente: nomeReal || (codStr ? `Paciente #${codStr}` : 'Não informado')
+      };
+    });
   } catch (error) {
     toast.error('Erro ao carregar o histórico de solicitações.');
   } finally {
@@ -271,9 +299,37 @@ const carregarHistorico = async () => {
 const formatarDataHora = (dataStr: string) => {
   if (!dataStr) return '—';
   try {
-    const [data, hora] = dataStr.split(' ');
-    const [ano, mes, dia] = data.split('-');
-    return `${dia}/${mes}/${ano} ${hora.substring(0, 5)}`;
+    const cleaned = String(dataStr).trim().replace('T', ' ');
+    const parts = cleaned.split(' ');
+    const dataPart = parts[0];
+    const horaPart = parts[1] || '';
+
+    let dataFormatada = dataPart;
+    if (dataPart.includes('-')) {
+      const p = dataPart.split('-');
+      if (p[0].length === 4) {
+        dataFormatada = `${p[2]}-${p[1]}-${p[0]}`;
+      } else {
+        dataFormatada = `${p[0]}-${p[1]}-${p[2]}`;
+      }
+    } else if (dataPart.includes('/')) {
+      const p = dataPart.split('/');
+      if (p[0].length === 4) {
+        dataFormatada = `${p[2]}-${p[1]}-${p[0]}`;
+      } else {
+        dataFormatada = `${p[0]}-${p[1]}-${p[2]}`;
+      }
+    }
+
+    let horaFormatada = '';
+    if (horaPart) {
+      const hParts = horaPart.split(':');
+      if (hParts.length >= 2) {
+        horaFormatada = `${hParts[0].padStart(2, '0')}:${hParts[1].padStart(2, '0')}`;
+      }
+    }
+
+    return horaFormatada ? `${dataFormatada} ${horaFormatada}` : dataFormatada;
   } catch (e) {
     return dataStr;
   }
@@ -368,7 +424,7 @@ const solicitacoesFiltradas = computed(() => {
       return true;
     })
     // Ordena do mais recente para o mais antigo (descending)
-    .sort((a, b) => b.data_criacao.localeCompare(a.data_criacao));
+    .sort((a, b) => (b.data_criacao || '').localeCompare(a.data_criacao || ''));
 });
 
 onMounted(() => {

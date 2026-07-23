@@ -59,20 +59,20 @@
                 </span>
 
                 <!-- Ações para o Perfil -->
-                <template v-if="podeEditarOuExcluirPerfil(perf)">
-                  <button 
-                    @click="iniciarEdicaoPerfil(perf)" 
-                    class="text-indigo-600 hover:text-indigo-950 text-xs font-bold cursor-pointer px-2 py-1"
-                  >
-                    Editar
-                  </button>
-                  <button 
-                    @click="excluirPerfil(perf)" 
-                    class="text-red-600 hover:text-red-950 text-xs font-bold cursor-pointer px-2 py-1"
-                  >
-                    Excluir
-                  </button>
-                </template>
+                <button 
+                  v-if="podeEditarPerfil(perf)"
+                  @click="iniciarEdicaoPerfil(perf)" 
+                  class="text-indigo-600 hover:text-indigo-950 text-xs font-bold cursor-pointer px-2 py-1"
+                >
+                  Editar
+                </button>
+                <button 
+                  v-if="podeExcluirPerfil(perf)"
+                  @click="excluirPerfil(perf)" 
+                  class="text-red-600 hover:text-red-950 text-xs font-bold cursor-pointer px-2 py-1"
+                >
+                  Excluir
+                </button>
               </div>
             </div>
           </div>
@@ -133,16 +133,16 @@
                 <select 
                   id="edit_usr_perfil" 
                   v-model="usuarioForm.perfil_id" 
-                  class="form-control" 
+                  class="form-control bg-gray-100 cursor-not-allowed" 
                   required
-                  :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' || editandoAdminOuGestao"
-                  :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' || editandoAdminOuGestao }"
+                  disabled
                 >
                   <option value="" disabled>Selecione...</option>
-                  <option v-for="perf in perfisFiltrados" :key="perf.id" :value="perf.id">
+                  <option v-for="perf in perfisStore.perfis" :key="perf.id" :value="perf.id">
                     {{ perf.nome }} ({{ getTipoLabel(perf.tipo) }})
                   </option>
                 </select>
+                <p class="text-xs text-gray-500 mt-1 font-medium">O perfil de acesso não pode ser alterado durante a edição.</p>
               </div>
 
               <!-- Campo Função condicional -->
@@ -158,15 +158,15 @@
 
               <div class="flex space-x-2 pt-2">
                 <Button type="submit" variant="primary" class="w-full justify-center">
-                  {{ perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' ? 'Solicitar Edição' : 'Salvar' }}
+                  {{ perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' ? 'Solicitar Edição' : 'Salvar Alterações' }}
                 </Button>
                 <Button 
                   type="button" 
-                  variant="default" 
+                  variant="secondary" 
                   @click="cancelarEdicao" 
                   class="w-full justify-center"
                 >
-                  Cancelar
+                  Cancelar Edição
                 </Button>
               </div>
             </form>
@@ -380,6 +380,8 @@
                   type="text" 
                   placeholder="Ex: joao.silva" 
                   class="form-control"
+                  :disabled="!!editingUserId"
+                  :class="{ 'bg-gray-100 cursor-not-allowed': !!editingUserId }"
                   required
                 />
               </div>
@@ -403,14 +405,15 @@
                   v-model="usuarioForm.perfil_id" 
                   class="form-control" 
                   required
-                  :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
-                  :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
+                  :disabled="!!editingUserId || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
+                  :class="{ 'bg-gray-100 cursor-not-allowed': !!editingUserId || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
                 >
                   <option value="" disabled>Selecione...</option>
                   <option v-for="perf in perfisFiltrados" :key="perf.id" :value="perf.id">
                     {{ perf.nome }} ({{ getTipoLabel(perf.tipo) }})
                   </option>
                 </select>
+                <p v-if="editingUserId" class="text-xs text-gray-500 mt-1 font-medium">O perfil de acesso não pode ser alterado durante a edição.</p>
               </div>
 
               <!-- Campo Função condicional -->
@@ -424,9 +427,12 @@
                 </select>
               </div>
 
-              <div class="flex space-x-2">
+              <div class="flex flex-col space-y-2">
                 <Button type="submit" variant="primary" class="w-full justify-center">
-                  {{ perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' ? 'Solicitar Criação' : 'Criar Usuário' }}
+                  {{ editingUserId ? 'Salvar Alterações' : (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' ? 'Solicitar Criação' : 'Criar Usuário') }}
+                </Button>
+                <Button v-if="editingUserId" type="button" variant="secondary" @click="cancelarEdicao" class="w-full justify-center">
+                  Cancelar Edição
                 </Button>
               </div>
             </form>
@@ -535,47 +541,6 @@ const podeCriarPerfil = computed(() => {
   return tipo === 'ADMIN' || tipo === 'GESTAO_LEC';
 });
 
-// Dropdown dinâmico de perfis para criação de usuário conforme regras hierárquicas
-const perfisFiltrados = computed(() => {
-  const tipo = perfisStore.perfilAtivo.tipo;
-  const esp = perfisStore.perfilAtivo.especialidade;
-
-  if (tipo === 'ADMIN') {
-    return perfisStore.perfis;
-  } else if (tipo === 'GESTAO_LEC') {
-    return perfisStore.perfis.filter(p => p.tipo === 'GESTAO_LEC' || p.tipo === 'ESPECIALIDADE');
-  } else if (tipo === 'ESPECIALIDADE' && esp) {
-    return perfisStore.perfis.filter(p => p.tipo === 'ESPECIALIDADE' && p.especialidade === esp);
-  }
-  return [];
-});
-
-const exibirCampoFuncao = computed(() => {
-  const selectedPerfil = perfisStore.perfis.find(p => p.id === usuarioForm.value.perfil_id);
-  return selectedPerfil?.tipo === 'ESPECIALIDADE';
-});
-
-const editandoAdminOuGestao = computed(() => {
-  if (!editingUserId.value) return false;
-  const user = usuarios.value.find(u => u.id === editingUserId.value);
-  if (!user) return false;
-  const perf = perfisStore.perfis.find(p => p.id === user.perfil_id);
-  return perf?.tipo === 'ADMIN' || perf?.tipo === 'GESTAO_LEC';
-});
-
-// Filtros dinâmicos extraídos dos dados
-const uniqueEspecialidades = computed(() => {
-  const exps = perfisStore.perfis
-    .map(p => p.especialidade)
-    .filter((e): e is string => !!e);
-  return Array.from(new Set(exps));
-});
-
-const uniquePerfisIds = computed(() => {
-  const ids = perfisStore.perfis.map(p => p.id);
-  return Array.from(new Set(ids));
-});
-
 // Ordenação customizada de Perfis: 1) ADMIN, 2) GESTÃO LEC, 3) ESPECIALIDADES CIRÚRGICAS (alfabética)
 const perfisOrdenados = computed(() => {
   return [...perfisStore.perfis].sort((a, b) => {
@@ -592,6 +557,39 @@ const perfisOrdenados = computed(() => {
     const nomeB = (b.especialidade || b.nome || '').trim();
     return nomeA.localeCompare(nomeB, 'pt-BR');
   });
+});
+
+// Dropdown dinâmico de perfis para criação de usuário conforme regras hierárquicas
+const perfisFiltrados = computed(() => {
+  const tipo = perfisStore.perfilAtivo.tipo;
+  const esp = perfisStore.perfilAtivo.especialidade;
+  const base = perfisOrdenados.value;
+
+  if (tipo === 'ADMIN') {
+    return base;
+  } else if (tipo === 'GESTAO_LEC') {
+    return base.filter(p => p.tipo === 'GESTAO_LEC' || p.tipo === 'ESPECIALIDADE');
+  } else if (tipo === 'ESPECIALIDADE' && esp) {
+    return base.filter(p => p.tipo === 'ESPECIALIDADE' && p.especialidade === esp);
+  }
+  return [];
+});
+
+const exibirCampoFuncao = computed(() => {
+  const selectedPerfil = perfisStore.perfis.find(p => p.id === usuarioForm.value.perfil_id);
+  return selectedPerfil?.tipo === 'ESPECIALIDADE';
+});
+
+// Filtros dinâmicos extraídos dos dados
+const uniqueEspecialidades = computed(() => {
+  const exps = perfisStore.perfis
+    .map(p => p.especialidade)
+    .filter((e): e is string => !!e);
+  return Array.from(new Set(exps)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+});
+
+const uniquePerfisIds = computed(() => {
+  return perfisOrdenados.value.map(p => p.id);
 });
 
 // Tabela filtrada e ordenada: 1) ADMIN, 2) GESTÃO LEC, 3) Especialidades (alfabética) e Usuários (alfabética)
@@ -683,11 +681,23 @@ const alterarPerfilAtivo = (id: string) => {
   loadSolicitacoes();
 };
 
-const podeEditarOuExcluirPerfil = (perf: any) => {
+const podeEditarPerfil = (perf: any) => {
+  if (perf.tipo !== 'ESPECIALIDADE') return false;
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
-  if (tipoAtivo === 'ADMIN') return true;
-  if (tipoAtivo === 'GESTAO_LEC') return perf.tipo === 'ESPECIALIDADE';
-  return false;
+  return tipoAtivo === 'ADMIN' || tipoAtivo === 'GESTAO_LEC';
+};
+
+const podeExcluirPerfil = (perf: any) => {
+  if (perf.tipo !== 'ESPECIALIDADE') return false;
+  const tipoAtivo = perfisStore.perfilAtivo.tipo;
+  return tipoAtivo === 'ADMIN' || tipoAtivo === 'GESTAO_LEC';
+};
+
+const isUsuarioEspecialidade = (user: any): boolean => {
+  if (user.especialidade) return true;
+  if (user.funcao) return true;
+  const perf = perfisStore.perfis.find(p => p.id === user.perfil_id || p.id.toLowerCase() === (user.perfil_id || '').toLowerCase());
+  return perf ? perf.tipo === 'ESPECIALIDADE' : (user.perfil_id !== 'ADMIN' && user.perfil_id !== 'GESTAO_LEC');
 };
 
 const podeEditarUsuario = (user: any) => {
@@ -695,12 +705,10 @@ const podeEditarUsuario = (user: any) => {
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
   if (tipoAtivo === 'ADMIN') {
-    const perf = perfisStore.perfis.find(p => p.id === user.perfil_id);
-    return perf?.tipo === 'ADMIN' || perf?.tipo === 'GESTAO_LEC' || perf?.tipo === 'ESPECIALIDADE';
+    return true;
   }
   if (tipoAtivo === 'GESTAO_LEC') {
-    const perf = perfisStore.perfis.find(p => p.id === user.perfil_id);
-    return perf?.tipo === 'GESTAO_LEC' || perf?.tipo === 'ESPECIALIDADE';
+    return isUsuarioEspecialidade(user);
   }
   if (tipoAtivo === 'ESPECIALIDADE') {
     return user.especialidade === espAtivo;
@@ -712,10 +720,11 @@ const podeExcluirUsuario = (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
-  if (tipoAtivo === 'ADMIN') return true;
+  if (tipoAtivo === 'ADMIN') {
+    return true;
+  }
   if (tipoAtivo === 'GESTAO_LEC') {
-    const perf = perfisStore.perfis.find(p => p.id === user.perfil_id);
-    return perf?.tipo === 'ESPECIALIDADE';
+    return isUsuarioEspecialidade(user);
   }
   if (tipoAtivo === 'ESPECIALIDADE') {
     return user.especialidade === espAtivo;
@@ -795,8 +804,16 @@ const iniciarEdicao = (user: any) => {
   editingUserId.value = user.id;
   usuarioForm.value.nome = user.nome;
   usuarioForm.value.username = user.username;
-  usuarioForm.value.perfil_id = user.perfil_id;
   usuarioForm.value.funcao = user.funcao || '';
+  
+  // Tenta encontrar o perfil exato pelo ID ou pela especialidade/nome
+  const matchingPerfil = perfisStore.perfis.find(p => 
+    p.id === user.perfil_id || 
+    (p.especialidade && user.especialidade && p.especialidade.toLowerCase() === user.especialidade.toLowerCase()) ||
+    (p.nome && user.perfil_id && p.nome.toLowerCase() === user.perfil_id.toLowerCase())
+  );
+
+  usuarioForm.value.perfil_id = matchingPerfil ? matchingPerfil.id : user.perfil_id;
 };
 
 const cancelarEdicao = () => {
@@ -938,14 +955,18 @@ const getTipoLabel = (tipo: string) => {
   }
 };
 
-// Monitora o perfil ativo para aplicar o filtro mandatório e definir perfil_id padrão no form
+// Monitora o perfil ativo para aplicar o filtro mandatório e definir perfil_id padrão no form (se não estiver editando)
 watch(() => perfisStore.perfilAtivo, (newPerfil) => {
   if (newPerfil.tipo === 'ESPECIALIDADE') {
     filtros.value.especialidade = newPerfil.especialidade || '';
-    usuarioForm.value.perfil_id = newPerfil.id;
+    if (!editingUserId.value) {
+      usuarioForm.value.perfil_id = newPerfil.id;
+    }
   } else {
     filtros.value.especialidade = '';
-    usuarioForm.value.perfil_id = '';
+    if (!editingUserId.value) {
+      usuarioForm.value.perfil_id = '';
+    }
   }
 }, { immediate: true });
 

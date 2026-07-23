@@ -145,8 +145,8 @@ def deploy():
         print("\nSincronizando dependencias Python (uv)...")
         execute_remote_cmd(ssh, "cd /var/app/sistemalec && /root/.local/bin/uv sync")
 
-        print("\nExecutando migração de CSV para SQLite na VM...")
-        execute_remote_cmd(ssh, "cd /var/app/sistemalec && /root/.local/bin/uv run python scratch/migrate_csv_to_sqlite.py")
+        print("\nExecutando migrações Alembic na VM...")
+        execute_remote_cmd(ssh, "cd /var/app/sistemalec && /root/.local/bin/uv run alembic upgrade head")
         
         print("\nInstalando dependencias do frontend e gerando build...")
         execute_remote_cmd(ssh, "cd /var/app/sistemalec/frontend && npm install && npm run build")

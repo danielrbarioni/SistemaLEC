@@ -776,32 +776,20 @@ const procedimentosBaseMap: Record<string, string[]> = {
   'Oftalmologia': ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser'],
   'Ortopedia': ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna'],
   'Otorrinolaringologia': ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe'],
-  'Plástica': ['Mamoplastia', 'Rinoplastia', 'Blefaroplastia', 'Reconstrução Mamária', 'Abdominoplastia'],
+  'Plástica': [],
   'Torácica': ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia'],
   'Urologia': ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
 };
 
 const especialidades = computed(() => {
   const perfis = perfisStore.perfis;
-  // Filtra apenas perfis com p.tipo === 'ESPECIALIDADE' e que possuem especialidade ou nome definido
-  const perfisEspecialidade = perfis.filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'));
-  
-  const listaEspecialidades = perfisEspecialidade
+  const lista = perfis
+    .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
     .map(p => (p.especialidade || p.nome).trim())
     .filter((nome, index, self) => nome && self.indexOf(nome) === index)
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-  // Se perfis ainda não foram carregados, retorna a lista padrão ordenada
-  if (listaEspecialidades.length === 0) {
-    return Object.keys(procedimentosBaseMap)
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
-      .map(nome => ({
-        nome,
-        procedimentos: procedimentosBaseMap[nome] || []
-      }));
-  }
-
-  return listaEspecialidades.map(nome => ({
+  return lista.map(nome => ({
     nome,
     procedimentos: procedimentosBaseMap[nome] || []
   }));
@@ -825,10 +813,79 @@ const form = ref({
   tempo_standby: undefined as number | undefined
 });
 
-// Procedimentos filtrados pela especialidade selecionada
+const procedimentosAghuMap = ref<Record<string, string[]>>({});
+
+function formatarNomeProcedimento(str: string): string {
+  if (!str) return str;
+  const s = str.trim();
+  const matchLeft = s.match(/^(\d+)\s*[-–—]\s*(.+)$/);
+  if (matchLeft) {
+    return `${matchLeft[2].trim()} - ID ${matchLeft[1]}`;
+  }
+  const matchRight = s.match(/^(.+?)\s*[-–—]\s*(?:ID\s*)?(\d+)$/i);
+  if (matchRight) {
+    return `${matchRight[1].trim()} - ID ${matchRight[2]}`;
+  }
+  return s;
+}
+
+watch(() => form.value.especialidade, async (newEsp) => {
+  if (!newEsp) return;
+  const norm = newEsp.toLowerCase().trim();
+  if ((norm.includes('plástica') || norm.includes('plastica')) && !procedimentosAghuMap.value['Plástica']) {
+    try {
+      const { data } = await api.get('/api/especialidades/1884/procedimentos');
+      const procs = data
+        .map((p: any) => p.id_procedimento ? `${p.descricao} - ID ${p.id_procedimento}` : p.descricao)
+        .filter(Boolean);
+      if (procs.length > 0) {
+        procedimentosAghuMap.value['Plástica'] = procs;
+      }
+    } catch (err) {
+      console.error('Erro ao buscar procedimentos do AGHU para Plástica:', err);
+    }
+  }
+}, { immediate: true });
+
+// Procedimentos filtrados pela especialidade selecionada (unindo AGHU, base e solicitações)
 const procedimentosDaEspecialidade = computed(() => {
-  const esp = especialidades.value.find(e => e.nome === form.value.especialidade);
-  return esp ? esp.procedimentos : [];
+  const espName = form.value.especialidade;
+  if (!espName) return [];
+  const espNorm = espName.toLowerCase().trim();
+
+  let baseProcs: string[] = [];
+  for (const [key, list] of Object.entries(procedimentosBaseMap)) {
+    const keyNorm = key.toLowerCase().trim();
+    if (keyNorm.includes(espNorm) || espNorm.includes(keyNorm)) {
+      baseProcs = list;
+      break;
+    }
+  }
+
+  const listFromAghu = (espNorm.includes('plástica') || espNorm.includes('plastica')) ? (procedimentosAghuMap.value['Plástica'] || []) : [];
+
+  const extraProcs: string[] = [];
+  for (const s of solicitacoes.value) {
+    if (s.especialidade && s.procedimento) {
+      const sEspNorm = s.especialidade.toLowerCase().trim();
+      if (sEspNorm.includes(espNorm) || espNorm.includes(sEspNorm)) {
+        extraProcs.push(s.procedimento);
+      }
+    }
+  }
+  for (const p of pacientesBase.value) {
+    if (p.especialidade && p.procedimento) {
+      const pEspNorm = p.especialidade.toLowerCase().trim();
+      if (pEspNorm.includes(espNorm) || espNorm.includes(pEspNorm)) {
+        extraProcs.push(p.procedimento);
+      }
+    }
+  }
+
+  const raw = [...listFromAghu, ...baseProcs, ...extraProcs];
+  const formatted = raw.map(formatarNomeProcedimento);
+  const combined = Array.from(new Set(formatted));
+  return combined.sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 // Médicos conhecidos extraídos das solicitações (para o autocomplete)
@@ -882,7 +939,7 @@ const contagemPendenciasPorTipo = computed(() => {
     EXCLUIR: 0
   };
 
-  const activeSpecialty = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
+  const activeSpecialty = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
     ? perfisStore.perfilAtivo.especialidade.toLowerCase()
     : null;
 
@@ -1003,8 +1060,8 @@ const solicitacoesFiltradas = computed(() => {
   }
 
   // 3. Filtro de Especialidade (perfil restrito ou digitado)
-  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
-    const activeSpecialtyName = perfisStore.perfilAtivo.especialidade.toLowerCase();
+  if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade) {
+    const activeSpecialtyName = (perfisStore.perfilAtivo.especialidade || '').toLowerCase();
     list = list.filter(s => 
       s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialtyName)
     );
@@ -1067,8 +1124,9 @@ const solicitacoesFiltradas = computed(() => {
 
 // Trava a especialidade da nova solicitação caso o perfil ativo seja de uma especialidade específica
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
-  if (newProfile.tipo === 'ESPECIALIDADE' && newProfile.especialidade) {
-    const found = especialidades.value.find(e => e.nome.toLowerCase().includes(newProfile.especialidade!.toLowerCase()));
+  if (newProfile?.tipo === 'ESPECIALIDADE' && newProfile?.especialidade) {
+    const espTarget = newProfile.especialidade || '';
+    const found = especialidades.value.find(e => e.nome.toLowerCase().includes(espTarget.toLowerCase()));
     const finalEsp = found ? found.nome : newProfile.especialidade;
     form.value.especialidade = finalEsp;
     filtroEsp.value = finalEsp;
@@ -1078,20 +1136,6 @@ watch(() => perfisStore.perfilAtivo, (newProfile) => {
   }
 }, { immediate: true });
 
-watch(() => form.value.especialidade, async (newEsp) => {
-  if (newEsp === 'Plástica') {
-    try {
-      const { data } = await api.get('/api/especialidades/1884/procedimentos');
-      const procedimentosDoAghu = data.map((p: any) => p.descricao);
-      const plast = especialidades.value.find(e => e.nome === 'Plástica');
-      if (plast) {
-        plast.procedimentos = procedimentosDoAghu;
-      }
-    } catch (err) {
-      console.error('Erro ao buscar procedimentos da especialidade Plástica no AGHU:', err);
-    }
-  }
-}, { immediate: true });
 
 // Garante que "Pendentes" é a sub-aba ativa ao mudar de aba principal de acompanhamento
 watch(abaAcompanhamentoAtiva, () => {
@@ -1241,7 +1285,7 @@ const buscarDados = async (isAutomatic = false) => {
     } else {
       // 2. EDITAR / EXCLUIR / STANDBY: Busca procedimentos do paciente no histórico de solicitações da LEC
       const { data: solicsData } = await api.get('/api/solicitacoes');
-      const especialidadeAtual = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
+      const especialidadeAtual = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
         ? perfisStore.perfilAtivo.especialidade.toLowerCase()
         : null;
 

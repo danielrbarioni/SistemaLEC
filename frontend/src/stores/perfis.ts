@@ -11,6 +11,23 @@ export interface Perfil {
   especialidade?: string;
 }
 
+function sortPerfis(list: Perfil[]): Perfil[] {
+  return [...list].sort((a, b) => {
+    const getPeso = (p: Perfil) => {
+      if (p.tipo === 'ADMIN') return 1;
+      if (p.tipo === 'GESTAO_LEC') return 2;
+      return 3;
+    };
+    const pesoA = getPeso(a);
+    const pesoB = getPeso(b);
+    if (pesoA !== pesoB) return pesoA - pesoB;
+
+    const nomeA = (a.especialidade || a.nome || '').trim();
+    const nomeB = (b.especialidade || b.nome || '').trim();
+    return nomeA.localeCompare(nomeB, 'pt-BR');
+  });
+}
+
 export const usePerfisStore = defineStore('perfis', () => {
   const perfis = ref<Perfil[]>([]);
   const loading = ref(false);
@@ -30,7 +47,7 @@ export const usePerfisStore = defineStore('perfis', () => {
     loading.value = true;
     try {
       const { data } = await api.get('/api/perfis');
-      perfis.value = data;
+      perfis.value = sortPerfis(data);
 
       const authStore = useAuthStore();
       

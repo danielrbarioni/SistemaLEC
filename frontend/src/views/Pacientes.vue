@@ -9,7 +9,7 @@
 
     <!-- Controles de Busca e Filtro -->
     <Card>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4" :class="espSelecionada ? 'md:grid-cols-3' : 'md:grid-cols-2'">
         <!-- Busca por Prontuário -->
         <div class="form-group">
           <label for="buscaProntuario" class="form-label font-semibold">Buscar por Prontuário ou Nome</label>
@@ -38,8 +38,61 @@
               </option>
             </select>
         </div>
+
+        <!-- Filtro por Procedimento (Abre quando uma Especialidade for selecionada) -->
+        <div v-if="espSelecionada" class="form-group">
+          <label for="filtroProcedimento" class="form-label font-semibold">
+            Filtrar por Procedimento
+            <span v-if="carregandoProcedimentos" class="text-xs text-gray-400 font-normal ml-1">(carregando AGHU...)</span>
+          </label>
+          <select 
+            id="filtroProcedimento" 
+            v-model="filtroProcedimento" 
+            class="form-control"
+          >
+            <option value="">Todos os Procedimentos</option>
+            <option v-for="proc in procedimentosOpcoes" :key="proc" :value="proc">
+              {{ proc }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Filtro para Pacientes com Mais de 1 Procedimento -->
+        <div class="form-group md:col-span-3 flex items-center pt-2">
+          <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+            <input 
+              type="checkbox" 
+              v-model="filtroApenasMultiplos" 
+              class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
+            />
+            <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 procedimento cadastrado</span>
+          </label>
+        </div>
       </div>
     </Card>
+
+    <!-- Cards de Totais (Filtros Selecionados) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total de Pacientes</span>
+          <span class="text-2xl font-bold text-slate-800 mt-1 block">{{ totalPacientes }}</span>
+        </div>
+        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+          <UserGroupIcon class="h-6 w-6" />
+        </div>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total de Procedimentos</span>
+          <span class="text-2xl font-bold text-slate-800 mt-1 block">{{ totalProcedimentos }}</span>
+        </div>
+        <div class="p-3 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+          <ClipboardDocumentListIcon class="h-6 w-6" />
+        </div>
+      </div>
+    </div>
 
     <!-- Lista de Pacientes -->
     <Card>
@@ -53,17 +106,38 @@
         <div 
           v-for="paciente in pacientesProcessados" 
           :key="paciente.codigo" 
-          class="border border-gray-200 rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
+          class="border border-gray-200 rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 space-y-4"
         >
           <!-- Cabeçalho do Card do Paciente -->
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-150 pb-4 mb-4 gap-2">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-150 pb-3 gap-2">
             <div>
               <span class="font-mono text-xs text-gray-400">PRONTUÁRIO #{{ paciente.codigo }}</span>
               <h3 class="text-lg font-bold text-gray-900 mt-0.5">{{ paciente.nome }}</h3>
             </div>
-            <div class="text-xs text-gray-500 space-y-0.5 md:text-right">
-              <div><span class="font-semibold text-gray-700">Mãe:</span> {{ paciente.nome_mae || '—' }}</div>
-              <div><span class="font-semibold text-gray-700">Nascimento:</span> {{ formatarData(paciente.dt_nascimento) }}</div>
+            <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-md border border-slate-200">
+              {{ paciente.procedimentos.length }} procedimento(s)
+            </span>
+          </div>
+
+          <!-- Dados Cadastrais Adicionais (Data de Nascimento e Nome da Mãe - Estilo Sistema LEC) -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50/80 p-3.5 rounded-lg border border-gray-200">
+            <div class="form-group">
+              <label class="form-label text-xs font-semibold text-gray-600 block mb-1">Data de Nascimento</label>
+              <input
+                type="text"
+                :value="formatarData(paciente.dt_nascimento)"
+                class="form-control text-xs bg-white border-gray-300 cursor-not-allowed opacity-90 font-medium text-gray-800 w-full"
+                disabled
+              />
+            </div>
+            <div class="form-group md:col-span-2">
+              <label class="form-label text-xs font-semibold text-gray-600 block mb-1">Nome da Mãe</label>
+              <input
+                type="text"
+                :value="paciente.nome_mae || '—'"
+                class="form-control text-xs bg-white border-gray-300 cursor-not-allowed opacity-90 font-medium text-gray-800 w-full"
+                disabled
+              />
             </div>
           </div>
 
@@ -122,6 +196,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
+import { UserGroupIcon, ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
@@ -136,19 +211,106 @@ const loading = ref(false);
 
 const buscaProntuario = ref('');
 const filtroEspecialidade = ref('');
+const filtroProcedimento = ref('');
+const filtroApenasMultiplos = ref(false);
 
-const especialidades = [
-  'Cardiologia',
-  'Cirurgia Geral',
-  'Ginecologia',
-  'Neurocirurgia',
-  'Oftalmologia',
-  'Ortopedia',
-  'Otorrinolaringologia',
-  'Plástica',
-  'Torácica',
-  'Urologia'
-];
+const espSelecionada = computed(() => {
+  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
+    return perfisStore.perfilAtivo.especialidade;
+  }
+  return filtroEspecialidade.value;
+});
+
+const especialidades = computed(() => {
+  const perfis = perfisStore.perfis;
+  const lista = perfis
+    .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
+    .map(p => (p.especialidade || p.nome).trim())
+    .filter((nome, index, self) => nome && self.indexOf(nome) === index)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  return lista;
+});
+
+const procedimentosBaseMap: Record<string, string[]> = {
+  'Cardiologia': ['Revascularização do Miocárdio (Ponte de Safena)', 'Troca de Valva Aórtica', 'Troca de Valva Mitral', 'Implante de Marcapasso', 'Correção de CIA / CIV'],
+  'Cirurgia Geral': ['Colecistectomia', 'Herniorrafia Inguinal', 'Apendicectomia', 'Gastrectomia', 'Colostomia'],
+  'Ginecologia': ['Histerectomia', 'Miomectomia', 'Laparoscopia Diagnóstica', 'Colpoperineoplastia', 'Ooforectomia'],
+  'Neurocirurgia': ['Craniectomia Descompressiva', 'Clipagem de Aneurisma', 'Derivação Ventrículo-Peritoneal', 'Microdiscectomia', 'Tumor Cerebral — Ressecção'],
+  'Oftalmologia': ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser'],
+  'Ortopedia': ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna'],
+  'Otorrinolaringologia': ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe'],
+  'Plástica': [],
+  'Torácica': ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia'],
+  'Urologia': ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
+};
+
+const procedimentosAghuMap = ref<Record<string, string[]>>({});
+const carregandoProcedimentos = ref(false);
+
+function formatarNomeProcedimento(str: string): string {
+  if (!str) return str;
+  const s = str.trim();
+  const matchLeft = s.match(/^(\d+)\s*[-–—]\s*(.+)$/);
+  if (matchLeft) {
+    return `${matchLeft[2].trim()} - ID ${matchLeft[1]}`;
+  }
+  const matchRight = s.match(/^(.+?)\s*[-–—]\s*(?:ID\s*)?(\d+)$/i);
+  if (matchRight) {
+    return `${matchRight[1].trim()} - ID ${matchRight[2]}`;
+  }
+  return s;
+}
+
+watch(espSelecionada, async (newEsp) => {
+  filtroProcedimento.value = '';
+  if (!newEsp) return;
+
+  const espNorm = newEsp.toLowerCase().trim();
+  if ((espNorm.includes('plástica') || espNorm.includes('plastica')) && !procedimentosAghuMap.value['Plástica']) {
+    carregandoProcedimentos.value = true;
+    try {
+      const { data } = await api.get('/api/especialidades/1884/procedimentos');
+      const procs = data
+        .map((p: any) => p.id_procedimento ? `${p.descricao} - ID ${p.id_procedimento}` : p.descricao)
+        .filter(Boolean);
+      if (procs.length > 0) {
+        procedimentosAghuMap.value['Plástica'] = procs;
+      }
+    } catch (err) {
+      console.error('Erro ao buscar procedimentos do AGHU para Plástica:', err);
+    } finally {
+      carregandoProcedimentos.value = false;
+    }
+  }
+}, { immediate: true });
+
+const procedimentosOpcoes = computed(() => {
+  const esp = espSelecionada.value;
+  if (!esp) return [];
+
+  const espLower = esp.toLowerCase().trim();
+  const listFromAghu = procedimentosAghuMap.value['Plástica'] || [];
+  const listFromBase = procedimentosBaseMap[esp] || [];
+
+  const extraProcs: string[] = [];
+
+  for (const p of basePacientes.value) {
+    if (p.especialidade && p.especialidade.toLowerCase().trim().includes(espLower) && p.procedimento) {
+      extraProcs.push(p.procedimento);
+    }
+  }
+  for (const s of solicitacoes.value) {
+    if (s.especialidade && s.especialidade.toLowerCase().trim().includes(espLower) && s.procedimento) {
+      extraProcs.push(s.procedimento);
+    }
+  }
+
+  const raw = [...listFromAghu, ...listFromBase, ...extraProcs];
+  const formatted = raw.map(formatarNomeProcedimento);
+  const combined = Array.from(new Set(formatted));
+  return combined.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+});
 
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
   if (newProfile.tipo === 'ESPECIALIDADE' && newProfile.especialidade) {
@@ -161,7 +323,8 @@ const carregarDados = async () => {
   try {
     const [pacRes, solRes] = await Promise.all([
       api.get('/api/pacientes'),
-      api.get('/api/solicitacoes')
+      api.get('/api/solicitacoes'),
+      perfisStore.fetchPerfis()
     ]);
     basePacientes.value = pacRes.data;
     solicitacoes.value = solRes.data;
@@ -250,17 +413,7 @@ const pacientesProcessados = computed(() => {
       nome: p.nome,
       dt_nascimento: p.dt_nascimento,
       nome_mae: p.nome_mae,
-      procedimentos: p.procedimento ? [
-        {
-          especialidade: p.especialidade,
-          procedimento: p.procedimento,
-          judicializado: 'Não',
-          Swalis: p.swalis || p.swallis || p.Swalis || '—',
-          medico_responsavel: 'Não informado',
-          status: 'ATIVO',
-          tempo_standby: null
-        }
-      ] : []
+      procedimentos: []
     });
   }
 
@@ -273,38 +426,41 @@ const pacientesProcessados = computed(() => {
     const cod = String(s.codigo_paciente);
     let pac = pacMap.get(cod);
     if (!pac) {
+      const baseMatch = basePacientes.value.find((bp: any) => String(bp.codigo) === cod || bp.nome?.toLowerCase().trim() === s.nome_paciente?.toLowerCase().trim());
       pac = {
         codigo: cod,
         nome: s.nome_paciente,
-        dt_nascimento: '—',
-        nome_mae: '—',
+        dt_nascimento: s.dt_nascimento || s.data_nascimento || baseMatch?.dt_nascimento || '—',
+        nome_mae: s.nome_mae || baseMatch?.nome_mae || '—',
         procedimentos: []
       };
       pacMap.set(cod, pac);
+    } else {
+      if ((!pac.dt_nascimento || pac.dt_nascimento === '—') && (s.dt_nascimento || s.data_nascimento)) {
+        pac.dt_nascimento = s.dt_nascimento || s.data_nascimento;
+      }
+      if ((!pac.nome_mae || pac.nome_mae === '—') && s.nome_mae) {
+        pac.nome_mae = s.nome_mae;
+      }
+      if (s.nome_paciente && pac.nome.startsWith('Paciente #')) {
+        pac.nome = s.nome_paciente;
+      }
     }
 
     if (s.tipo === 'INSERIR') {
-      const exists = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === s.procedimento);
-      if (!exists) {
-        pac.procedimentos.push({
-          especialidade: s.especialidade,
-          procedimento: s.procedimento,
-          judicializado: s.judicializado || 'Não',
-          Swalis: s.swalis || s.swallis || s.Swalis || s.Swallis || '—',
-          medico_responsavel: s.medico_responsavel || 'Não informado',
-          status: 'ATIVO',
-          tempo_standby: null
-        });
-      } else {
-        exists.judicializado = s.judicializado || 'Não';
-        exists.Swalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '—';
-        exists.medico_responsavel = s.medico_responsavel || 'Não informado';
-        exists.status = 'ATIVO';
-        exists.tempo_standby = null;
-      }
+      pac.procedimentos.push({
+        id: s.id,
+        especialidade: s.especialidade,
+        procedimento: s.procedimento,
+        judicializado: s.judicializado || 'Não',
+        Swalis: s.swalis || s.swallis || s.Swalis || s.Swallis || '—',
+        medico_responsavel: s.medico_responsavel || 'Não informado',
+        status: 'ATIVO',
+        tempo_standby: null
+      });
     } else if (s.tipo === 'EDITAR') {
       const targetProcName = s.procedimento_anterior || s.procedimento;
-      const proc = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === targetProcName);
+      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === targetProcName));
       if (proc) {
         proc.procedimento = s.procedimento;
         proc.judicializado = s.judicializado || 'Não';
@@ -313,15 +469,15 @@ const pacientesProcessados = computed(() => {
         proc.medico_responsavel = s.medico_responsavel || 'Não informado';
       }
     } else if (s.tipo === 'EXCLUIR') {
-      pac.procedimentos = pac.procedimentos.filter((p: any) => !(p.especialidade === s.especialidade && p.procedimento === s.procedimento));
+      pac.procedimentos = pac.procedimentos.filter((p: any) => !( (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento) ));
     } else if (s.tipo === 'STANDBY') {
-      const proc = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === s.procedimento);
+      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento));
       if (proc) {
         proc.status = 'STANDBY';
         proc.tempo_standby = calcularTempoStandbyRestante(s.tempo_standby || null, s.data_acao || s.data_criacao);
       }
     } else if (s.tipo === 'CANCELAR_STANDBY') {
-      const proc = pac.procedimentos.find((p: any) => p.especialidade === s.especialidade && p.procedimento === s.procedimento);
+      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento));
       if (proc) {
         proc.status = 'ATIVO';
         proc.tempo_standby = null;
@@ -329,23 +485,50 @@ const pacientesProcessados = computed(() => {
     }
   }
 
+  // Fallback para pacientes sem solicitações mas com procedimento na base
+  for (const pac of pacMap.values()) {
+    if (pac.procedimentos.length === 0) {
+      const baseMatch = basePacientes.value.find((bp: any) => String(bp.codigo) === pac.codigo);
+      if (baseMatch && baseMatch.procedimento) {
+        pac.procedimentos.push({
+          especialidade: baseMatch.especialidade,
+          procedimento: baseMatch.procedimento,
+          judicializado: 'Não',
+          Swalis: baseMatch.swalis || baseMatch.swallis || '—',
+          medico_responsavel: 'Não informado',
+          status: 'ATIVO',
+          tempo_standby: null
+        });
+      }
+    }
+  }
+
   // Se o perfil ativo for ESPECIALIDADE, filtra obrigatoriamente essa especialidade tanto para o paciente quanto para os procedimentos
-  const espAtiva = perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade
+  const espAtiva = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
     ? perfisStore.perfilAtivo.especialidade.toLowerCase().trim()
     : (filtroEspecialidade.value ? filtroEspecialidade.value.toLowerCase().trim() : null);
 
   return Array.from(pacMap.values())
     .map(pac => {
+      let procs = pac.procedimentos;
+
       if (espAtiva) {
-        return {
-          ...pac,
-          procedimentos: pac.procedimentos.filter((p: any) => p.especialidade && p.especialidade.toLowerCase().trim().includes(espAtiva))
-        };
+        procs = procs.filter((p: any) => p.especialidade && p.especialidade.toLowerCase().trim().includes(espAtiva));
       }
-      return pac;
+
+      if (filtroProcedimento.value) {
+        const procLower = filtroProcedimento.value.toLowerCase().trim();
+        procs = procs.filter((p: any) => p.procedimento && p.procedimento.toLowerCase().trim() === procLower);
+      }
+
+      return {
+        ...pac,
+        procedimentos: procs
+      };
     })
     .filter(pac => {
       if (pac.procedimentos.length === 0) return false;
+      if (filtroApenasMultiplos.value && pac.procedimentos.length <= 1) return false;
 
       let matchBusca = true;
       if (buscaProntuario.value) {
@@ -355,6 +538,11 @@ const pacientesProcessados = computed(() => {
 
       return matchBusca;
     });
+});
+
+const totalPacientes = computed(() => pacientesProcessados.value.length);
+const totalProcedimentos = computed(() => {
+  return pacientesProcessados.value.reduce((acc, pac) => acc + (pac.procedimentos ? pac.procedimentos.length : 0), 0);
 });
 
 onMounted(() => {

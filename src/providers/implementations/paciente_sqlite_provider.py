@@ -40,7 +40,21 @@ class PacienteSqliteProvider(PacienteProviderInterface):
         p = result.scalar_one_or_none()
         
         if not p:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paciente não encontrado no SQLite")
+            return {
+                "codigo": codigo,
+                "nome": f"Paciente #{codigo}",
+                "dt_nascimento": "—",
+                "cpf": None,
+                "sexo": None,
+                "cor": None,
+                "nome_mae": "—",
+                "nome_pai": None,
+                "data_hora_inicio": None,
+                "status_consulta": None,
+                "especialidade": None,
+                "procedimento": None,
+                "ultima_consulta_epo": None
+            }
             
         return {
             "codigo": p.codigo,

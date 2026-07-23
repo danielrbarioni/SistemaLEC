@@ -155,19 +155,16 @@ const irParaHome = () => {
   router.push('/interacoes');
 };
 
-// Lista completa de especialidades cirúrgicas ordenadas alfabeticamente
-const especialidades = ref([
-  'Cardiologia',
-  'Cirurgia Geral',
-  'Ginecologia',
-  'Neurocirurgia',
-  'Oftalmologia',
-  'Ortopedia',
-  'Otorrinolaringologia',
-  'Plástica',
-  'Torácica',
-  'Urologia'
-]);
+const especialidades = computed(() => {
+  const perfis = perfisStore.perfis;
+  const lista = perfis
+    .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
+    .map(p => (p.especialidade || p.nome).trim())
+    .filter((nome, index, self) => nome && self.indexOf(nome) === index)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  return lista;
+});
 
 // Mapeamento de procedimentos por especialidade
 const procedimentosMap: Record<string, string[]> = {
