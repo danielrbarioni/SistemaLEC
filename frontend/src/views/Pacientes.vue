@@ -9,7 +9,7 @@
 
     <!-- Controles de Busca e Filtro -->
     <Card>
-      <div class="grid grid-cols-1 gap-4" :class="espSelecionada ? 'md:grid-cols-3' : 'md:grid-cols-2'">
+      <div class="grid grid-cols-1 gap-4" :class="espSelecionada ? 'md:grid-cols-4' : 'md:grid-cols-2'">
         <!-- Busca por Prontuário -->
         <div class="form-group">
           <label for="buscaProntuario" class="form-label font-semibold">Buscar por Prontuário ou Nome</label>
@@ -57,8 +57,25 @@
           </select>
         </div>
 
+        <!-- Filtro por Médico Responsável (Abre quando uma Especialidade for selecionada) -->
+        <div v-if="espSelecionada" class="form-group">
+          <label for="filtroMedico" class="form-label font-semibold">
+            Filtrar por Médico Responsável
+          </label>
+          <select 
+            id="filtroMedico" 
+            v-model="filtroMedico" 
+            class="form-control"
+          >
+            <option value="">Todos os Médicos</option>
+            <option v-for="medico in medicosOpcoes" :key="medico" :value="medico">
+              {{ medico }}
+            </option>
+          </select>
+        </div>
+
         <!-- Filtro para Pacientes com Mais de 1 Procedimento -->
-        <div class="form-group md:col-span-3 flex items-center pt-2">
+        <div class="form-group flex items-center pt-2" :class="espSelecionada ? 'md:col-span-4' : 'md:col-span-2'">
           <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
             <input 
               type="checkbox" 
@@ -150,20 +167,28 @@
                 :key="index" 
                 class="border border-slate-100 rounded-lg p-4 bg-slate-50 relative"
               >
-                <!-- Status Badge -->
-                <div class="absolute top-4 right-4 flex items-center space-x-1.5">
-                  <span :class="getStatusBadgeClass(proc.status, proc.tempo_standby)">
-                    {{ getStatusLabel(proc.status, proc.tempo_standby) }}
-                  </span>
+                <!-- Cabeçalho do Card de Procedimento -->
+                <div class="flex items-start justify-between gap-3 mb-2">
+                  <div class="min-w-0 flex-1 pr-2">
+                    <span 
+                      class="font-bold text-slate-800 block leading-tight break-words"
+                      :class="(proc.procedimento || '').length > 60 ? 'text-xs' : ((proc.procedimento || '').length > 35 ? 'text-[13px]' : 'text-sm')"
+                    >
+                      {{ proc.procedimento || 'Procedimento não informado' }}
+                    </span>
+                    <span class="text-[10px] font-semibold text-slate-500 uppercase block mt-1">{{ proc.especialidade }}</span>
+                  </div>
+
+                  <!-- Status Badge -->
+                  <div class="shrink-0 flex items-center">
+                    <span :class="getStatusBadgeClass(proc.status, proc.tempo_standby)">
+                      {{ getStatusLabel(proc.status, proc.tempo_standby) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="space-y-2 text-xs">
-                  <div>
-                    <span class="font-bold text-slate-800 text-sm block">{{ proc.procedimento || 'Procedimento não informado' }}</span>
-                    <span class="text-[10px] font-semibold text-slate-500 uppercase">{{ proc.especialidade }}</span>
-                  </div>
-
-                  <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 mt-2">
+                  <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 mt-1">
                     <div>
                       <span class="text-[10px] text-gray-400 uppercase block font-semibold">Judicializado</span>
                       <span :class="proc.judicializado === 'Sim' ? 'text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded' : 'text-gray-700 font-medium'">
@@ -212,7 +237,9 @@ const loading = ref(false);
 const buscaProntuario = ref('');
 const filtroEspecialidade = ref('');
 const filtroProcedimento = ref('');
+const filtroMedico = ref('');
 const filtroApenasMultiplos = ref(false);
+const usuarios = ref<any[]>([]);
 
 const espSelecionada = computed(() => {
   if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
@@ -230,6 +257,51 @@ const especialidades = computed(() => {
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
   return lista;
+});
+
+const medicosOpcoes = computed(() => {
+  const esp = espSelecionada.value;
+  if (!esp) return [];
+
+  const espLower = esp.toLowerCase().trim();
+
+  // Encontra perfis da especialidade cirúrgica selecionada
+  const perfisEspIds = new Set(
+    perfisStore.perfis
+      .filter(p => p.tipo === 'ESPECIALIDADE' && (p.especialidade || p.nome).toLowerCase().trim() === espLower)
+      .map(p => p.id)
+  );
+
+  const medicosSet = new Set<string>();
+
+  // 1. Médicos da tabela de usuários associados ao perfil da especialidade com a função Médico
+  for (const u of usuarios.value) {
+    const perfMatch = perfisEspIds.has(u.perfil_id);
+    const espMatch = u.especialidade && u.especialidade.toLowerCase().trim() === espLower;
+    const isMedico = u.funcao === 'Médico' || (u.funcao && u.funcao.toLowerCase().includes('médico'));
+
+    if ((perfMatch || espMatch) && isMedico && u.nome) {
+      medicosSet.add(u.nome.trim());
+    }
+  }
+
+  // 2. Médicos presentes em solicitações/pacientes para essa especialidade (resolvendo username para nome completo se necessário)
+  for (const s of solicitacoes.value) {
+    if (s.especialidade && s.especialidade.toLowerCase().trim() === espLower && s.medico_responsavel) {
+      const val = s.medico_responsavel.trim();
+      if (val !== 'Não informado' && val !== '—') {
+        const userMatch = usuarios.value.find(u => u.username?.toLowerCase() === val.toLowerCase() || u.nome?.toLowerCase() === val.toLowerCase());
+        if (userMatch && userMatch.nome) {
+          medicosSet.add(userMatch.nome.trim());
+        } else if (!val.includes('.')) {
+          // Se não tiver ponto (padrão de username ebserh como nome.sobrenome), considera como nome
+          medicosSet.add(val);
+        }
+      }
+    }
+  }
+
+  return Array.from(medicosSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 const procedimentosBaseMap: Record<string, string[]> = {
@@ -264,6 +336,7 @@ function formatarNomeProcedimento(str: string): string {
 
 watch(espSelecionada, async (newEsp) => {
   filtroProcedimento.value = '';
+  filtroMedico.value = '';
   if (!newEsp) return;
 
   const espNorm = newEsp.toLowerCase().trim();
@@ -321,13 +394,15 @@ watch(() => perfisStore.perfilAtivo, (newProfile) => {
 const carregarDados = async () => {
   loading.value = true;
   try {
-    const [pacRes, solRes] = await Promise.all([
+    const [pacRes, solRes, usrRes] = await Promise.all([
       api.get('/api/pacientes'),
       api.get('/api/solicitacoes'),
+      api.get('/api/usuarios'),
       perfisStore.fetchPerfis()
     ]);
     basePacientes.value = pacRes.data;
     solicitacoes.value = solRes.data;
+    usuarios.value = usrRes.data;
   } catch (error) {
     toast.error('Erro ao obter os dados dos pacientes.');
   } finally {
@@ -519,6 +594,18 @@ const pacientesProcessados = computed(() => {
       if (filtroProcedimento.value) {
         const procLower = filtroProcedimento.value.toLowerCase().trim();
         procs = procs.filter((p: any) => p.procedimento && p.procedimento.toLowerCase().trim() === procLower);
+      }
+
+      if (filtroMedico.value) {
+        const medicoSelecionado = filtroMedico.value.toLowerCase().trim();
+        const userMatch = usuarios.value.find(u => u.nome?.toLowerCase().trim() === medicoSelecionado);
+        const usernameMatch = userMatch?.username?.toLowerCase().trim();
+
+        procs = procs.filter((p: any) => {
+          if (!p.medico_responsavel) return false;
+          const mLower = p.medico_responsavel.toLowerCase().trim();
+          return mLower === medicoSelecionado || (usernameMatch && mLower === usernameMatch);
+        });
       }
 
       return {
