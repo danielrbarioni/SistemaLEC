@@ -5,8 +5,28 @@
       <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial → Gestão da LEC</span>
     </div>
 
+    <!-- Modal de Alerta de Acesso Restrito para Enfermeiros -->
+    <div v-if="isEnfermeiro" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden p-6 text-center space-y-4">
+        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 text-red-600">
+          <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900">Acesso Restrito</h3>
+        <p class="text-sm text-gray-600 leading-relaxed">
+          A funcionalidade do menu <strong>Comunicação LEC</strong> é voltada exclusivamente para os perfis <strong>Médico</strong> e <strong>Residente</strong>.
+        </p>
+        <div class="pt-2">
+          <Button @click="router.push('/')" variant="primary" class="w-full justify-center">
+            Voltar para o Início
+          </Button>
+        </div>
+      </div>
+    </div>
+
     <!-- Formulário e Abas de Solicitação Unidos -->
-    <Card v-if="perfisStore.perfilAtivo.tipo !== 'GESTAO_LEC'" class="overflow-hidden">
+    <Card class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <div class="flex items-center space-x-3">
@@ -39,7 +59,7 @@
 
       <!-- Alerta indicando a origem dos dados quando buscados na Sede -->
       <div v-if="abaAtiva !== 'INSERIR' && formCarregadoDaSede" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center space-x-2">
-        <span>✅ Dados da solicitação ativa carregados com sucesso do <strong>Sistema LEC Sede</strong>.</span>
+        <span>✅ Dados da solicitação ativa carregados com sucesso da <strong>Comunicação LEC Sede</strong>.</span>
       </div>
 
       <form @submit.prevent="enviarSolicitacao" class="space-y-5">
@@ -749,6 +769,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { 
   UserPlusIcon, 
@@ -764,8 +785,15 @@ import { usePerfisStore } from '../stores/perfis';
 import { useAuthStore } from '../stores/auth';
 
 const toast = useToast();
+const router = useRouter();
 const perfisStore = usePerfisStore();
 const authStore = useAuthStore();
+
+const isEnfermeiro = computed(() => {
+  const perfilNome = perfisStore.perfilAtivo?.nome?.toLowerCase() || '';
+  const userRole = (authStore.user as any)?.funcao?.toLowerCase() || '';
+  return perfilNome.includes('enfermeiro') || userRole.includes('enfermeiro');
+});
 
 // Lista base de procedimentos por nome de especialidade
 const procedimentosBaseMap: Record<string, string[]> = {
@@ -1246,7 +1274,11 @@ const preencherCamposDoProc = (proc: any) => {
   form.value.especialidade = proc.especialidade;
   form.value.judicializado = proc.judicializado || 'Não';
   form.value.swallis = proc.swallis || '';
-  form.value.medico_responsavel = proc.medico_responsavel || '';
+  
+  const med = proc.medico_responsavel || '';
+  const userMatch = usuariosLocais.value.find(u => u.username?.toLowerCase() === med.trim().toLowerCase() || u.nome?.toLowerCase() === med.trim().toLowerCase());
+  form.value.medico_responsavel = userMatch?.nome?.trim() || med;
+  
   desejaAlterarProcedimento.value = 'Não';
 };
 
@@ -1322,39 +1354,46 @@ const buscarDados = async (isAutomatic = false) => {
           });
         }
 
-        const approvedSolics = solicsDosPac
-          .filter(s => s.status === 'APROVADO')
-          .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
+    const resolverMedicoNome = (med: string) => {
+      if (!med || med === 'Não informado' || med === '—') return med || '';
+      const clean = med.trim();
+      const userMatch = usuariosLocais.value.find(u => u.username?.toLowerCase() === clean.toLowerCase() || u.nome?.toLowerCase() === clean.toLowerCase());
+      return userMatch?.nome?.trim() || clean;
+    };
 
-        for (const s of approvedSolics) {
-          const key = `${s.especialidade}||${s.procedimento}`;
-          if (s.tipo === 'INSERIR') {
-            procMap.set(key, {
-              especialidade: s.especialidade,
-              procedimento: s.procedimento,
-              judicializado: s.judicializado || 'Não',
-              swallis: s.swalis || s.swallis || s.Swalis || '—',
-              medico_responsavel: s.medico_responsavel || 'Não informado',
-              status: 'ATIVO'
-            });
-          } else if (s.tipo === 'EDITAR') {
-            const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
-            const existing = procMap.get(oldKey);
-            if (existing) {
-              procMap.delete(oldKey);
-              procMap.set(key, {
-                ...existing,
-                procedimento: s.procedimento,
-                judicializado: s.judicializado || 'Não',
-                swallis: s.swalis || s.swallis || s.Swalis || '—',
-                medico_responsavel: s.medico_responsavel || 'Não informado'
-              });
-            }
-          } else if (s.tipo === 'EXCLUIR') {
-            procMap.delete(key);
-          }
+    const approvedSolics = solicsDosPac
+      .filter(s => s.status === 'APROVADO')
+      .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
+
+    for (const s of approvedSolics) {
+      const key = `${s.especialidade}||${s.procedimento}`;
+      if (s.tipo === 'INSERIR') {
+        procMap.set(key, {
+          especialidade: s.especialidade,
+          procedimento: s.procedimento,
+          judicializado: s.judicializado || 'Não',
+          swallis: s.swalis || s.swallis || s.Swalis || '—',
+          medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+          status: 'ATIVO'
+        });
+      } else if (s.tipo === 'EDITAR') {
+        const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
+        const existing = procMap.get(oldKey);
+        if (existing) {
+          procMap.delete(oldKey);
+          procMap.set(key, {
+            ...existing,
+            procedimento: s.procedimento,
+            judicializado: s.judicializado || 'Não',
+            swallis: s.swalis || s.swallis || s.Swalis || '—',
+            medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+          });
         }
-        procs = Array.from(procMap.values());
+      } else if (s.tipo === 'EXCLUIR') {
+        procMap.delete(key);
+      }
+    }
+    procs = Array.from(procMap.values());
       } else {
         // Fallback: Usa o procedimento do cadastro inicial do paciente
         if (pacData && pacData.procedimento) {

@@ -31,11 +31,12 @@ async def listar_pacientes(
 
 @router.get("/{codigo}", response_model=dict)
 async def obter_paciente(
-    codigo: int,
+    codigo: str,
     provider: PacienteProviderInterface = Depends(get_paciente_provider(STRATEGY))
 ):
     """Obtém um paciente pelo código a partir da fonte de dados configurada no roteador."""
-    return await paciente_controller.obter_paciente_por_codigo(codigo, provider)
+    codigo_int = int(codigo) if codigo.isdigit() else codigo
+    return await paciente_controller.obter_paciente_por_codigo(codigo_int, provider)
 
 especialidade_router = APIRouter(
     prefix="/api/especialidades",

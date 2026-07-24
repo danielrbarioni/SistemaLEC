@@ -23,7 +23,7 @@
       <nav class="space-y-1">
         <router-link v-if="authStore.isAuthenticated" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
           <ComputerDesktopIcon class="h-6 w-6" />
-          <span>Sistema LEC</span>
+          <span>Comunicação LEC</span>
           <span v-if="mostrarBadgeSistemaLec" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
             {{ countPendentes }}
           </span>

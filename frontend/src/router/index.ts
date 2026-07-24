@@ -28,7 +28,7 @@ const routes = [
   },
   {
     path: '/interacoes',
-    name: 'Sistema LEC',
+    name: 'Comunicação LEC',
     component: InteracoesLec,
     meta: { requiresAuth: true },
   },

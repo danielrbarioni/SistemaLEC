@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-800">Prontuário e Cadastro de Pacientes</h1>
+      <h1 class="text-2xl font-bold text-gray-800">Pacientes cadastrados no Sistema LEC</h1>
       <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
         Gestão de Pacientes
       </span>
@@ -478,6 +478,13 @@ const getSwalisClass = (Swalis: string) => {
 };
 
 const pacientesProcessados = computed(() => {
+  const resolverMedicoNome = (med: string) => {
+    if (!med || med === 'Não informado' || med === '—') return med || 'Não informado';
+    const clean = med.trim();
+    const userMatch = usuarios.value.find(u => u.username?.toLowerCase() === clean.toLowerCase() || u.nome?.toLowerCase() === clean.toLowerCase());
+    return userMatch?.nome?.trim() || clean;
+  };
+
   // 1. Inicializa o mapa com pacientes da base
   const pacMap = new Map<string, any>();
   
@@ -529,7 +536,7 @@ const pacientesProcessados = computed(() => {
         procedimento: s.procedimento,
         judicializado: s.judicializado || 'Não',
         Swalis: s.swalis || s.swallis || s.Swalis || s.Swallis || '—',
-        medico_responsavel: s.medico_responsavel || 'Não informado',
+        medico_responsavel: resolverMedicoNome(s.medico_responsavel),
         status: 'ATIVO',
         tempo_standby: null
       });
@@ -541,7 +548,7 @@ const pacientesProcessados = computed(() => {
         proc.judicializado = s.judicializado || 'Não';
         const novoSwalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '';
         proc.Swalis = novoSwalis || proc.Swalis || '—';
-        proc.medico_responsavel = s.medico_responsavel || 'Não informado';
+        proc.medico_responsavel = resolverMedicoNome(s.medico_responsavel);
       }
     } else if (s.tipo === 'EXCLUIR') {
       pac.procedimentos = pac.procedimentos.filter((p: any) => !( (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento) ));
@@ -570,7 +577,7 @@ const pacientesProcessados = computed(() => {
           procedimento: baseMatch.procedimento,
           judicializado: 'Não',
           Swalis: baseMatch.swalis || baseMatch.swallis || '—',
-          medico_responsavel: 'Não informado',
+          medico_responsavel: resolverMedicoNome(baseMatch.medico_responsavel),
           status: 'ATIVO',
           tempo_standby: null
         });

@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from ..controllers import solicitacao_controller
 from ..dependencies import get_solicitacao_provider
 from ..providers.interfaces.solicitacao_provider_interface import SolicitacaoProviderInterface
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..resources.database import get_app_db_session
 from ..auth.auth import auth_handler
 
 import os
@@ -56,10 +58,31 @@ async def criar_solicitacao(
 
 @router.get("", response_model=List[dict])
 async def listar_solicitacoes(
-    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY))
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    db: AsyncSession = Depends(get_app_db_session)
 ):
-    """Lista todas as solicitações."""
-    return await solicitacao_controller.listar_solicitacoes(provider)
+    """Lista todas as solicitações, resolvendo logins Ebserh de médicos responsáveis para seus Nomes Completos."""
+    solics = await solicitacao_controller.listar_solicitacoes(provider)
+    
+    # Mapeia usernames para nomes completos a partir do banco de dados local
+    try:
+        from sqlalchemy import select
+        from ..models.user import User
+        result = await db.execute(select(User))
+        usuarios = result.scalars().all()
+        user_map = {u.username.lower().strip(): u.nome.strip() for u in usuarios if u.username and u.nome}
+        
+        for s in solics:
+            medico = s.get('medico_responsavel')
+            if medico:
+                medico_clean = str(medico).strip()
+                medico_lower = medico_clean.lower()
+                if medico_lower in user_map:
+                    s['medico_responsavel'] = user_map[medico_lower]
+    except Exception as e:
+        pass
+        
+    return solics
 
 @router.get("/paciente/{codigo_paciente}", response_model=dict)
 async def obter_solicitacao_por_paciente(
