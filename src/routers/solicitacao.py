@@ -50,6 +50,14 @@ async def criar_solicitacao(
     user_info: dict = Depends(auth_handler.decode_token)
 ):
     """Envia uma nova solicitação (Inserir, Editar, Excluir, Stand-by)."""
+    from .perfil import get_current_user_role
+    role = get_current_user_role(user_info)
+    if role == "OBSERVADOR":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários com perfil OBSERVADOR possuem acesso apenas para visualização."
+        )
+
     data = solic.model_dump()
     data["evento_tipo"] = "SOLICITACAO"
     if not data.get("usuario") and user_info:
@@ -109,6 +117,14 @@ async def atualizar_status_solicitacao(
     user_info: dict = Depends(auth_handler.decode_token)
 ):
     """Atualiza o status de processamento da solicitação e grava uma linha de Resposta no histórico."""
+    from .perfil import get_current_user_role
+    role = get_current_user_role(user_info)
+    if role == "OBSERVADOR":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários com perfil OBSERVADOR possuem acesso apenas para visualização."
+        )
+
     usuario_executor = status_update.usuario
     if not usuario_executor and user_info:
         usuario_executor = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
@@ -132,9 +148,17 @@ pacientes_status_router = APIRouter(
 async def salvar_status_local(
     codigo_paciente: str,
     status_update: StatusLocalUpdate,
-    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY))
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    user_info: dict = Depends(auth_handler.decode_token)
 ):
     """Atualiza o status local de acompanhamento do paciente no hospital."""
+    from .perfil import get_current_user_role
+    role = get_current_user_role(user_info)
+    if role == "OBSERVADOR":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários com perfil OBSERVADOR possuem acesso apenas para visualização."
+        )
     return await solicitacao_controller.salvar_status_local_paciente(codigo_paciente, status_update.status_local, provider)
 
 @pacientes_status_router.get("/status-locais", response_model=Dict[str, str])

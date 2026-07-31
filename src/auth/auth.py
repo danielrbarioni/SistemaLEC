@@ -220,6 +220,8 @@ class AuthHandler:
                             groups = ["GLO-SEC-HCPE-SETISD", "Users"]
                         elif db_perfil_tipo == "GESTAO_LEC":
                             groups = ["GESTAO_LEC", "Users"]
+                        elif db_perfil_tipo == "OBSERVADOR":
+                            groups = ["OBSERVADOR", "Users"]
                         else:
                             groups = ["ESPECIALIDADE", "Users"]
                             
@@ -230,9 +232,17 @@ class AuthHandler:
                         user_data["especialidade"] = db_especialidade
                         print(f"INFO: Local profile enrichment successful for user: {user_data['username']}")
                     else:
-                        print(f"DEBUG: No matching local user found for username: {user_data['username']}")
+                        # Fallback seguro para usuários Ebserh/AD não cadastrados na tabela usuarios: atribui perfil OBSERVADOR
+                        user_data["groups"] = ["OBSERVADOR", "Users"]
+                        user_data["perfil_tipo"] = "OBSERVADOR"
+                        user_data["especialidade"] = None
+                        print(f"INFO: No local profile found for {user_data['username']}. Defaulting to OBSERVADOR profile.")
                 except Exception as e:
                     print(f"Error enriching user from SQLite: {e}")
+                    user_data["groups"] = ["OBSERVADOR", "Users"]
+                    user_data["perfil_tipo"] = "OBSERVADOR"
+                    user_data["especialidade"] = None
+
                     
         print(f"DEBUG: final user_data = {user_data}")
         return user_data

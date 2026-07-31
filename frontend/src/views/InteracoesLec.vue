@@ -25,8 +25,8 @@
       </div>
     </div>
 
-    <!-- Formulário e Abas de Solicitação Unidos -->
-    <Card class="overflow-hidden">
+    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR) -->
+    <Card v-if="perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <div class="flex items-center space-x-3">
@@ -416,11 +416,11 @@
 
         <!-- Botões -->
         <div class="flex justify-end space-x-3 pt-2">
-          <Button type="button" @click="limparFormulario" variant="secondary">
+          <Button type="button" @click="limparFormulario" variant="secondary" :disabled="perfisStore.perfilAtivo.tipo === 'OBSERVADOR'">
             Limpar
           </Button>
-          <Button type="submit" :disabled="submitting" :variant="abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary'">
-            {{ submitting ? 'Enviando...' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação') }}
+          <Button type="submit" :disabled="submitting || perfisStore.perfilAtivo.tipo === 'OBSERVADOR'" :variant="abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary'">
+            {{ perfisStore.perfilAtivo.tipo === 'OBSERVADOR' ? 'Somente Leitura' : (submitting ? 'Enviando...' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação')) }}
           </Button>
         </div>
       </form>
@@ -1525,6 +1525,11 @@ const enviarSolicitacao = async () => {
     tempoStandbyFinal = undefined;
   }
 
+  if (perfisStore.perfilAtivo.tipo === 'OBSERVADOR') {
+    toast.error('Usuários com perfil OBSERVADOR possuem acesso apenas para visualização.');
+    return;
+  }
+
   submitting.value = true;
   try {
     await api.post('/api/solicitacoes', {
@@ -1539,15 +1544,16 @@ const enviarSolicitacao = async () => {
       medico_responsavel: form.value.medico_responsavel,
       detalhes: form.value.detalhes,
       tempo_standby: tempoStandbyFinal,
-      perfil_executor: perfisStore.perfilAtivo.nome,
+      perfil_executor: perfisStore.perfilAtivo.tipo,
       usuario: authStore.user?.username || 'Usuário Sistema',
       procedimento_anterior: form.value.procedimento_anterior || undefined
     });
     toast.success('Solicitação registrada com sucesso!');
     limparFormulario();
     await carregarSolicitacoes();
-  } catch (error) {
-    toast.error('Erro ao registrar solicitação.');
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.detail || 'Erro ao registrar solicitação.';
+    toast.error(errorMsg);
   } finally {
     submitting.value = false;
   }

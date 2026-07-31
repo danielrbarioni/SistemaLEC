@@ -122,9 +122,10 @@
                 {{ formatarData(paciente.ultima_consulta_epo) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-center">
-                <Button @click="solicitarApa(paciente)" variant="success" size="sm" class="inline-flex items-center space-x-1">
+                <Button v-if="!authStore.isObservador" @click="solicitarApa(paciente)" variant="success" size="sm" class="inline-flex items-center space-x-1">
                   <span>Solicitar APA</span>
                 </Button>
+                <span v-else class="text-xs text-gray-400 font-medium">Somente Leitura</span>
               </td>
             </tr>
           </tbody>

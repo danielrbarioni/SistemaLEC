@@ -21,6 +21,9 @@ export const useAuthStore = defineStore('auth', () => {
     const ADMIN_GROUP = "GLO-SEC-HCPE-SETISD"; 
     return user.value?.groups?.includes(ADMIN_GROUP) || false;
   });
+  const isObservador = computed(() => {
+    return user.value?.groups?.includes("OBSERVADOR") || (user.value as any)?.perfil_tipo === "OBSERVADOR" || false;
+  });
 
   function setToken(token: string) {
     accessToken.value = token;
@@ -103,6 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
     user, 
     isAuthenticated, 
     isAdmin, 
+    isObservador,
     login, 
     logout,
     setToken,

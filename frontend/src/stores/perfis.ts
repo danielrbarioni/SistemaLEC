@@ -6,7 +6,7 @@ import { useAuthStore } from './auth';
 export interface Perfil {
   id: string;
   nome: string;
-  tipo: 'ADMIN' | 'GESTAO_LEC' | 'ESPECIALIDADE';
+  tipo: 'ADMIN' | 'GESTAO_LEC' | 'ESPECIALIDADE' | 'OBSERVADOR';
   cor: 'cinza' | 'azul' | 'verde';
   especialidade?: string;
 }
@@ -16,7 +16,9 @@ function sortPerfis(list: Perfil[]): Perfil[] {
     const getPeso = (p: Perfil) => {
       if (p.tipo === 'ADMIN') return 1;
       if (p.tipo === 'GESTAO_LEC') return 2;
-      return 3;
+      if (p.tipo === 'ESPECIALIDADE') return 3;
+      if (p.tipo === 'OBSERVADOR') return 4;
+      return 5;
     };
     const pesoA = getPeso(a);
     const pesoB = getPeso(b);
@@ -35,7 +37,7 @@ export const usePerfisStore = defineStore('perfis', () => {
   const perfilAtivoId = ref<string>(localStorage.getItem('perfilAtivoId') || '');
 
   const perfilAtivo = computed(() => {
-    return perfis.value.find(p => p.id === perfilAtivoId.value) || perfis.value[0] || { id: '', nome: 'SEM PERFIL', tipo: 'ESPECIALIDADE', cor: 'cinza' };
+    return perfis.value.find(p => p.id === perfilAtivoId.value) || perfis.value[0] || { id: 'OBSERVADOR', nome: 'OBSERVADOR', tipo: 'OBSERVADOR', cor: 'cinza' };
   });
 
   function setPerfilAtivoInternal(id: string) {

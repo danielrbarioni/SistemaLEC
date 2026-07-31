@@ -40,6 +40,8 @@ def get_current_user_role(current_user: dict) -> str:
         return "ADMIN"
     elif "GESTAO_LEC" in groups:
         return "GESTAO_LEC"
+    elif "OBSERVADOR" in groups:
+        return "OBSERVADOR"
     elif "ESPECIALIDADE" in groups:
         return "ESPECIALIDADE"
     
@@ -47,7 +49,7 @@ def get_current_user_role(current_user: dict) -> str:
     if current_user.get("username") == "admin":
         return "ADMIN"
         
-    return "ESPECIALIDADE"  # Default fallback
+    return "OBSERVADOR"  # Default fallback seguro para usuários sem perfil cadastrado
 
 @router.get("", response_model=List[PerfilResponse])
 async def get_perfis(
@@ -55,11 +57,23 @@ async def get_perfis(
     current_user: dict = Depends(auth_handler.decode_token)
 ):
     """
-    Retorna a lista de todos os perfis cadastrados no banco local.
+    Retorna a lista de todos os perfis cadastrados no banco local, incluindo o perfil OBSERVADOR.
     """
     stmt = select(Profile)
     result = await db.execute(stmt)
-    perfis = result.scalars().all()
+    perfis = list(result.scalars().all())
+
+    # Se o perfil OBSERVADOR não estiver no banco, inclui virtualmente para alternância de perfil no frontend
+    if not any(p.id == "OBSERVADOR" for p in perfis):
+        observador_profile = Profile(
+            id="OBSERVADOR",
+            nome="OBSERVADOR",
+            tipo="OBSERVADOR",
+            cor="cinza",
+            especialidade=None
+        )
+        perfis.append(observador_profile)
+
     return perfis
 
 @router.post("", response_model=PerfilResponse, status_code=status.HTTP_201_CREATED)
