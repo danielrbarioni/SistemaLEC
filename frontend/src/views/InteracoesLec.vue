@@ -416,11 +416,11 @@
 
         <!-- Botões -->
         <div class="flex justify-end space-x-3 pt-2">
-          <Button type="button" @click="limparFormulario" variant="secondary" :disabled="perfisStore.perfilAtivo.tipo === 'OBSERVADOR'">
+          <Button type="button" @click="limparFormulario" variant="secondary" :disabled="(perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR'">
             Limpar
           </Button>
-          <Button type="submit" :disabled="submitting || perfisStore.perfilAtivo.tipo === 'OBSERVADOR'" :variant="abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary'">
-            {{ perfisStore.perfilAtivo.tipo === 'OBSERVADOR' ? 'Somente Leitura' : (submitting ? 'Enviando...' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação')) }}
+          <Button type="submit" :disabled="submitting || (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR'" :variant="abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary'">
+            {{ (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' ? 'Somente Leitura' : (submitting ? 'Enviando...' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação')) }}
           </Button>
         </div>
       </form>
