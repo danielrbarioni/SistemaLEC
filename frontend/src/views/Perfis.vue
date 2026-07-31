@@ -599,7 +599,7 @@ const usuariosFiltrados = computed(() => {
       return false;
     }
 
-    if (podeCriarPerfil.value && filtros.value.perfil_id) {
+    if (filtros.value.perfil_id) {
       const target = filtros.value.perfil_id.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const userPerfId = (user.perfil_id || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const userEsp = (user.especialidade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
