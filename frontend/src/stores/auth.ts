@@ -67,6 +67,13 @@ export const useAuthStore = defineStore('auth', () => {
     });
     setToken(data.access_token);
     await fetchUser(); // Fetch user info immediately after login
+    try {
+      const { usePerfisStore } = await import('./perfis');
+      const perfisStore = usePerfisStore();
+      await perfisStore.fetchPerfis();
+    } catch (e) {
+      console.error('Erro ao atualizar perfis no login:', e);
+    }
   }
 
   async function logout(router?: any) {
@@ -76,6 +83,7 @@ export const useAuthStore = defineStore('auth', () => {
       console.error("Logout failed, but clearing token anyway.", error);
     } finally {
       clearToken();
+      localStorage.removeItem('perfilAtivoId');
       if (router) {
         router.push({ name: 'Login' });
       }

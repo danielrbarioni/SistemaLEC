@@ -36,8 +36,10 @@ export const usePerfisStore = defineStore('perfis', () => {
 
   const perfilAtivoId = ref<string>(localStorage.getItem('perfilAtivoId') || '');
 
-  const perfilAtivo = computed(() => {
-    return perfis.value.find(p => p.id === perfilAtivoId.value) || perfis.value[0] || { id: 'OBSERVADOR', nome: 'OBSERVADOR', tipo: 'OBSERVADOR', cor: 'cinza' };
+  const perfilAtivo = computed<Perfil>(() => {
+    return perfis.value.find(p => p.id === perfilAtivoId.value) 
+      || perfis.value.find(p => p.tipo === 'OBSERVADOR')
+      || { id: 'OBSERVADOR', nome: 'OBSERVADOR', tipo: 'OBSERVADOR', cor: 'cinza', especialidade: undefined };
   });
 
   function setPerfilAtivoInternal(id: string) {
@@ -53,25 +55,43 @@ export const usePerfisStore = defineStore('perfis', () => {
 
       const authStore = useAuthStore();
       
-      // Se não for ADMIN e estiver autenticado, tenta buscar o perfil vinculado ao usuário cadastrado
-      if (authStore.isAuthenticated && !authStore.isAdmin && authStore.user?.username) {
-        try {
-          const { data: usuariosData } = await api.get('/api/usuarios');
-          const meUser = usuariosData.find((u: any) => u.username?.toLowerCase() === authStore.user?.username?.toLowerCase());
-          if (meUser && meUser.perfil_id && data.some((p: Perfil) => p.id === meUser.perfil_id)) {
-            setPerfilAtivoInternal(meUser.perfil_id);
+      const observadorProfile = data.find((p: Perfil) => p.tipo === 'OBSERVADOR' || p.id === 'OBSERVADOR') || { id: 'OBSERVADOR' };
+      const defaultObservadorId = observadorProfile.id;
+
+      if (authStore.isAuthenticated) {
+        if (authStore.isObservador || (authStore.user as any)?.perfil_tipo === 'OBSERVADOR') {
+          setPerfilAtivoInternal(defaultObservadorId);
+          return;
+        }
+
+        if (!authStore.isAdmin && authStore.user?.username) {
+          try {
+            const { data: usuariosData } = await api.get('/api/usuarios');
+            const meUser = usuariosData.find((u: any) => u.username?.toLowerCase() === authStore.user?.username?.toLowerCase());
+            if (meUser && meUser.perfil_id && data.some((p: Perfil) => p.id === meUser.perfil_id)) {
+              setPerfilAtivoInternal(meUser.perfil_id);
+              return;
+            } else {
+              // Usuário não cadastrado na tabela de usuários ou sem perfil específico -> OBSERVADOR
+              setPerfilAtivoInternal(defaultObservadorId);
+              return;
+            }
+          } catch (e) {
+            console.error('Erro ao determinar perfil do usuário logado:', e);
+            setPerfilAtivoInternal(defaultObservadorId);
             return;
           }
-        } catch (e) {
-          console.error('Erro ao determinar perfil do usuário logado:', e);
         }
       }
 
-      // Define o perfil ativo padrão se não houver um salvo
-      if (!perfilAtivoId.value && data.length > 0) {
-        setPerfilAtivoInternal(data[0].id);
-      } else if (perfilAtivoId.value && !data.some((p: Perfil) => p.id === perfilAtivoId.value) && data.length > 0) {
-        setPerfilAtivoInternal(data[0].id);
+      // Se for ADMIN autenticado ou não autenticado ainda
+      if (authStore.isAdmin) {
+        if (!perfilAtivoId.value || !data.some((p: Perfil) => p.id === perfilAtivoId.value)) {
+          setPerfilAtivoInternal(data[0]?.id || defaultObservadorId);
+        }
+      } else {
+        // Padrão seguro para qualquer outro caso: OBSERVADOR
+        setPerfilAtivoInternal(defaultObservadorId);
       }
     } catch (error) {
       console.error('Erro ao buscar perfis:', error);
