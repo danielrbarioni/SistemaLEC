@@ -89,6 +89,9 @@ Thumbs.db
 # Arquivos de log e banco de dados local
 *.log
 *.sqlite3
+*.db
+app.db
+data/*.db
 server.log
 
 # Frontend (Node.js)
