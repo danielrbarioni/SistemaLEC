@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-bold text-gray-800">Pacientes cadastrados no Sistema LEC</h1>
       <div class="flex items-center space-x-3">
         <button 
-          v-if="perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo.nome === 'Gestão LEC' || perfisStore.perfilAtivo.tipo === 'ADMIN'"
+          v-if="podeImportarPlanilha"
           @click="modalImportarAberto = true"
           class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm"
         >
@@ -243,10 +243,19 @@ import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
+import { useAuthStore } from '../stores/auth';
 import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
+const authStore = useAuthStore();
+
+const podeImportarPlanilha = computed(() => {
+  if (authStore.isAdmin) return true;
+  const p = perfisStore.perfilAtivo;
+  if (!p) return false;
+  return p.tipo === 'ADMIN' || p.tipo === 'GESTAO_LEC' || p.nome === 'Gestão LEC' || p.nome === 'GESTAO_LEC' || p.id === 'GESTAO_LEC';
+});
 
 const modalImportarAberto = ref(false);
 
