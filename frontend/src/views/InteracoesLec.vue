@@ -846,15 +846,41 @@ const procedimentosAghuMap = ref<Record<string, string[]>>({});
 function formatarNomeProcedimento(str: string): string {
   if (!str) return str;
   const s = str.trim();
-  const matchLeft = s.match(/^(\d+)\s*[-–—]\s*(.+)$/);
-  if (matchLeft) {
-    return `${matchLeft[2].trim()} - ID ${matchLeft[1]}`;
+
+  if (/\s*\(\s*ID\s+\d+\s*\)$/i.test(s)) {
+    return s.replace(/\s*\(\s*ID\s+(\d+)\s*\)$/i, ' (ID $1)');
   }
-  const matchRight = s.match(/^(.+?)\s*[-–—]\s*(?:ID\s*)?(\d+)$/i);
-  if (matchRight) {
-    return `${matchRight[1].trim()} - ID ${matchRight[2]}`;
+
+  const mDashId = s.match(/^(.*?)\s*[-–—]\s*ID\s*(\d+)$/i);
+  if (mDashId) {
+    return `${mDashId[1].trim()} (ID ${mDashId[2]})`;
   }
+
+  const mParen = s.match(/^(.*?)\s*\(\s*(\d+)\s*\)$/);
+  if (mParen) {
+    return `${mParen[1].trim()} (ID ${mParen[2]})`;
+  }
+
+  const mDashNum = s.match(/^(.*?)\s*[-–—]\s*(\d+)$/);
+  if (mDashNum) {
+    return `${mDashNum[1].trim()} (ID ${mDashNum[2]})`;
+  }
+
+  const mStartNum = s.match(/^(\d+)\s*[-–—]\s*(.*)$/);
+  if (mStartNum) {
+    return `${mStartNum[2].trim()} (ID ${mStartNum[1]})`;
+  }
+
   return s;
+}
+
+function extrairKeyProcedimento(str: string): string {
+  const formatted = formatarNomeProcedimento(str);
+  const m = formatted.match(/^(.*?)\s*\(\s*ID\s+(\d+)\s*\)$/i);
+  if (m) {
+    return `ID_${m[2]}`;
+  }
+  return `NAME_${formatted.trim().toLowerCase()}`;
 }
 
 watch(() => form.value.especialidade, async (newEsp) => {
@@ -864,7 +890,7 @@ watch(() => form.value.especialidade, async (newEsp) => {
     try {
       const { data } = await api.get('/api/especialidades/1884/procedimentos');
       const procs = data
-        .map((p: any) => p.id_procedimento ? `${p.descricao} - ID ${p.id_procedimento}` : p.descricao)
+        .map((p: any) => p.id_procedimento ? `${p.descricao} (ID ${p.id_procedimento})` : p.descricao)
         .filter(Boolean);
       if (procs.length > 0) {
         procedimentosAghuMap.value['Plástica'] = procs;
@@ -911,9 +937,26 @@ const procedimentosDaEspecialidade = computed(() => {
   }
 
   const raw = [...listFromAghu, ...baseProcs, ...extraProcs];
-  const formatted = raw.map(formatarNomeProcedimento);
-  const combined = Array.from(new Set(formatted));
-  return combined.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const procMap = new Map<string, string>();
+
+  for (const item of raw) {
+    if (!item || !item.trim()) continue;
+    const formatted = formatarNomeProcedimento(item);
+    const key = extrairKeyProcedimento(formatted);
+
+    if (!procMap.has(key)) {
+      procMap.set(key, formatted);
+    } else {
+      const existing = procMap.get(key)!;
+      if (formatted.includes('(ID ') && !existing.includes('(ID ')) {
+        procMap.set(key, formatted);
+      } else if (formatted.length > existing.length) {
+        procMap.set(key, formatted);
+      }
+    }
+  }
+
+  return Array.from(procMap.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 // Médicos conhecidos extraídos das solicitações (para o autocomplete)

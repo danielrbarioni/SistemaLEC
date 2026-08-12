@@ -195,6 +195,22 @@ if (isGitHubPages) {
       return { data: mockPacientesEspecialidades, status: 200, headers: {}, config };
     }
 
+    // Rota: POST /api/pacientes/importar-excel
+    if (url.includes('/api/pacientes/importar-excel') && method === 'post') {
+      return {
+        data: {
+          total_linhas: 5,
+          solicitacoes_criadas: 5,
+          solicitacoes_atualizadas: 0,
+          novos_medicos: [{ username: 'medico.demo', especialidade: 'Plástica' }],
+          erros: []
+        },
+        status: 200,
+        headers: {},
+        config
+      };
+    }
+
     // Rota: GET /api/pacientes/{codigo}
     if (url.includes('/api/pacientes/')) {
       const parts = url.split('/');
@@ -264,6 +280,22 @@ if (isGitHubPages) {
           data: { detail: 'Solicitação não encontrada' }
         }
       });
+    }
+
+    // Rota: POST /api/pacientes/importar-excel
+    if (url.includes('/api/pacientes/importar-excel') && method === 'post') {
+      return {
+        data: {
+          total_linhas: 5,
+          solicitacoes_criadas: 5,
+          solicitacoes_atualizadas: 0,
+          novos_medicos: [{ username: 'medico.demo', especialidade: 'Plástica' }],
+          erros: []
+        },
+        status: 200,
+        headers: {},
+        config
+      };
     }
 
     return { data: {}, status: 200, headers: {}, config };

@@ -2,9 +2,19 @@
   <div class="space-y-6">
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-bold text-gray-800">Pacientes cadastrados no Sistema LEC</h1>
-      <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
-        Gestão de Pacientes
-      </span>
+      <div class="flex items-center space-x-3">
+        <button 
+          v-if="perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo.nome === 'Gestão LEC' || perfisStore.perfilAtivo.tipo === 'ADMIN'"
+          @click="modalImportarAberto = true"
+          class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm"
+        >
+          <DocumentArrowUpIcon class="h-4 w-4" />
+          <span>Importar Planilha</span>
+        </button>
+        <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
+          Gestão de Pacientes
+        </span>
+      </div>
     </div>
 
     <!-- Controles de Busca e Filtro -->
@@ -215,20 +225,35 @@
         </div>
       </div>
     </Card>
+
+    <!-- Modal de Importação de Planilha Excel -->
+    <ImportarPlanilhaPacientesModal
+      :show="modalImportarAberto"
+      @close="modalImportarAberto = false"
+      @sucesso="onImportacaoSucesso"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
-import { UserGroupIcon, ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
+import { UserGroupIcon, ClipboardDocumentListIcon, DocumentArrowUpIcon } from '@heroicons/vue/24/outline';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
+import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
+
+const modalImportarAberto = ref(false);
+
+function onImportacaoSucesso(resultado: any) {
+  toast.success(`Planilha importada com sucesso! ${resultado.solicitacoes_criadas} solicitações criadas.`);
+  carregarDados();
+}
 
 const basePacientes = ref<any[]>([]);
 const solicitacoes = ref<any[]>([]);
