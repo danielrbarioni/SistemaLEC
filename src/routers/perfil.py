@@ -63,6 +63,17 @@ async def get_perfis(
     result = await db.execute(stmt)
     perfis = list(result.scalars().all())
 
+    # Se o perfil EPO GENERALISTA não estiver no banco, inclui virtualmente para alternância no frontend
+    if not any(p.id == "EPO_GENERALISTA" or p.tipo == "EPO_GENERALISTA" for p in perfis):
+        epo_profile = Profile(
+            id="EPO_GENERALISTA",
+            nome="EPO GENERALISTA",
+            tipo="EPO_GENERALISTA",
+            cor="laranja",
+            especialidade=None
+        )
+        perfis.append(epo_profile)
+
     # Se o perfil NENHUM não estiver no banco, inclui virtualmente para alternância de perfil no frontend
     if not any(p.id == "NENHUM" or p.id == "OBSERVADOR" for p in perfis):
         nenhum_profile = Profile(

@@ -6,8 +6,8 @@ import { useAuthStore } from './auth';
 export interface Perfil {
   id: string;
   nome: string;
-  tipo: 'ADMIN' | 'GESTAO_LEC' | 'ESPECIALIDADE' | 'OBSERVADOR' | 'NENHUM';
-  cor: 'cinza' | 'azul' | 'verde';
+  tipo: 'ADMIN' | 'GESTAO_LEC' | 'EPO_GENERALISTA' | 'ESPECIALIDADE' | 'OBSERVADOR' | 'NENHUM';
+  cor: 'cinza' | 'azul' | 'laranja' | 'verde';
   especialidade?: string;
 }
 
@@ -16,9 +16,10 @@ function sortPerfis(list: Perfil[]): Perfil[] {
     const getPeso = (p: Perfil) => {
       if (p.tipo === 'ADMIN') return 1;
       if (p.tipo === 'GESTAO_LEC') return 2;
-      if (p.tipo === 'ESPECIALIDADE') return 3;
-      if (p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR') return 4;
-      return 5;
+      if (p.tipo === 'EPO_GENERALISTA' || p.id === 'EPO_GENERALISTA') return 3;
+      if (p.tipo === 'ESPECIALIDADE') return 4;
+      if (p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR') return 5;
+      return 6;
     };
     const pesoA = getPeso(a);
     const pesoB = getPeso(b);

@@ -18,15 +18,15 @@
           A funcionalidade do menu <strong>Comunicação LEC</strong> é voltada exclusivamente para os perfis <strong>Médico</strong> e <strong>Residente</strong>.
         </p>
         <div class="pt-2">
-          <Button @click="router.push('/')" variant="primary" class="w-full justify-center">
-            Voltar para o Início
+          <Button @click="router.push('/pacientes')" variant="primary" class="w-full justify-center">
+            Ir para Pacientes
           </Button>
         </div>
       </div>
     </div>
 
-    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR) -->
-    <Card v-if="perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" class="overflow-hidden">
+    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR, NENHUM ou Enfermeiro) -->
+    <Card v-if="!isEnfermeiro && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM'" class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <div class="flex items-center space-x-3">
@@ -426,8 +426,8 @@
       </form>
     </Card>
 
-    <!-- Tabela de Solicitações Enviadas -->
-    <Card class="overflow-hidden">
+    <!-- Tabela de Solicitações Enviadas (Oculta para Enfermeiro) -->
+    <Card v-if="!isEnfermeiro" class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <h2 class="text-lg font-bold text-gray-800">
@@ -783,6 +783,7 @@ import Button from '../components/Button.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import { useAuthStore } from '../stores/auth';
+import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
 
 const toast = useToast();
 const router = useRouter();
@@ -791,8 +792,9 @@ const authStore = useAuthStore();
 
 const isEnfermeiro = computed(() => {
   const perfilNome = perfisStore.perfilAtivo?.nome?.toLowerCase() || '';
+  const perfilTipo = perfisStore.perfilAtivo?.tipo || '';
   const userRole = (authStore.user as any)?.funcao?.toLowerCase() || '';
-  return perfilNome.includes('enfermeiro') || userRole.includes('enfermeiro');
+  return perfilTipo === 'EPO_GENERALISTA' || perfilNome.includes('epo generalista') || perfilNome.includes('enfermeiro') || userRole.includes('enfermeiro');
 });
 
 // Lista base de procedimentos por nome de especialidade
@@ -843,45 +845,7 @@ const form = ref({
 
 const procedimentosAghuMap = ref<Record<string, string[]>>({});
 
-function formatarNomeProcedimento(str: string): string {
-  if (!str) return str;
-  const s = str.trim();
 
-  if (/\s*\(\s*ID\s+\d+\s*\)$/i.test(s)) {
-    return s.replace(/\s*\(\s*ID\s+(\d+)\s*\)$/i, ' (ID $1)');
-  }
-
-  const mDashId = s.match(/^(.*?)\s*[-–—]\s*ID\s*(\d+)$/i);
-  if (mDashId) {
-    return `${mDashId[1].trim()} (ID ${mDashId[2]})`;
-  }
-
-  const mParen = s.match(/^(.*?)\s*\(\s*(\d+)\s*\)$/);
-  if (mParen) {
-    return `${mParen[1].trim()} (ID ${mParen[2]})`;
-  }
-
-  const mDashNum = s.match(/^(.*?)\s*[-–—]\s*(\d+)$/);
-  if (mDashNum) {
-    return `${mDashNum[1].trim()} (ID ${mDashNum[2]})`;
-  }
-
-  const mStartNum = s.match(/^(\d+)\s*[-–—]\s*(.*)$/);
-  if (mStartNum) {
-    return `${mStartNum[2].trim()} (ID ${mStartNum[1]})`;
-  }
-
-  return s;
-}
-
-function extrairKeyProcedimento(str: string): string {
-  const formatted = formatarNomeProcedimento(str);
-  const m = formatted.match(/^(.*?)\s*\(\s*ID\s+(\d+)\s*\)$/i);
-  if (m) {
-    return `ID_${m[2]}`;
-  }
-  return `NAME_${formatted.trim().toLowerCase()}`;
-}
 
 watch(() => form.value.especialidade, async (newEsp) => {
   if (!newEsp) return;
@@ -937,26 +901,7 @@ const procedimentosDaEspecialidade = computed(() => {
   }
 
   const raw = [...listFromAghu, ...baseProcs, ...extraProcs];
-  const procMap = new Map<string, string>();
-
-  for (const item of raw) {
-    if (!item || !item.trim()) continue;
-    const formatted = formatarNomeProcedimento(item);
-    const key = extrairKeyProcedimento(formatted);
-
-    if (!procMap.has(key)) {
-      procMap.set(key, formatted);
-    } else {
-      const existing = procMap.get(key)!;
-      if (formatted.includes('(ID ') && !existing.includes('(ID ')) {
-        procMap.set(key, formatted);
-      } else if (formatted.length > existing.length) {
-        procMap.set(key, formatted);
-      }
-    }
-  }
-
-  return Array.from(procMap.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return desduplicarProcedimentos(raw);
 });
 
 // Médicos conhecidos extraídos das solicitações (para o autocomplete)
@@ -1143,8 +1088,8 @@ const solicitacoesFiltradas = computed(() => {
 
   // 4. Filtro de Procedimento
   if (filtroProc.value) {
-    const query = filtroProc.value.toLowerCase().trim();
-    list = list.filter(s => s.procedimento && s.procedimento.toLowerCase().includes(query));
+    const query = formatarNomeProcedimento(filtroProc.value);
+    list = list.filter(s => s.procedimento && formatarNomeProcedimento(s.procedimento) === query);
   }
 
   // 5. Filtro de Prontuário / Paciente

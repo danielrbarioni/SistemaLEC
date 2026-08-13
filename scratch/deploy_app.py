@@ -96,7 +96,7 @@ def deploy():
         execute_remote_cmd(ssh, git_setup)
 
         # Criar os diretórios necessários na VM
-        execute_remote_cmd(ssh, "mkdir -p /var/app/sistemalec/src/models /var/app/sistemalec/src/providers/implementations /var/app/sistemalec/src/providers/interfaces /var/app/sistemalec/scratch /var/app/sistemalec/src/auth /var/app/sistemalec/src/providers/sql/paciente")
+        execute_remote_cmd(ssh, "mkdir -p /var/app/sistemalec/src/models /var/app/sistemalec/src/providers/implementations /var/app/sistemalec/src/providers/interfaces /var/app/sistemalec/scratch /var/app/sistemalec/src/auth /var/app/sistemalec/src/providers/sql/paciente /var/app/sistemalec/frontend/src/utils")
 
         # Copiar todos os arquivos novos e modificados para a VM
         print("\nEnviando arquivos novos e modificados localmente para a VM...")
@@ -104,8 +104,13 @@ def deploy():
         
         files_to_upload = [
             ("frontend/vite.config.ts", "/var/app/sistemalec/frontend/vite.config.ts"),
+            ("frontend/src/utils/procedimentoHelper.ts", "/var/app/sistemalec/frontend/src/utils/procedimentoHelper.ts"),
             ("frontend/src/views/InteracoesLec.vue", "/var/app/sistemalec/frontend/src/views/InteracoesLec.vue"),
+            ("frontend/src/views/NavegacaoLec.vue", "/var/app/sistemalec/frontend/src/views/NavegacaoLec.vue"),
             ("frontend/src/views/Pacientes.vue", "/var/app/sistemalec/frontend/src/views/Pacientes.vue"),
+            ("frontend/src/views/Perfis.vue", "/var/app/sistemalec/frontend/src/views/Perfis.vue"),
+            ("frontend/src/stores/perfis.ts", "/var/app/sistemalec/frontend/src/stores/perfis.ts"),
+            ("frontend/src/stores/auth.ts", "/var/app/sistemalec/frontend/src/stores/auth.ts"),
             ("src/main.py", "/var/app/sistemalec/src/main.py"),
             ("src/dependencies.py", "/var/app/sistemalec/src/dependencies.py"),
             ("src/auth/auth.py", "/var/app/sistemalec/src/auth/auth.py"),
@@ -117,6 +122,8 @@ def deploy():
             ("src/providers/implementations/solicitacao_sqlite_provider.py", "/var/app/sistemalec/src/providers/implementations/solicitacao_sqlite_provider.py"),
             ("src/routers/paciente.py", "/var/app/sistemalec/src/routers/paciente.py"),
             ("src/routers/solicitacao.py", "/var/app/sistemalec/src/routers/solicitacao.py"),
+            ("src/routers/perfil.py", "/var/app/sistemalec/src/routers/perfil.py"),
+            ("src/routers/usuario.py", "/var/app/sistemalec/src/routers/usuario.py"),
             ("src/providers/interfaces/paciente_provider_interface.py", "/var/app/sistemalec/src/providers/interfaces/paciente_provider_interface.py"),
             ("src/providers/implementations/paciente_postgres_provider.py", "/var/app/sistemalec/src/providers/implementations/paciente_postgres_provider.py"),
             ("src/providers/sql/paciente/listar_pacientes.sql", "/var/app/sistemalec/src/providers/sql/paciente/listar_pacientes.sql"),

@@ -539,9 +539,10 @@ const perfisOrdenados = computed(() => {
     const getPeso = (p: any) => {
       if (p.tipo === 'ADMIN') return 1;
       if (p.tipo === 'GESTAO_LEC') return 2;
-      if (p.tipo === 'ESPECIALIDADE') return 3;
-      if (p.tipo === 'OBSERVADOR') return 4;
-      return 5;
+      if (p.tipo === 'EPO_GENERALISTA' || p.id === 'EPO_GENERALISTA') return 3;
+      if (p.tipo === 'ESPECIALIDADE') return 4;
+      if (p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR') return 5;
+      return 6;
     };
     const pesoA = getPeso(a);
     const pesoB = getPeso(b);
@@ -940,6 +941,7 @@ const getCorClass = (tipo: string) => {
   switch (tipo) {
     case 'ADMIN': return 'bg-gray-400 ring-gray-400';
     case 'GESTAO_LEC': return 'bg-blue-500 ring-blue-500';
+    case 'EPO_GENERALISTA': return 'bg-orange-500 ring-orange-500';
     case 'ESPECIALIDADE': return 'bg-green-500 ring-green-500';
     case 'NENHUM':
     case 'OBSERVADOR': return 'bg-white ring-gray-300 border border-gray-300';
@@ -951,6 +953,7 @@ const getTipoLabel = (tipo: string) => {
   switch (tipo) {
     case 'ADMIN': return 'ADMIN';
     case 'GESTAO_LEC': return 'Gestão da LEC';
+    case 'EPO_GENERALISTA': return 'EPO Generalista';
     case 'ESPECIALIDADE': return 'Especialidade Cirúrgica';
     case 'NENHUM':
     case 'OBSERVADOR': return 'Nenhum';

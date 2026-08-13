@@ -121,110 +121,222 @@
       </div>
     </div>
 
-    <!-- Lista de Pacientes -->
+    <!-- Lista de Pacientes no formato de Tabela Compacta (Uma linha por procedimento) -->
     <Card>
-      <div v-if="loading" class="flex justify-center items-center py-8">
+      <div v-if="loading" class="flex justify-center items-center py-12">
         <LoadingIndicator />
       </div>
-      <div v-else-if="pacientesProcessados.length === 0" class="text-center py-10 text-gray-500">
-        Nenhum paciente encontrado.
+      <div v-else-if="procedimentosFlat.length === 0" class="text-center py-12 text-gray-500">
+        <p class="text-base font-semibold text-gray-700">Nenhum paciente ou procedimento encontrado.</p>
+        <p class="text-xs text-gray-400 mt-1">Tente ajustar os filtros de busca acima para encontrar os registros desejados.</p>
       </div>
-      <div v-else class="space-y-6">
-        <div 
-          v-for="paciente in pacientesProcessados" 
-          :key="paciente.codigo" 
-          class="border border-gray-200 rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 space-y-4"
-        >
-          <!-- Cabeçalho do Card do Paciente -->
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-150 pb-3 gap-2">
-            <div>
-              <span class="font-mono text-xs text-gray-400">PRONTUÁRIO #{{ paciente.codigo }}</span>
-              <h3 class="text-lg font-bold text-gray-900 mt-0.5">{{ paciente.nome }}</h3>
-            </div>
-            <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-md border border-slate-200">
-              {{ paciente.procedimentos.length }} procedimento(s)
-            </span>
-          </div>
+      <div v-else class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Prontuário</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Nome Completo</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Data de Nascimento</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Especialidade</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Procedimento</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Judicialização</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Swalis</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Médico Responsável</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr 
+              v-for="(row, idx) in procedimentosFlat" 
+              :key="idx"
+              class="hover:bg-slate-50 transition duration-150"
+            >
+              <!-- Prontuário Clicável -->
+              <td class="px-4 py-3 whitespace-nowrap">
+                <button 
+                  @click="abrirModalPaciente(row.pacienteCompleto)"
+                  class="font-mono font-bold text-indigo-600 hover:text-indigo-900 hover:underline cursor-pointer focus:outline-none"
+                  title="Clique para ver todos os detalhes e procedimentos deste paciente"
+                >
+                  {{ row.codigo }}
+                </button>
+              </td>
 
-          <!-- Dados Cadastrais Adicionais (Data de Nascimento e Nome da Mãe - Estilo Sistema LEC) -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50/80 p-3.5 rounded-lg border border-gray-200">
-            <div class="form-group">
-              <label class="form-label text-xs font-semibold text-gray-600 block mb-1">Data de Nascimento</label>
-              <input
-                type="text"
-                :value="formatarData(paciente.dt_nascimento)"
-                class="form-control text-xs bg-white border-gray-300 cursor-not-allowed opacity-90 font-medium text-gray-800 w-full"
-                disabled
-              />
-            </div>
-            <div class="form-group md:col-span-2">
-              <label class="form-label text-xs font-semibold text-gray-600 block mb-1">Nome da Mãe</label>
-              <input
-                type="text"
-                :value="paciente.nome_mae || '—'"
-                class="form-control text-xs bg-white border-gray-300 cursor-not-allowed opacity-90 font-medium text-gray-800 w-full"
-                disabled
-              />
-            </div>
-          </div>
+              <!-- Nome Completo Clicável -->
+              <td class="px-4 py-3 font-semibold text-gray-900">
+                <button 
+                  @click="abrirModalPaciente(row.pacienteCompleto)"
+                  class="text-left font-bold text-gray-800 hover:text-indigo-600 hover:underline cursor-pointer focus:outline-none"
+                  title="Clique para ver todos os detalhes e procedimentos deste paciente"
+                >
+                  {{ row.nome }}
+                </button>
+              </td>
 
-          <!-- Procedimentos Vinculados -->
+              <!-- Data de Nascimento -->
+              <td class="px-4 py-3 text-center whitespace-nowrap font-mono text-xs text-gray-700">
+                {{ formatarData(row.dt_nascimento) }}
+              </td>
+
+              <!-- Especialidade -->
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-md border border-slate-200">
+                  {{ row.especialidade }}
+                </span>
+              </td>
+
+              <!-- Procedimento Padronizado (Máximo 2 Linhas com ajuste dinâmico de fonte) -->
+              <td class="px-4 py-3 text-gray-800 font-medium max-w-sm" :title="formatarNomeProcedimento(row.procedimento)">
+                <div 
+                  class="line-clamp-2 leading-tight break-words"
+                  :class="formatarNomeProcedimento(row.procedimento).length > 60 ? 'text-xs' : 'text-sm'"
+                >
+                  {{ formatarNomeProcedimento(row.procedimento) || '—' }}
+                </div>
+              </td>
+
+              <!-- Judicialização -->
+              <td class="px-4 py-3 text-center whitespace-nowrap">
+                <span 
+                  :class="row.judicializado === 'Sim' ? 'bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded border border-amber-300' : 'text-gray-600 font-medium'"
+                >
+                  {{ row.judicializado }}
+                </span>
+              </td>
+
+              <!-- Swalis -->
+              <td class="px-4 py-3 text-center whitespace-nowrap font-mono text-xs">
+                <span :class="getSwalisClass(row.Swalis)" :title="getSwalisLabel(row.Swalis)">
+                  {{ row.Swalis }}
+                </span>
+              </td>
+
+              <!-- Médico Responsável -->
+              <td class="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
+                {{ row.medico_responsavel || 'Não informado' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
+
+    <!-- Modal Maior com Informações Cadastrais e Janelas por Procedimento -->
+    <div 
+      v-if="modalDetalhesAberto && pacienteSelecionadoModal" 
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
+      @click.self="fecharModalPaciente"
+    >
+      <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-gray-100 overflow-hidden flex flex-col max-h-[90vh] my-auto">
+        <!-- Cabeçalho do Modal (Fundo Claro com Destaque no Nome) -->
+        <div class="px-6 py-4 bg-slate-50 border-b border-gray-200 flex justify-between items-center shrink-0">
           <div>
-            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Procedimentos e Filas Associadas</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div 
-                v-for="(proc, index) in paciente.procedimentos" 
-                :key="index" 
-                class="border border-slate-100 rounded-lg p-4 bg-slate-50 relative"
-              >
-                <!-- Cabeçalho do Card de Procedimento -->
-                <div class="flex items-start justify-between gap-3 mb-2">
-                  <div class="min-w-0 flex-1 pr-2">
-                    <span 
-                      class="font-bold text-slate-800 block leading-tight break-words"
-                      :class="(proc.procedimento || '').length > 60 ? 'text-xs' : ((proc.procedimento || '').length > 35 ? 'text-[13px]' : 'text-sm')"
-                    >
-                      {{ proc.procedimento || 'Procedimento não informado' }}
-                    </span>
-                    <span class="text-[10px] font-semibold text-slate-500 uppercase block mt-1">{{ proc.especialidade }}</span>
-                  </div>
+            <span class="text-xs font-mono text-indigo-600 font-bold uppercase tracking-wider block">Detalhes do Paciente Cadastrado</span>
+            <h2 class="text-2xl font-black text-slate-900 mt-0.5 flex items-center space-x-2">
+              <span class="text-indigo-950">{{ pacienteSelecionadoModal.nome }}</span>
+              <span class="text-sm font-mono text-slate-500 font-semibold bg-slate-200/80 px-2 py-0.5 rounded">({{ pacienteSelecionadoModal.codigo }})</span>
+            </h2>
+          </div>
+          <button 
+            @click="fecharModalPaciente"
+            class="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg transition hover:bg-gray-200/60"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-                  <!-- Status Badge -->
-                  <div class="shrink-0 flex items-center">
-                    <span :class="getStatusBadgeClass(proc.status, proc.tempo_standby)">
-                      {{ getStatusLabel(proc.status, proc.tempo_standby) }}
+        <!-- Corpo do Modal com Rolagem -->
+        <div class="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50">
+          
+          <!-- Bloco 1: Informações Cadastrais Principais -->
+          <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 border-b pb-2">Informações Cadastrais</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <span class="text-xs text-gray-500 font-medium block">Nº Prontuário</span>
+                <span class="font-mono font-bold text-gray-900 text-base">{{ pacienteSelecionadoModal.codigo }}</span>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 font-medium block">Data de Nascimento</span>
+                <span class="font-medium text-gray-900 text-sm">{{ formatarData(pacienteSelecionadoModal.dt_nascimento) }}</span>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 font-medium block">Nome da Mãe</span>
+                <span class="font-medium text-gray-900 text-sm">{{ pacienteSelecionadoModal.nome_mae || '—' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco 2: Janelas/Quadros por Procedimento -->
+          <div class="space-y-4">
+            <div class="space-y-1.5 border-b border-slate-200 pb-2">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700">
+                Especialidades Vinculadas ({{ totalEspecialidadesModal }})
+              </h3>
+              <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700">
+                Procedimentos Vinculados ({{ pacienteSelecionadoModal.procedimentos.length }})
+              </h3>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4">
+              <div 
+                v-for="(proc, index) in pacienteSelecionadoModal.procedimentos" 
+                :key="index"
+                class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 hover:border-slate-300 transition"
+              >
+                <!-- Cabeçalho da Janela de Procedimento -->
+                <div class="flex justify-between items-start border-b border-gray-100 pb-3">
+                  <div>
+                    <span class="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block mb-1">
+                      procedimento {{ index + 1 }} - {{ proc.especialidade }}
                     </span>
+                    <h4 class="text-base font-bold text-gray-900 leading-snug">
+                      {{ formatarNomeProcedimento(proc.procedimento) || 'Procedimento não informado' }}
+                    </h4>
                   </div>
+                  <span :class="getStatusBadgeClass(proc.status, proc.tempo_standby)">
+                    {{ getStatusLabel(proc.status, proc.tempo_standby) }}
+                  </span>
                 </div>
 
-                <div class="space-y-2 text-xs">
-                  <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 mt-1">
-                    <div>
-                      <span class="text-[10px] text-gray-400 uppercase block font-semibold">Judicializado</span>
-                      <span :class="proc.judicializado === 'Sim' ? 'text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded' : 'text-gray-700 font-medium'">
-                        {{ proc.judicializado }}
-                      </span>
-                    </div>
-                    <div>
-                      <span class="text-[10px] text-gray-400 uppercase block font-semibold">Swalis</span>
-                      <span :class="getSwalisClass(proc.Swalis)" :title="getSwalisLabel(proc.Swalis)">
-                        {{ proc.Swalis }}
-                      </span>
-                    </div>
-                    <div>
-                      <span class="text-[10px] text-gray-400 uppercase block font-semibold">Responsável</span>
-                      <span class="text-gray-700 font-medium truncate block" :title="proc.medico_responsavel">
-                        {{ proc.medico_responsavel }}
-                      </span>
-                    </div>
+                <!-- Detalhes Específicos do Procedimento -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-slate-50 p-3.5 rounded-lg border border-slate-100">
+                  <div>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Judicialização</span>
+                    <span :class="proc.judicializado === 'Sim' ? 'text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded inline-block mt-0.5' : 'text-gray-800 font-medium'">
+                      {{ proc.judicializado }}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Swalis</span>
+                    <span :class="getSwalisClass(proc.Swalis)" :title="getSwalisLabel(proc.Swalis)" class="mt-0.5 inline-block">
+                      {{ proc.Swalis }}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Médico Responsável</span>
+                    <span class="text-gray-900 font-semibold mt-0.5 block truncate" :title="proc.medico_responsavel">
+                      {{ proc.medico_responsavel || 'Não informado' }}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+        </div>
+
+        <!-- Rodapé do Modal -->
+        <div class="px-6 py-3 bg-gray-100 border-t border-gray-200 flex justify-end shrink-0">
+          <Button @click="fecharModalPaciente" variant="secondary">
+            Fechar
+          </Button>
         </div>
       </div>
-    </Card>
+    </div>
 
     <!-- Modal de Importação de Planilha Excel -->
     <ImportarPlanilhaPacientesModal
@@ -243,17 +355,17 @@ import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
-import { useAuthStore } from '../stores/auth';
 import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
+import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
-const authStore = useAuthStore();
 
 const podeImportarPlanilha = computed(() => {
-  if (authStore.isAdmin) return true;
   const p = perfisStore.perfilAtivo;
   if (!p) return false;
+  // Apenas perfis ADMIN ou GESTÃO LEC podem importar planilhas (nenhuma especialidade pode)
+  if (p.tipo === 'ESPECIALIDADE') return false;
   return p.tipo === 'ADMIN' || p.tipo === 'GESTAO_LEC' || p.nome === 'Gestão LEC' || p.nome === 'GESTAO_LEC' || p.id === 'GESTAO_LEC';
 });
 
@@ -354,20 +466,6 @@ const procedimentosBaseMap: Record<string, string[]> = {
 const procedimentosAghuMap = ref<Record<string, string[]>>({});
 const carregandoProcedimentos = ref(false);
 
-function formatarNomeProcedimento(str: string): string {
-  if (!str) return str;
-  const s = str.trim();
-  const matchLeft = s.match(/^(\d+)\s*[-–—]\s*(.+)$/);
-  if (matchLeft) {
-    return `${matchLeft[2].trim()} - ID ${matchLeft[1]}`;
-  }
-  const matchRight = s.match(/^(.+?)\s*[-–—]\s*(?:ID\s*)?(\d+)$/i);
-  if (matchRight) {
-    return `${matchRight[1].trim()} - ID ${matchRight[2]}`;
-  }
-  return s;
-}
-
 watch(espSelecionada, async (newEsp) => {
   filtroProcedimento.value = '';
   filtroMedico.value = '';
@@ -379,7 +477,7 @@ watch(espSelecionada, async (newEsp) => {
     try {
       const { data } = await api.get('/api/especialidades/1884/procedimentos');
       const procs = data
-        .map((p: any) => p.id_procedimento ? `${p.descricao} - ID ${p.id_procedimento}` : p.descricao)
+        .map((p: any) => p.id_procedimento ? `${p.descricao} (ID ${p.id_procedimento})` : p.descricao)
         .filter(Boolean);
       if (procs.length > 0) {
         procedimentosAghuMap.value['Plástica'] = procs;
@@ -414,9 +512,7 @@ const procedimentosOpcoes = computed(() => {
   }
 
   const raw = [...listFromAghu, ...listFromBase, ...extraProcs];
-  const formatted = raw.map(formatarNomeProcedimento);
-  const combined = Array.from(new Set(formatted));
-  return combined.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return desduplicarProcedimentos(raw);
 });
 
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
@@ -633,8 +729,8 @@ const pacientesProcessados = computed(() => {
       }
 
       if (filtroProcedimento.value) {
-        const procLower = filtroProcedimento.value.toLowerCase().trim();
-        procs = procs.filter((p: any) => p.procedimento && p.procedimento.toLowerCase().trim() === procLower);
+        const procFiltroNorm = formatarNomeProcedimento(filtroProcedimento.value);
+        procs = procs.filter((p: any) => p.procedimento && formatarNomeProcedimento(p.procedimento) === procFiltroNorm);
       }
 
       if (filtroMedico.value) {
@@ -668,9 +764,80 @@ const pacientesProcessados = computed(() => {
     });
 });
 
+const modalDetalhesAberto = ref(false);
+const pacienteSelecionadoModal = ref<any | null>(null);
+
+function abrirModalPaciente(paciente: any) {
+  pacienteSelecionadoModal.value = paciente;
+  modalDetalhesAberto.value = true;
+}
+
+function fecharModalPaciente() {
+  modalDetalhesAberto.value = false;
+  pacienteSelecionadoModal.value = null;
+}
+
+// Mapeia os pacientes filtrados em linhas individuais de procedimento (Flat Table) com ordenação alfabética e por data de nascimento
+const procedimentosFlat = computed(() => {
+  const list: any[] = [];
+
+  for (const pac of pacientesProcessados.value) {
+    for (const proc of pac.procedimentos) {
+      list.push({
+        codigo: pac.codigo,
+        nome: pac.nome,
+        dt_nascimento: pac.dt_nascimento,
+        nome_mae: pac.nome_mae,
+        especialidade: proc.especialidade,
+        procedimento: proc.procedimento,
+        judicializado: proc.judicializado || 'Não',
+        Swalis: proc.Swalis || proc.swalis || proc.swallis || '—',
+        medico_responsavel: proc.medico_responsavel || 'Não informado',
+        status: proc.status,
+        tempo_standby: proc.tempo_standby,
+        pacienteCompleto: pac
+      });
+    }
+  }
+
+  // Ordena primeiramente por Nome Completo (Ordem Alfabética em pt-BR)
+  // Em caso de empate absoluto de Nome, ordena por Data de Nascimento (da mais antiga para a mais recente)
+  return list.sort((a, b) => {
+    const nomeA = (a.nome || '').trim();
+    const nomeB = (b.nome || '').trim();
+    const diffNome = nomeA.localeCompare(nomeB, 'pt-BR');
+
+    if (diffNome !== 0) {
+      return diffNome;
+    }
+
+    // Fallback de empate pelo nome: compara data de nascimento (AAAA-MM-DD ou DD/MM/AAAA)
+    const parseData = (dStr: string) => {
+      if (!dStr || dStr === '—') return '9999-99-99';
+      if (dStr.includes('/')) {
+        const parts = dStr.split('/');
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      return dStr;
+    };
+
+    const dataA = parseData(a.dt_nascimento);
+    const dataB = parseData(b.dt_nascimento);
+    return dataA.localeCompare(dataB);
+  });
+});
+
 const totalPacientes = computed(() => pacientesProcessados.value.length);
-const totalProcedimentos = computed(() => {
-  return pacientesProcessados.value.reduce((acc, pac) => acc + (pac.procedimentos ? pac.procedimentos.length : 0), 0);
+const totalProcedimentos = computed(() => procedimentosFlat.value.length);
+
+const totalEspecialidadesModal = computed(() => {
+  if (!pacienteSelecionadoModal.value || !pacienteSelecionadoModal.value.procedimentos) return 0;
+  const espSet = new Set(
+    pacienteSelecionadoModal.value.procedimentos
+      .map((p: any) => (p.especialidade || '').trim())
+      .filter(Boolean)
+  );
+  return espSet.size;
 });
 
 onMounted(() => {

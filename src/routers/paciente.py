@@ -102,7 +102,7 @@ async def importar_planilha_excel(
         except Exception as e:
             print(f"Não foi possível obter sessão do AGHU para importação: {e}")
 
-    usuario_executor = current_user.get("username", "sistema")
+    usuario_executor = current_user.get("nome") or current_user.get("username") or "sistema"
 
     resultado = await process_excel_pacientes_import(
         file_bytes=contents,

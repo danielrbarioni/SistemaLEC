@@ -117,7 +117,7 @@
             <tr v-for="paciente in pacientesFiltrados" :key="paciente.codigo">
               <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-mono">{{ paciente.codigo }}</td>
               <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ paciente.nome }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-600">{{ paciente.procedimento || 'Não informado' }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-gray-600">{{ formatarNomeProcedimento(paciente.procedimento) || 'Não informado' }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-mono">
                 {{ formatarData(paciente.ultima_consulta_epo) }}
               </td>
@@ -145,6 +145,7 @@ import Button from '../components/Button.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import { useAuthStore } from '../stores/auth';
+import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
 
 const toast = useToast();
 const router = useRouter();
@@ -191,7 +192,11 @@ const pacientes = ref<any[]>([]);
 const loading = ref(false);
 
 const procedimentosDaEspecialidadeAtiva = computed(() => {
-  return procedimentosMap[especialidadeAtiva.value] || [];
+  const listFromMap = procedimentosMap[especialidadeAtiva.value] || [];
+  const extraProcs = pacientes.value
+    .filter(p => (p.especialidade || '').startsWith(especialidadeAtiva.value) && p.procedimento)
+    .map(p => p.procedimento);
+  return desduplicarProcedimentos([...listFromMap, ...extraProcs]);
 });
 
 const selecionarEspecialidade = (esp: string) => {
@@ -256,7 +261,8 @@ const pacientesFiltrados = computed(() => {
         p.codigo.toString().includes(filtroBusca.value);
 
       // 3. Filtra por Procedimento
-      const matchProcedimento = !filtroProcedimento.value || p.procedimento === filtroProcedimento.value;
+      const matchProcedimento = !filtroProcedimento.value || 
+        (p.procedimento && formatarNomeProcedimento(p.procedimento) === formatarNomeProcedimento(filtroProcedimento.value));
 
       // 4. Filtra por Intervalo de Data (Última Consulta EPO)
       let matchData = true;

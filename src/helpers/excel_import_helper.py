@@ -293,6 +293,7 @@ async def process_excel_pacientes_import(
                 status="APROVADO",
                 data_criacao=dth_indicacao_str,
                 usuario=usuario_executor,
+                perfil_executor="Gestão LEC",
                 origem_menu="Importação Planilha",
                 evento_tipo="SOLICITACAO"
             )
