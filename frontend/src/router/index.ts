@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory, NavigationGuardNext } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { usePerfisStore } from '../stores/perfis';
+import { useToast } from 'vue-toastification';
 import Login from '../views/Login.vue';
 
 import Pacientes from '../views/Pacientes.vue';
@@ -60,12 +62,26 @@ const router = createRouter({
 });
 
 router.beforeEach((to, _from, next: NavigationGuardNext) => {
-  // Pinia store must be used inside a function to ensure it's initialized
   const authStore = useAuthStore();
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'Login' });
   } else {
+    const perfisStore = usePerfisStore();
+    const perfilTipo = perfisStore.perfilAtivo?.tipo;
+
+    if (perfilTipo === 'NENHUM' || perfilTipo === 'OBSERVADOR') {
+      if (to.path !== '/perfis' && to.name !== 'Login' && to.name !== 'Perfis') {
+        try {
+          const toast = useToast();
+          toast.error('Solicite criação de usuário e associação a um perfil, no menu Perfis');
+        } catch {
+          // Fallback silencioso ou alert se toast falhar
+        }
+        next({ name: 'Perfis' });
+        return;
+      }
+    }
     next();
   }
 });

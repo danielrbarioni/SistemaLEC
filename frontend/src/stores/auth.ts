@@ -22,7 +22,7 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value?.groups?.includes(ADMIN_GROUP) || false;
   });
   const isObservador = computed(() => {
-    return user.value?.groups?.includes("OBSERVADOR") || (user.value as any)?.perfil_tipo === "OBSERVADOR" || false;
+    return user.value?.groups?.includes("NENHUM") || user.value?.groups?.includes("OBSERVADOR") || (user.value as any)?.perfil_tipo === "NENHUM" || (user.value as any)?.perfil_tipo === "OBSERVADOR" || false;
   });
 
   function setToken(token: string) {

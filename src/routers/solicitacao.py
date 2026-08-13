@@ -52,10 +52,10 @@ async def criar_solicitacao(
     """Envia uma nova solicitação (Inserir, Editar, Excluir, Stand-by)."""
     from .perfil import get_current_user_role
     role = get_current_user_role(user_info)
-    if role == "OBSERVADOR":
+    if role in ["NENHUM", "OBSERVADOR"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuários com perfil OBSERVADOR possuem acesso apenas para visualização."
+            detail="Solicite criação de usuário e associação a um perfil, no menu Perfis"
         )
 
     data = solic.model_dump()
@@ -99,14 +99,12 @@ async def obter_solicitacao_por_paciente(
 ):
     """Retorna a solicitação mais recente cadastrada para um paciente específico."""
     solicitacoes = await solicitacao_controller.listar_solicitacoes(provider)
-    # Filtra por codigo_paciente e ordena para pegar a mais recente
     solics_paciente = [s for s in solicitacoes if str(s.get('codigo_paciente')) == str(codigo_paciente)]
     if not solics_paciente:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Nenhuma solicitação encontrada para este prontuário no Sistema LEC."
         )
-    # Retorna a última cadastrada
     return solics_paciente[-1]
 
 @router.put("/{id_solicitacao}/status", response_model=dict)
@@ -119,10 +117,10 @@ async def atualizar_status_solicitacao(
     """Atualiza o status de processamento da solicitação e grava uma linha de Resposta no histórico."""
     from .perfil import get_current_user_role
     role = get_current_user_role(user_info)
-    if role == "OBSERVADOR":
+    if role in ["NENHUM", "OBSERVADOR"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuários com perfil OBSERVADOR possuem acesso apenas para visualização."
+            detail="Solicite criação de usuário e associação a um perfil, no menu Perfis"
         )
 
     usuario_executor = status_update.usuario
@@ -136,6 +134,23 @@ async def atualizar_status_solicitacao(
         usuario_executor=usuario_executor,
         provider=provider
     )
+
+@router.post("/{id_solicitacao}/cancelar-standby", response_model=dict)
+async def cancelar_standby_solicitacao(
+    id_solicitacao: int,
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    user_info: dict = Depends(auth_handler.decode_token)
+):
+    """Solicita o cancelamento de um Standby ativo de uma solicitação."""
+    from .perfil import get_current_user_role
+    role = get_current_user_role(user_info)
+    if role in ["NENHUM", "OBSERVADOR"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solicite criação de usuário e associação a um perfil, no menu Perfis"
+        )
+
+    return await solicitacao_controller.cancelar_standby_solicitacao(id_solicitacao, provider)
 
 # Rotas extras para status locais sob o prefixo /api/pacientes para conveniência
 pacientes_status_router = APIRouter(
@@ -154,10 +169,10 @@ async def salvar_status_local(
     """Atualiza o status local de acompanhamento do paciente no hospital."""
     from .perfil import get_current_user_role
     role = get_current_user_role(user_info)
-    if role == "OBSERVADOR":
+    if role in ["NENHUM", "OBSERVADOR"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuários com perfil OBSERVADOR possuem acesso apenas para visualização."
+            detail="Solicite criação de usuário e associação a um perfil, no menu Perfis"
         )
     return await solicitacao_controller.salvar_status_local_paciente(codigo_paciente, status_update.status_local, provider)
 

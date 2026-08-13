@@ -6,7 +6,7 @@ import { useAuthStore } from './auth';
 export interface Perfil {
   id: string;
   nome: string;
-  tipo: 'ADMIN' | 'GESTAO_LEC' | 'ESPECIALIDADE' | 'OBSERVADOR';
+  tipo: 'ADMIN' | 'GESTAO_LEC' | 'ESPECIALIDADE' | 'OBSERVADOR' | 'NENHUM';
   cor: 'cinza' | 'azul' | 'verde';
   especialidade?: string;
 }
@@ -17,7 +17,7 @@ function sortPerfis(list: Perfil[]): Perfil[] {
       if (p.tipo === 'ADMIN') return 1;
       if (p.tipo === 'GESTAO_LEC') return 2;
       if (p.tipo === 'ESPECIALIDADE') return 3;
-      if (p.tipo === 'OBSERVADOR') return 4;
+      if (p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR') return 4;
       return 5;
     };
     const pesoA = getPeso(a);
@@ -38,8 +38,8 @@ export const usePerfisStore = defineStore('perfis', () => {
 
   const perfilAtivo = computed<Perfil>(() => {
     return perfis.value.find(p => p.id === perfilAtivoId.value) 
-      || perfis.value.find(p => p.tipo === 'OBSERVADOR')
-      || { id: 'OBSERVADOR', nome: 'OBSERVADOR', tipo: 'OBSERVADOR', cor: 'cinza', especialidade: undefined };
+      || perfis.value.find(p => p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR')
+      || { id: 'NENHUM', nome: 'NENHUM', tipo: 'NENHUM', cor: 'cinza', especialidade: undefined };
   });
 
   function setPerfilAtivoInternal(id: string) {
@@ -55,12 +55,12 @@ export const usePerfisStore = defineStore('perfis', () => {
 
       const authStore = useAuthStore();
       
-      const observadorProfile = data.find((p: Perfil) => p.tipo === 'OBSERVADOR' || p.id === 'OBSERVADOR') || { id: 'OBSERVADOR' };
-      const defaultObservadorId = observadorProfile.id;
+      const nenhumProfile = data.find((p: Perfil) => p.tipo === 'NENHUM' || p.id === 'NENHUM' || p.tipo === 'OBSERVADOR' || p.id === 'OBSERVADOR') || { id: 'NENHUM' };
+      const defaultNenhumId = nenhumProfile.id;
 
       if (authStore.isAuthenticated) {
-        if (authStore.isObservador || (authStore.user as any)?.perfil_tipo === 'OBSERVADOR') {
-          setPerfilAtivoInternal(defaultObservadorId);
+        if (authStore.isObservador || (authStore.user as any)?.perfil_tipo === 'NENHUM' || (authStore.user as any)?.perfil_tipo === 'OBSERVADOR') {
+          setPerfilAtivoInternal(defaultNenhumId);
           return;
         }
 
@@ -72,13 +72,13 @@ export const usePerfisStore = defineStore('perfis', () => {
               setPerfilAtivoInternal(meUser.perfil_id);
               return;
             } else {
-              // Usuário não cadastrado na tabela de usuários ou sem perfil específico -> OBSERVADOR
-              setPerfilAtivoInternal(defaultObservadorId);
+              // Usuário não cadastrado na tabela de usuários ou sem perfil específico -> NENHUM
+              setPerfilAtivoInternal(defaultNenhumId);
               return;
             }
           } catch (e) {
             console.error('Erro ao determinar perfil do usuário logado:', e);
-            setPerfilAtivoInternal(defaultObservadorId);
+            setPerfilAtivoInternal(defaultNenhumId);
             return;
           }
         }
@@ -87,11 +87,11 @@ export const usePerfisStore = defineStore('perfis', () => {
       // Se for ADMIN autenticado ou não autenticado ainda
       if (authStore.isAdmin) {
         if (!perfilAtivoId.value || !data.some((p: Perfil) => p.id === perfilAtivoId.value)) {
-          setPerfilAtivoInternal(data[0]?.id || defaultObservadorId);
+          setPerfilAtivoInternal(data[0]?.id || defaultNenhumId);
         }
       } else {
-        // Padrão seguro para qualquer outro caso: OBSERVADOR
-        setPerfilAtivoInternal(defaultObservadorId);
+        // Padrão seguro para qualquer outro caso: NENHUM
+        setPerfilAtivoInternal(defaultNenhumId);
       }
     } catch (error) {
       console.error('Erro ao buscar perfis:', error);

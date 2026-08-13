@@ -88,8 +88,8 @@
             <p v-else-if="perfisStore.perfilAtivo.tipo === 'GESTAO_LEC'">
               <strong>GESTÃO LEC (Equipe de Gestão):</strong> Responsável por receber e acompanhar as solicitações de todas as especialidades. O formulário de nova solicitação fica oculto. Pode aprovar ("Dar Baixa") ou rejeitar registros. Tem permissão para criar perfis e usuários do tipo GESTÃO LEC ou ESPECIALIDADE.
             </p>
-            <p v-else-if="perfisStore.perfilAtivo.tipo === 'OBSERVADOR'">
-              <strong>OBSERVADOR (Consulta Geral):</strong> Possui acesso exclusivamente em modo de leitura a todos os menus do sistema (Comunicação LEC, Navegação LEC, Pacientes, Histórico e Perfis). Pode utilizar os filtros e pesquisar informações, mas não possui permissão para enviar solicitações, criar, editar, aprovar, rejeitar ou excluir registros ou usuários.
+            <p v-else-if="perfisStore.perfilAtivo.tipo === 'NENHUM' || perfisStore.perfilAtivo.tipo === 'OBSERVADOR'">
+              <strong>NENHUM (Sem Perfil Atribuído):</strong> Possui acesso exclusivamente ao menu Perfis. Para ter acesso aos demais menus e funcionalidades do sistema, solicite a criação de usuário e vinculação a um perfil de acesso.
             </p>
             <p v-else>
               <strong>ESPECIALIDADE ({{ perfisStore.perfilAtivo.especialidade }}):</strong> Responsável por criar solicitações (inclusão, edição, exclusão, standby) apenas para a especialidade <strong>{{ perfisStore.perfilAtivo.especialidade }}</strong>. Visualiza no acompanhamento apenas as solicitações desta especialidade. Não pode aprovar/rejeitar registros. Tem permissão para criar usuários unicamente vinculados à sua própria especialidade.
@@ -333,8 +333,8 @@
           </form>
         </Card>
 
-        <!-- Seção: Criar / Solicitar Criação de Usuário (Com Abas para Admin/Gestão) (Oculto para OBSERVADOR) -->
-        <Card v-if="!editingUserId && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'">
+        <!-- Seção: Criar / Solicitar Criação de Usuário (Com Abas para Admin/Gestão) (Oculto para OBSERVADOR e NENHUM) -->
+        <Card v-if="!editingUserId && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM'">
           <template #header>
             <div v-if="podeCriarPerfil" class="w-full">
               <div class="flex border-b border-gray-200">
@@ -557,7 +557,7 @@ const perfisOrdenados = computed(() => {
 const perfisFiltrados = computed(() => {
   const tipo = perfisStore.perfilAtivo.tipo;
   const esp = perfisStore.perfilAtivo.especialidade;
-  const base = perfisOrdenados.value;
+  const base = perfisOrdenados.value.filter(p => p.tipo !== 'NENHUM' && p.id !== 'NENHUM' && p.tipo !== 'OBSERVADOR' && p.id !== 'OBSERVADOR');
 
   if (tipo === 'ADMIN') {
     return base;
@@ -941,6 +941,7 @@ const getCorClass = (tipo: string) => {
     case 'ADMIN': return 'bg-gray-400 ring-gray-400';
     case 'GESTAO_LEC': return 'bg-blue-500 ring-blue-500';
     case 'ESPECIALIDADE': return 'bg-green-500 ring-green-500';
+    case 'NENHUM':
     case 'OBSERVADOR': return 'bg-white ring-gray-300 border border-gray-300';
     default: return 'bg-gray-400 ring-gray-400';
   }
@@ -951,7 +952,8 @@ const getTipoLabel = (tipo: string) => {
     case 'ADMIN': return 'ADMIN';
     case 'GESTAO_LEC': return 'Gestão da LEC';
     case 'ESPECIALIDADE': return 'Especialidade Cirúrgica';
-    case 'OBSERVADOR': return 'Observador';
+    case 'NENHUM':
+    case 'OBSERVADOR': return 'Nenhum';
     default: return tipo;
   }
 };

@@ -40,8 +40,8 @@ def get_current_user_role(current_user: dict) -> str:
         return "ADMIN"
     elif "GESTAO_LEC" in groups:
         return "GESTAO_LEC"
-    elif "OBSERVADOR" in groups:
-        return "OBSERVADOR"
+    elif "NENHUM" in groups or "OBSERVADOR" in groups:
+        return "NENHUM"
     elif "ESPECIALIDADE" in groups:
         return "ESPECIALIDADE"
     
@@ -49,7 +49,7 @@ def get_current_user_role(current_user: dict) -> str:
     if current_user.get("username") == "admin":
         return "ADMIN"
         
-    return "OBSERVADOR"  # Default fallback seguro para usuários sem perfil cadastrado
+    return "NENHUM"  # Default fallback seguro para usuários sem perfil cadastrado
 
 @router.get("", response_model=List[PerfilResponse])
 async def get_perfis(
@@ -57,22 +57,22 @@ async def get_perfis(
     current_user: dict = Depends(auth_handler.decode_token)
 ):
     """
-    Retorna a lista de todos os perfis cadastrados no banco local, incluindo o perfil OBSERVADOR.
+    Retorna a lista de todos os perfis cadastrados no banco local, incluindo o perfil NENHUM.
     """
     stmt = select(Profile)
     result = await db.execute(stmt)
     perfis = list(result.scalars().all())
 
-    # Se o perfil OBSERVADOR não estiver no banco, inclui virtualmente para alternância de perfil no frontend
-    if not any(p.id == "OBSERVADOR" for p in perfis):
-        observador_profile = Profile(
-            id="OBSERVADOR",
-            nome="OBSERVADOR",
-            tipo="OBSERVADOR",
+    # Se o perfil NENHUM não estiver no banco, inclui virtualmente para alternância de perfil no frontend
+    if not any(p.id == "NENHUM" or p.id == "OBSERVADOR" for p in perfis):
+        nenhum_profile = Profile(
+            id="NENHUM",
+            nome="NENHUM",
+            tipo="NENHUM",
             cor="cinza",
             especialidade=None
         )
-        perfis.append(observador_profile)
+        perfis.append(nenhum_profile)
 
     return perfis
 
@@ -122,6 +122,36 @@ async def create_perfil(
     )
     
     db.add(new_profile)
+
+    # Registrar evento de criação de perfil no Histórico
+    try:
+        from ..models.solicitacao import Solicitacao
+        import uuid
+        from datetime import datetime
+        username_executor = current_user.get("username") or current_user.get("sub") or current_user.get("name", "")
+        
+        hist_perfil = Solicitacao(
+            id=str(uuid.uuid4())[:8],
+            tipo="INSERIR",
+            especialidade=perfil_in.especialidade,
+            procedimento=f"Perfil: {perfil_in.nome.upper()}",
+            codigo_paciente=0,
+            nome_paciente=f"Perfil {perfil_in.nome.upper()}",
+            judicializado="Não",
+            swallis="",
+            medico_responsavel="",
+            detalhes=f"Criação do perfil de especialidade {perfil_in.nome.upper()}",
+            status="APROVADO",
+            data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            perfil_executor=role,
+            usuario=username_executor,
+            procedimento_anterior="",
+            origem_menu="Perfis"
+        )
+        db.add(hist_perfil)
+    except Exception as e:
+        print(f"Erro ao registrar histórico de criação de perfil: {e}")
+
     await db.commit()
     await db.refresh(new_profile)
     return new_profile

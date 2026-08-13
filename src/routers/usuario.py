@@ -105,6 +105,18 @@ async def create_usuario(
             detail="Perfil especificado não existe."
         )
 
+    if creator_role in ["NENHUM", "OBSERVADOR"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários sem perfil associado (NENHUM) não possuem permissão para criar usuários."
+        )
+
+    if target_profile.tipo in ["NENHUM", "OBSERVADOR"] or target_profile.id in ["NENHUM", "OBSERVADOR"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é permitido criar usuários com o perfil NENHUM."
+        )
+
     # 1. Validações Hierárquicas
     if target_profile.tipo == "ESPECIALIDADE" and not target_profile.especialidade:
         raise HTTPException(
@@ -395,6 +407,18 @@ async def create_solicitacao(
             detail="Perfil especificado não existe."
         )
 
+    if creator_role in ["NENHUM", "OBSERVADOR"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuários sem perfil associado (NENHUM) não possuem permissão para solicitar criação de usuários."
+        )
+
+    if target_profile.tipo in ["NENHUM", "OBSERVADOR"] or target_profile.id in ["NENHUM", "OBSERVADOR"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é permitido solicitar a criação de usuários com o perfil NENHUM."
+        )
+
     # Regras de validação do perfil solicitado
     if target_profile.tipo == "ESPECIALIDADE" and not target_profile.especialidade:
         raise HTTPException(
@@ -499,6 +523,36 @@ async def create_solicitacao(
     )
 
     db.add(new_request)
+
+    # Gravar evento correspondente na tabela de solicitações (Histórico)
+    try:
+        from ..models.solicitacao import Solicitacao
+        import uuid
+        username_executor = current_user.get("username") or current_user.get("sub") or current_user.get("name", "")
+        perfil_executor = creator_role
+        
+        hist_solic = Solicitacao(
+            id=str(uuid.uuid4())[:8],
+            tipo="INSERIR" if (req_in.tipo or "CRIACAO") == "CRIACAO" else "EDITAR",
+            especialidade=target_profile.especialidade or target_profile.nome or "",
+            procedimento=f"Perfil: {target_profile.nome}",
+            codigo_paciente=0,
+            nome_paciente=req_in.nome.strip(),
+            judicializado="Não",
+            swallis="",
+            medico_responsavel="",
+            detalhes=f"Solicitação de {req_in.tipo or 'CRIACAO'} do usuário @{req_in.username.strip()}",
+            status="PENDENTE",
+            data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            perfil_executor=perfil_executor,
+            usuario=username_executor,
+            procedimento_anterior="",
+            origem_menu="Perfis"
+        )
+        db.add(hist_solic)
+    except Exception as e:
+        print(f"Erro ao registrar histórico de solicitação de usuário: {e}")
+
     await db.commit()
     await db.refresh(new_request)
     return new_request
@@ -586,6 +640,37 @@ async def aprovar_solicitacao(
     
     # Atualiza status da solicitação
     request_obj.status = "APROVADO"
+
+    # Registrar resposta de aprovação na tabela de solicitações (Histórico)
+    try:
+        from ..models.solicitacao import Solicitacao
+        import uuid
+        username_executor = current_user.get("username") or current_user.get("sub") or current_user.get("name", "")
+        perfil_executor = creator_role
+        
+        hist_resp = Solicitacao(
+            id=str(uuid.uuid4())[:8],
+            tipo="INSERIR" if request_obj.tipo == "CRIACAO" else "EDITAR",
+            especialidade=request_obj.especialidade or target_profile.nome if target_profile else "",
+            procedimento=f"Perfil: {request_obj.perfil_id}",
+            codigo_paciente=0,
+            nome_paciente=request_obj.nome,
+            judicializado="Não",
+            swallis="",
+            medico_responsavel="",
+            detalhes=f"Aprovação de solicitação de {request_obj.tipo} do usuário @{request_obj.username}",
+            status="APROVADO",
+            data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            perfil_executor=perfil_executor,
+            usuario=username_executor,
+            procedimento_anterior="",
+            origem_menu="Perfis",
+            evento_tipo="RESPOSTA",
+            is_resposta=True
+        )
+        db.add(hist_resp)
+    except Exception as e:
+        print(f"Erro ao registrar histórico de aprovação de solicitação de usuário: {e}")
     
     await db.commit()
     await db.refresh(new_user)
