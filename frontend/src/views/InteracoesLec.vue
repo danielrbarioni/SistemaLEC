@@ -712,11 +712,16 @@
               </td>
 
               <td v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-4 py-4 whitespace-nowrap text-xs">
-                <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo.tipo === 'ADMIN')" class="flex space-x-1">
+                <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo?.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo?.tipo === 'ADMIN')" class="flex space-x-1">
                   <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
                     Aprovar
                   </Button>
                   <Button @click="atualizarStatus(solic.id, 'REJEITADO')" variant="danger" size="sm">Rejeitar</Button>
+                </div>
+                <div v-else-if="solic.status === 'PENDENTE' && perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'" class="flex space-x-1">
+                  <Button @click="solicitarCancelamento(solic)" variant="danger" size="sm">
+                    Cancelar
+                  </Button>
                 </div>
                 <span v-else class="text-gray-400">-</span>
               </td>
@@ -760,6 +765,49 @@
         <div class="flex justify-end pt-2 border-t border-gray-100">
           <Button @click="modalDescricao.aberto = false" variant="primary" size="sm">
             Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmação de Cancelamento -->
+    <div v-if="modalCancelar.aberto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 border border-gray-200">
+        <div class="flex justify-between items-start border-b border-gray-150 pb-3">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900">Confirmar Cancelamento</h3>
+            <p class="text-xs text-gray-500">
+              Solicitação #{{ modalCancelar.solic?.id }} · {{ formatarTipo(modalCancelar.solic?.tipo) }}
+            </p>
+          </div>
+          <button @click="modalCancelar.aberto = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold">
+            ✕
+          </button>
+        </div>
+
+        <div v-if="modalCancelar.solic" class="space-y-3 text-xs text-gray-700">
+          <p class="text-sm text-gray-800">
+            Tem certeza que deseja cancelar esta solicitação?
+          </p>
+
+          <div class="bg-red-50 p-3 rounded-lg border border-red-100 text-red-900 space-y-1">
+            <div><span class="font-bold">Paciente:</span> {{ modalCancelar.solic.nome_paciente }}</div>
+            <div><span class="font-bold">Prontuário:</span> #{{ modalCancelar.solic.codigo_paciente }}</div>
+            <div><span class="font-bold">Procedimento:</span> {{ modalCancelar.solic.procedimento }}</div>
+            <div><span class="font-bold">Especialidade:</span> {{ modalCancelar.solic.especialidade }}</div>
+          </div>
+          
+          <p class="text-gray-500 italic text-[11px]">
+            Esta ação não poderá ser desfeita e a solicitação será movida para o histórico como cancelada.
+          </p>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-gray-100">
+          <Button @click="modalCancelar.aberto = false" variant="secondary" size="sm">
+            Voltar
+          </Button>
+          <Button @click="confirmarCancelamento" variant="danger" size="sm">
+            Sim, Cancelar Solicitação
           </Button>
         </div>
       </div>
@@ -1072,7 +1120,7 @@ const solicitacoesFiltradas = computed(() => {
   if (subAbaAcompanhamento.value === 'PENDENTE') {
     list = list.filter(s => s.status === 'PENDENTE');
   } else {
-    list = list.filter(s => s.status === 'APROVADO' || s.status === 'REJEITADO');
+    list = list.filter(s => s.status === 'APROVADO' || s.status === 'REJEITADO' || s.status === 'CANCELADO');
   }
 
   // 3. Filtro de Especialidade (perfil restrito ou digitado)
@@ -1547,20 +1595,44 @@ const enviarSolicitacao = async () => {
   }
 };
 
-const atualizarStatus = async (id: string, status: string) => {
-  const acaoText = status === 'APROVADO' ? 'aprovar (dar baixa na)' : 'rejeitar a';
-  const confirmacao = window.confirm(`Tem certeza que deseja ${acaoText} solicitação?`);
-  if (!confirmacao) return;
+const atualizarStatus = async (id: string, status: string, skipConfirm: boolean = false) => {
+  if (!skipConfirm) {
+    const acaoText = status === 'APROVADO' ? 'aprovar (dar baixa na)' : (status === 'CANCELADO' ? 'cancelar a' : 'rejeitar a');
+    const confirmacao = window.confirm(`Tem certeza que deseja ${acaoText} solicitação?`);
+    if (!confirmacao) return;
+  }
 
   try {
     const perfil_executor = perfisStore.perfilAtivo?.tipo || 'GESTAO_LEC';
     const usuario = authStore.user?.username || 'Usuário Sistema';
     await api.put(`/api/solicitacoes/${id}/status`, { status, perfil_executor, usuario });
-    toast.success(`Solicitação ${status.toLowerCase()} com sucesso!`);
+    const statusMsg = status === 'CANCELADO' ? 'cancelada' : status.toLowerCase();
+    toast.success(`Solicitação ${statusMsg} com sucesso!`);
     await carregarSolicitacoes();
-  } catch (error) {
-    toast.error('Erro ao atualizar status.');
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.detail || 'Erro ao atualizar status.';
+    toast.error(errorMsg);
   }
+};
+
+const modalCancelar = ref<{ aberto: boolean; solic: any }>({
+  aberto: false,
+  solic: null
+});
+
+const solicitarCancelamento = (solic: any) => {
+  modalCancelar.value = {
+    aberto: true,
+    solic: solic
+  };
+};
+
+const confirmarCancelamento = async () => {
+  if (!modalCancelar.value.solic) return;
+  const solicId = modalCancelar.value.solic.id;
+  modalCancelar.value.aberto = false;
+  modalCancelar.value.solic = null;
+  await atualizarStatus(solicId, 'CANCELADO', true);
 };
 
 const opcaoStandbyVigente = ref('ALTERAR');
@@ -1656,6 +1728,7 @@ const getStatusBadgeClass = (status: string) => {
     case 'PENDENTE':  return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800';
     case 'APROVADO':  return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800';
     case 'REJEITADO': return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800';
+    case 'CANCELADO': return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200';
     default:          return 'px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800';
   }
 };

@@ -123,6 +123,13 @@ async def atualizar_status_solicitacao(
             detail="Solicite criação de usuário e associação a um perfil, no menu Perfis"
         )
 
+    novo_st = (status_update.status or "").upper()
+    if novo_st in ["APROVADO", "REJEITADO"] and role not in ["ADMIN", "GESTAO_LEC"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas os perfis GESTÃO LEC e ADMIN podem aprovar ou rejeitar solicitações."
+        )
+
     usuario_executor = status_update.usuario
     if not usuario_executor and user_info:
         usuario_executor = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")

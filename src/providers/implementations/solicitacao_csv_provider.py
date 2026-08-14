@@ -111,7 +111,7 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
 
         # Registra a nova linha de RESPOSTA
         status_upper = novo_status.upper()
-        acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
+        acao_verb = "Aprovou" if status_upper == "APROVADO" else ("Cancelou" if status_upper == "CANCELADO" else "Rejeitou")
         detalhes_resposta = f"{acao_verb} a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')})"
 
         resposta_solic = {

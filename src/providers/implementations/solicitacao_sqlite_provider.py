@@ -100,7 +100,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         
         # Cria uma nova entrada no histórico representando especificamente a RESPOSTA
         data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
+        acao_verb = "Aprovou" if status_upper == "APROVADO" else ("Cancelou" if status_upper == "CANCELADO" else "Rejeitou")
         detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo})"
 
         resposta_solic = Solicitacao(

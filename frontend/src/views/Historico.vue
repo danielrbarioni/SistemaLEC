@@ -97,6 +97,7 @@
               <option value="PENDENTE">PENDENTE</option>
               <option value="APROVADO">APROVADO</option>
               <option value="REJEITADO">REJEITADO</option>
+              <option value="CANCELADO">CANCELADO</option>
             </select>
           </div>
 
@@ -364,6 +365,7 @@ const getStatusBadgeClass = (status: string) => {
     case 'PENDENTE': return 'px-2 py-0.5 text-xs font-semibold rounded bg-yellow-100 text-yellow-800 border border-yellow-200';
     case 'APROVADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800 border border-green-200';
     case 'REJEITADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-red-100 text-red-800 border border-red-200';
+    case 'CANCELADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800 border border-gray-300';
     default: return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800';
   }
 };
