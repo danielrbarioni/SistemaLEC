@@ -125,7 +125,7 @@
                   id="edit_usr_nome" 
                   v-model="usuarioForm.nome" 
                   type="text" 
-                  placeholder="Ex: Dr. João Silva" 
+                  placeholder="Ex: João Santos da Silva" 
                   class="form-control"
                   required
                 />
@@ -234,7 +234,7 @@
                   <tr v-for="user in usuariosFiltrados" :key="user.id">
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div class="text-sm font-bold text-gray-800">{{ user.nome }}</div>
-                      <div class="text-xs text-gray-500">@{{ user.username }}</div>
+                      <div class="text-xs text-gray-500">{{ user.username }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800 border border-gray-200">
@@ -257,7 +257,7 @@
                       </button>
                       <button 
                         v-if="podeExcluirUsuario(user)"
-                        @click="excluirUsuario(user.id)" 
+                        @click="excluirUsuario(user)" 
                         class="text-red-600 hover:text-red-900 font-semibold cursor-pointer"
                       >
                         Excluir
@@ -385,7 +385,7 @@
                   id="usr_nome" 
                   v-model="usuarioForm.nome" 
                   type="text" 
-                  placeholder="Ex: Dr. João Silva" 
+                  placeholder="Ex: João Santos da Silva" 
                   class="form-control"
                   required
                 />
@@ -441,14 +441,14 @@
                 <div class="flex justify-between items-start">
                   <div>
                     <h4 class="text-sm font-bold text-gray-800">{{ sol.nome }}</h4>
-                    <p class="text-xs text-gray-500">@{{ sol.username }}</p>
+                    <p class="text-xs text-gray-500">{{ sol.username }}</p>
                   </div>
                   <div class="flex flex-col items-end space-y-1">
                     <span class="px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 rounded">
                       PENDENTE
                     </span>
-                    <span :class="[sol.tipo === 'EDICAO' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-blue-100 text-blue-800 border border-blue-200', 'px-1.5 py-0.5 text-[9px] font-bold rounded']">
-                      {{ sol.tipo === 'EDICAO' ? 'Edição' : 'Criação' }}
+                    <span :class="[sol.tipo === 'EXCLUSAO' ? 'bg-red-100 text-red-800 border border-red-200' : (sol.tipo === 'EDICAO' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-blue-100 text-blue-800 border border-blue-200'), 'px-1.5 py-0.5 text-[9px] font-bold rounded']">
+                      {{ sol.tipo === 'EXCLUSAO' ? 'Exclusão' : (sol.tipo === 'EDICAO' ? 'Edição' : 'Criação') }}
                     </span>
                   </div>
                 </div>
@@ -460,6 +460,11 @@
                   <div v-if="sol.tipo === 'EDICAO' && sol.campos_modificados" class="mt-2 p-2 bg-purple-50 border border-purple-100 rounded text-purple-950">
                     <p class="font-bold text-[10px] text-purple-800 uppercase tracking-wider">Campos alterados:</p>
                     <p class="text-[11px] mt-0.5 font-medium">{{ sol.campos_modificados }}</p>
+                  </div>
+
+                  <div v-if="sol.tipo === 'EXCLUSAO'" class="mt-2 p-2 bg-red-50 border border-red-100 rounded text-red-950">
+                    <p class="font-bold text-[10px] text-red-800 uppercase tracking-wider">Solicitação de Exclusão:</p>
+                    <p class="text-[11px] mt-0.5 font-medium">Solicitada a exclusão do usuário {{ sol.nome }} ({{ sol.username }}).</p>
                   </div>
 
                   <p class="text-[10px] text-gray-400 mt-1">Solicitado em: {{ formatData(sol.created_at) }}</p>
@@ -717,13 +722,13 @@ const podeExcluirUsuario = (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
-  if (tipoAtivo === 'OBSERVADOR') {
+  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM') {
     return false;
   }
   if (tipoAtivo === 'ADMIN') {
     return true;
   }
-  if (tipoAtivo === 'GESTAO_LEC') {
+  if (tipoAtivo === 'GESTAO_LEC' || tipoAtivo === 'EPO_GENERALISTA') {
     return isUsuarioEspecialidade(user);
   }
   if (tipoAtivo === 'ESPECIALIDADE') {
@@ -885,20 +890,48 @@ const salvarUsuario = async () => {
   }
 };
 
-const excluirUsuario = async (id: number) => {
-  if (!confirm('Tem certeza que deseja excluir este usuário?')) {
-    return;
-  }
-  try {
-    await api.delete(`/api/usuarios/${id}`);
-    toast.success('Usuário excluído com sucesso!');
-    if (editingUserId.value === id) {
-      cancelarEdicao();
+const excluirUsuario = async (user: any) => {
+  const tipoAtivo = perfisStore.perfilAtivo.tipo;
+
+  if (tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'ESPECIALIDADE') {
+    if (!confirm(`Tem certeza que deseja solicitar a exclusão do usuário "${user.nome}"?`)) {
+      return;
     }
-    await loadUsuarios();
-  } catch (error: any) {
-    const detail = error.response?.data?.detail || 'Erro ao excluir usuário.';
-    toast.error(detail);
+    try {
+      await api.post('/api/usuarios/solicitacoes', {
+        tipo: 'EXCLUSAO',
+        user_id: user.id,
+        username: user.username,
+        nome: user.nome,
+        perfil_id: user.perfil_id,
+        funcao: user.funcao
+      });
+      toast.success('Solicitação de exclusão de usuário enviada com sucesso!');
+      if (editingUserId.value === user.id) {
+        cancelarEdicao();
+      }
+      await loadUsuarios();
+      await loadSolicitacoes();
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || 'Erro ao solicitar exclusão de usuário.';
+      toast.error(detail);
+    }
+  } else {
+    if (!confirm(`Tem certeza que deseja excluir o usuário "${user.nome}"?`)) {
+      return;
+    }
+    try {
+      await api.delete(`/api/usuarios/${user.id}`);
+      toast.success('Usuário excluído com sucesso!');
+      if (editingUserId.value === user.id) {
+        cancelarEdicao();
+      }
+      await loadUsuarios();
+      await loadSolicitacoes();
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || 'Erro ao excluir usuário.';
+      toast.error(detail);
+    }
   }
 };
 

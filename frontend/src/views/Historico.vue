@@ -277,7 +277,17 @@ const carregarHistorico = async () => {
       }
     }
 
-    solicitacoes.value = solicitacoesData.map((s: any) => {
+    const solicitacoesValidas = solicitacoesData.filter((s: any) => {
+      const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
+      const procStr = String(s.procedimento || '').toLowerCase().trim();
+      const origStr = String(s.origem_menu || '').toLowerCase().trim();
+      if (codStr === '0' || procStr.startsWith('perfil:') || origStr === 'perfis') {
+        return false;
+      }
+      return true;
+    });
+
+    solicitacoes.value = solicitacoesValidas.map((s: any) => {
       const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
       let nomeReal = s.nome_paciente || s.nome;
       if (!nomeReal || nomeReal.startsWith('Paciente #') || nomeReal === 'Não informado') {

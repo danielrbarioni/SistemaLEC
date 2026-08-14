@@ -441,51 +441,56 @@ async def create_solicitacao(
                 detail="Usuários GESTÃO LEC não podem solicitar perfil ADMIN."
             )
 
-    is_edition = req_in.tipo == "EDICAO" or req_in.user_id is not None
+    is_edition = req_in.tipo == "EDICAO"
+    is_deletion = req_in.tipo == "EXCLUSAO"
 
-    if is_edition:
+    if is_edition or is_deletion:
         if not req_in.user_id:
+            action_name = "exclusão" if is_deletion else "edição"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="ID do usuário é obrigatório para solicitações de edição."
+                detail=f"ID do usuário é obrigatório para solicitações de {action_name}."
             )
         # Busca o usuário existente
         stmt = select(User).where(User.id == req_in.user_id)
         result = await db.execute(stmt)
         existing_user = result.scalar_one_or_none()
         if not existing_user:
+            action_name = "excluído" if is_deletion else "editado"
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuário a ser editado não encontrado."
+                detail=f"Usuário a ser {action_name} não encontrado."
             )
         
-        # O campo usuário Ebserh (username) não pode ser modificado
-        if existing_user.username.lower() != req_in.username.lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="O usuário Ebserh não pode ser modificado."
-            )
+        if is_edition:
+            # O campo usuário Ebserh (username) não pode ser modificado
+            if existing_user.username.lower() != req_in.username.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="O usuário Ebserh não pode ser modificado."
+                )
 
-        # Valida se o criador tem permissão sobre o usuário a ser editado
+        # Valida se o criador tem permissão sobre o usuário a ser editado/excluído
         stmt = select(Profile).where(Profile.id == existing_user.perfil_id)
         result = await db.execute(stmt)
         existing_user_profile = result.scalar_one_or_none()
         if existing_user_profile:
+            action_name = "exclusão" if is_deletion else "edição"
             if existing_user_profile.tipo == "ADMIN" and creator_role != "ADMIN":
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Apenas administradores podem solicitar edição de usuários com perfil ADMIN."
+                    detail=f"Apenas administradores podem solicitar {action_name} de usuários com perfil ADMIN."
                 )
             if creator_role == "GESTAO_LEC" and existing_user_profile.tipo != "ESPECIALIDADE":
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Usuários GESTÃO LEC só podem solicitar edição de usuários do tipo ESPECIALIDADE."
+                    detail=f"Usuários GESTÃO LEC só podem solicitar {action_name} de usuários do tipo ESPECIALIDADE."
                 )
             if creator_role == "ESPECIALIDADE":
                 if existing_user_profile.tipo != "ESPECIALIDADE" or existing_user_profile.especialidade != creator_specialty:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Você só tem permissão para solicitar edição de usuários da sua especialidade ({creator_specialty})."
+                        detail=f"Você só tem permissão para solicitar {action_name} de usuários da sua especialidade ({creator_specialty})."
                     )
     else:
         # Verifica se o username já está cadastrado localmente para novos usuários
@@ -523,36 +528,6 @@ async def create_solicitacao(
     )
 
     db.add(new_request)
-
-    # Gravar evento correspondente na tabela de solicitações (Histórico)
-    try:
-        from ..models.solicitacao import Solicitacao
-        import uuid
-        username_executor = current_user.get("username") or current_user.get("sub") or current_user.get("name", "")
-        perfil_executor = creator_role
-        
-        hist_solic = Solicitacao(
-            id=str(uuid.uuid4())[:8],
-            tipo="INSERIR" if (req_in.tipo or "CRIACAO") == "CRIACAO" else "EDITAR",
-            especialidade=target_profile.especialidade or target_profile.nome or "",
-            procedimento=f"Perfil: {target_profile.nome}",
-            codigo_paciente=0,
-            nome_paciente=req_in.nome.strip(),
-            judicializado="Não",
-            swallis="",
-            medico_responsavel="",
-            detalhes=f"Solicitação de {req_in.tipo or 'CRIACAO'} do usuário @{req_in.username.strip()}",
-            status="PENDENTE",
-            data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            perfil_executor=perfil_executor,
-            usuario=username_executor,
-            procedimento_anterior="",
-            origem_menu="Perfis"
-        )
-        db.add(hist_solic)
-    except Exception as e:
-        print(f"Erro ao registrar histórico de solicitação de usuário: {e}")
-
     await db.commit()
     await db.refresh(new_request)
     return new_request
@@ -592,6 +567,37 @@ async def aprovar_solicitacao(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuários GESTÃO LEC apenas podem aprovar solicitações de perfis ESPECIALIDADE."
         )
+
+    # Se a solicitação for de exclusão, excluímos o usuário existente
+    if request_obj.tipo == "EXCLUSAO":
+        stmt = select(User).where(User.id == request_obj.user_id)
+        result = await db.execute(stmt)
+        user_to_delete = result.scalar_one_or_none()
+        
+        deleted_resp = None
+        if user_to_delete:
+            deleted_resp = UserResponse(
+                id=user_to_delete.id,
+                username=user_to_delete.username,
+                nome=user_to_delete.nome,
+                perfil_id=user_to_delete.perfil_id,
+                especialidade=user_to_delete.especialidade,
+                funcao=user_to_delete.funcao
+            )
+            await db.delete(user_to_delete)
+        else:
+            deleted_resp = UserResponse(
+                id=request_obj.user_id or 0,
+                username=request_obj.username,
+                nome=request_obj.nome,
+                perfil_id=request_obj.perfil_id,
+                especialidade=request_obj.especialidade,
+                funcao=request_obj.funcao
+            )
+
+        request_obj.status = "APROVADO"
+        await db.commit()
+        return deleted_resp
 
     # Se a solicitação for de edição, atualizamos o usuário existente
     if request_obj.tipo == "EDICAO":
@@ -640,38 +646,6 @@ async def aprovar_solicitacao(
     
     # Atualiza status da solicitação
     request_obj.status = "APROVADO"
-
-    # Registrar resposta de aprovação na tabela de solicitações (Histórico)
-    try:
-        from ..models.solicitacao import Solicitacao
-        import uuid
-        username_executor = current_user.get("username") or current_user.get("sub") or current_user.get("name", "")
-        perfil_executor = creator_role
-        
-        hist_resp = Solicitacao(
-            id=str(uuid.uuid4())[:8],
-            tipo="INSERIR" if request_obj.tipo == "CRIACAO" else "EDITAR",
-            especialidade=request_obj.especialidade or target_profile.nome if target_profile else "",
-            procedimento=f"Perfil: {request_obj.perfil_id}",
-            codigo_paciente=0,
-            nome_paciente=request_obj.nome,
-            judicializado="Não",
-            swallis="",
-            medico_responsavel="",
-            detalhes=f"Aprovação de solicitação de {request_obj.tipo} do usuário @{request_obj.username}",
-            status="APROVADO",
-            data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            perfil_executor=perfil_executor,
-            usuario=username_executor,
-            procedimento_anterior="",
-            origem_menu="Perfis",
-            evento_tipo="RESPOSTA",
-            is_resposta=True
-        )
-        db.add(hist_resp)
-    except Exception as e:
-        print(f"Erro ao registrar histórico de aprovação de solicitação de usuário: {e}")
-    
     await db.commit()
     await db.refresh(new_user)
     return new_user

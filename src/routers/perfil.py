@@ -133,36 +133,6 @@ async def create_perfil(
     )
     
     db.add(new_profile)
-
-    # Registrar evento de criação de perfil no Histórico
-    try:
-        from ..models.solicitacao import Solicitacao
-        import uuid
-        from datetime import datetime
-        username_executor = current_user.get("username") or current_user.get("sub") or current_user.get("name", "")
-        
-        hist_perfil = Solicitacao(
-            id=str(uuid.uuid4())[:8],
-            tipo="INSERIR",
-            especialidade=perfil_in.especialidade,
-            procedimento=f"Perfil: {perfil_in.nome.upper()}",
-            codigo_paciente=0,
-            nome_paciente=f"Perfil {perfil_in.nome.upper()}",
-            judicializado="Não",
-            swallis="",
-            medico_responsavel="",
-            detalhes=f"Criação do perfil de especialidade {perfil_in.nome.upper()}",
-            status="APROVADO",
-            data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            perfil_executor=role,
-            usuario=username_executor,
-            procedimento_anterior="",
-            origem_menu="Perfis"
-        )
-        db.add(hist_perfil)
-    except Exception as e:
-        print(f"Erro ao registrar histórico de criação de perfil: {e}")
-
     await db.commit()
     await db.refresh(new_profile)
     return new_profile

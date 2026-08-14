@@ -84,8 +84,44 @@
           </select>
         </div>
 
+        <!-- Filtro por Judicialização -->
+        <div class="form-group">
+          <label for="filtroJudicializado" class="form-label font-semibold">
+            Filtrar por Judicialização
+          </label>
+          <select 
+            id="filtroJudicializado" 
+            v-model="filtroJudicializado" 
+            class="form-control"
+          >
+            <option value="">Todas</option>
+            <option value="Sim">Sim</option>
+            <option value="Não">Não</option>
+          </select>
+        </div>
+
+        <!-- Filtro por Swalis -->
+        <div class="form-group">
+          <label for="filtroSwalis" class="form-label font-semibold">
+            Filtrar por Swalis
+          </label>
+          <select 
+            id="filtroSwalis" 
+            v-model="filtroSwalis" 
+            class="form-control"
+          >
+            <option value="">Todas</option>
+            <option value="A1">A1 - Prioridade máxima</option>
+            <option value="A2">A2 - Prioridade alta</option>
+            <option value="B">B - Prioridade média</option>
+            <option value="C">C - Prioridade baixa</option>
+            <option value="D">D - Prioridade mínima</option>
+            <option value="NENHUM">Sem Swalis / Não informado</option>
+          </select>
+        </div>
+
         <!-- Filtro para Pacientes com Mais de 1 Procedimento -->
-        <div class="form-group flex items-center pt-2" :class="espSelecionada ? 'md:col-span-4' : 'md:col-span-2'">
+        <div class="form-group flex items-center pt-2 md:col-span-2 lg:col-span-4">
           <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
             <input 
               type="checkbox" 
@@ -384,6 +420,8 @@ const buscaProntuario = ref('');
 const filtroEspecialidade = ref('');
 const filtroProcedimento = ref('');
 const filtroMedico = ref('');
+const filtroJudicializado = ref('');
+const filtroSwalis = ref('');
 const filtroApenasMultiplos = ref(false);
 const usuarios = ref<any[]>([]);
 
@@ -531,7 +569,15 @@ const carregarDados = async () => {
       perfisStore.fetchPerfis()
     ]);
     basePacientes.value = pacRes.data;
-    solicitacoes.value = solRes.data;
+    solicitacoes.value = (solRes.data || []).filter((s: any) => {
+      const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
+      const procStr = String(s.procedimento || '').toLowerCase().trim();
+      const origStr = String(s.origem_menu || '').toLowerCase().trim();
+      if (codStr === '0' || procStr.startsWith('perfil:') || origStr === 'perfis') {
+        return false;
+      }
+      return true;
+    });
     usuarios.value = usrRes.data;
   } catch (error) {
     toast.error('Erro ao obter os dados dos pacientes.');
@@ -742,6 +788,20 @@ const pacientesProcessados = computed(() => {
           if (!p.medico_responsavel) return false;
           const mLower = p.medico_responsavel.toLowerCase().trim();
           return mLower === medicoSelecionado || (usernameMatch && mLower === usernameMatch);
+        });
+      }
+
+      if (filtroJudicializado.value) {
+        procs = procs.filter((p: any) => (p.judicializado || 'Não') === filtroJudicializado.value);
+      }
+
+      if (filtroSwalis.value) {
+        procs = procs.filter((p: any) => {
+          const sw = (p.Swalis || p.swalis || p.swallis || '—').trim();
+          if (filtroSwalis.value === 'NENHUM') {
+            return sw === '—' || sw === '' || sw === 'Não informado';
+          }
+          return sw === filtroSwalis.value;
         });
       }
 
