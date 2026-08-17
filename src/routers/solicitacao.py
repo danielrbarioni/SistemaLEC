@@ -39,6 +39,7 @@ class SolicitacaoStatusUpdate(BaseModel):
     status: str
     perfil_executor: str = ""
     usuario: str = ""
+    justificativa: str = ""
 
 class StatusLocalUpdate(BaseModel):
     status_local: str
@@ -139,6 +140,7 @@ async def atualizar_status_solicitacao(
         novo_status=status_update.status,
         perfil_executor=status_update.perfil_executor,
         usuario_executor=usuario_executor,
+        justificativa=status_update.justificativa,
         provider=provider
     )
 

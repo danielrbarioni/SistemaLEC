@@ -90,9 +90,14 @@ Thumbs.db
 *.log
 *.sqlite3
 *.db
+*.bak*
+data/*.bak*
 app.db
 data/*.db
 server.log
+
+# Scratch / Temp scripts
+scratch/
 
 # Frontend (Node.js)
 node_modules/

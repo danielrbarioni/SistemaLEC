@@ -94,7 +94,7 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
                 solicitacoes.append(row)
         return solicitacoes
 
-    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
+    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "", justificativa: str = "") -> Dict[str, Any]:
         solicitacoes = await self.listar_solicitacoes()
         encontrado = False
         solic_original = None
@@ -112,7 +112,11 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
         # Registra a nova linha de RESPOSTA
         status_upper = novo_status.upper()
         acao_verb = "Aprovou" if status_upper == "APROVADO" else ("Cancelou" if status_upper == "CANCELADO" else "Rejeitou")
-        detalhes_resposta = f"{acao_verb} a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')})"
+        
+        if justificativa and justificativa.strip():
+            detalhes_resposta = f"{acao_verb} a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')}) - Justificativa: {justificativa.strip()}"
+        else:
+            detalhes_resposta = f"{acao_verb} a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')})"
 
         resposta_solic = {
             'id': str(uuid.uuid4())[:8],

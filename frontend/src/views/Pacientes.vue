@@ -675,9 +675,9 @@ const pacientesProcessados = computed(() => {
     });
   }
 
-  // 2. Aplica as solicitações aprovadas em ordem cronológica
+  // 2. Aplica as solicitações aprovadas em ordem cronológica (desconsiderando eventos de RESPOSTA para não duplicar)
   const approvedSolics = solicitacoes.value
-    .filter(s => s.status === 'APROVADO')
+    .filter(s => s.status === 'APROVADO' && s.evento_tipo !== 'RESPOSTA' && !s.is_resposta)
     .sort((a, b) => a.data_criacao.localeCompare(b.data_criacao));
 
   for (const s of approvedSolics) {

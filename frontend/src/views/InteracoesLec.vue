@@ -567,197 +567,317 @@
       <div v-else-if="solicitacoesFiltradas.length === 0" class="text-center py-8 text-gray-500">
         Nenhuma solicitação encontrada para os filtros selecionados.
       </div>
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data / Hora</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade</th>
-              <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedimento</th>
-              <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Procedimento Anterior</th>
-              <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Novo Procedimento</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário / Paciente</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judicial</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Swalis</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Info Extra</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
-              <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATA/HORA AÇÃO</th>
-              <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200 text-sm">
-            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id">
-              <td class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
-                {{ formatarDataHora(solic.data_criacao) }}
-              </td>
-              <td class="px-4 py-4 whitespace-nowrap text-gray-500 font-mono text-xs">#{{ solic.id }}</td>
-              <td class="px-4 py-4 whitespace-nowrap">
-                <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
-              </td>
-              
-              <!-- Especialidade (Comum a todos) -->
-              <td class="px-4 py-4 text-gray-700 text-xs font-semibold">
-                {{ solic.especialidade || '—' }}
-              </td>
-              
-              <!-- Procedimento (Não EDITAR) -->
-              <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-4 py-4 text-gray-700 text-xs">
-                {{ solic.procedimento || '—' }}
-              </td>
-              
-              <!-- Procedimento Anterior (EDITAR) -->
-              <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-4 text-gray-500 text-xs italic">
-                {{ solic.procedimento_anterior || '—' }}
-              </td>
-              
-              <!-- Novo Procedimento (EDITAR) -->
-              <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-4 py-4 text-xs">
-                <div v-if="solic.procedimento === solic.procedimento_anterior || !solic.procedimento_anterior" class="text-gray-400 italic">
-                  Não houve mudança
-                </div>
-                <div v-else class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block">
-                  {{ solic.procedimento }}
-                </div>
-              </td>
+      <div v-else class="relative">
+        <!-- Barra de Rolagem Superior Sincronizada -->
+        <div 
+          ref="topScrollRef" 
+          class="overflow-x-auto overflow-y-hidden h-2.5 bg-slate-100 border-b border-slate-200" 
+          @scroll="onTopScroll"
+          v-show="temOverflowHorizontal"
+        >
+          <div :style="{ width: larguraTabela + 'px', height: '1px' }"></div>
+        </div>
 
-              <!-- Prontuário / Paciente -->
-              <td class="px-4 py-4 text-gray-700 text-xs">
-                <div class="font-mono">{{ solic.codigo_paciente }}</div>
-                <div class="font-medium">{{ solic.nome_paciente }}</div>
-              </td>
+        <div 
+          ref="tableContainerRef" 
+          class="overflow-x-auto" 
+          @scroll="onBottomScroll"
+        >
+          <table ref="tableRef" class="min-w-full divide-y divide-gray-200 text-xs">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
+                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">ID</th>
+                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tipo</th>
+                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Especialidade</th>
+                <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Procedimento</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Procedimento Anterior</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Novo Procedimento</th>
+                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Prontuário / Paciente</th>
+                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Judicial</th>
+                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Swalis</th>
+                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Médico</th>
+                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Info Extra</th>
+                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Descrição</th>
+                <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">DATA/HORA AÇÃO</th>
+                <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="solic in solicitacoesFiltradas" :key="solic.id" class="hover:bg-slate-50 transition duration-150">
+                <!-- Data/Hora Criação -->
+                <td class="px-3 py-2.5 whitespace-nowrap font-mono text-[11px] text-gray-600">
+                  {{ formatarDataHora(solic.data_criacao) }}
+                </td>
 
-              <!-- Judicial (com destaque se editado) -->
-              <td class="px-4 py-4 whitespace-nowrap text-xs">
-                <span 
-                  v-if="solic.judicializado === 'Sim'" 
+                <!-- ID -->
+                <td class="px-3 py-2.5 whitespace-nowrap text-gray-500 font-mono text-[11px]">#{{ solic.id }}</td>
+
+                <!-- Tipo -->
+                <td class="px-3 py-2.5 whitespace-nowrap">
+                  <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
+                </td>
+                
+                <!-- Especialidade -->
+                <td class="px-3 py-2.5 text-gray-700 font-semibold whitespace-nowrap">
+                  {{ solic.especialidade || '—' }}
+                </td>
+                
+                <!-- Procedimento (Não EDITAR) -->
+                <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-gray-800 font-medium max-w-xs truncate" :title="solic.procedimento">
+                  {{ solic.procedimento || '—' }}
+                </td>
+                
+                <!-- Procedimento Anterior (EDITAR) -->
+                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-gray-500 italic max-w-xs truncate" :title="solic.procedimento_anterior">
+                  {{ solic.procedimento_anterior || '—' }}
+                </td>
+                
+                <!-- Novo Procedimento (EDITAR) -->
+                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 max-w-xs">
+                  <div v-if="solic.procedimento === solic.procedimento_anterior || !solic.procedimento_anterior" class="text-gray-400 italic">
+                    Não houve mudança
+                  </div>
+                  <div v-else class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block truncate" :title="solic.procedimento">
+                    {{ solic.procedimento }}
+                  </div>
+                </td>
+
+                <!-- Prontuário / Paciente -->
+                <td class="px-3 py-2.5 text-gray-700">
+                  <div class="font-mono font-bold text-indigo-900">#{{ solic.codigo_paciente }}</div>
+                  <div class="font-medium text-gray-800 truncate max-w-[180px]" :title="solic.nome_paciente">{{ solic.nome_paciente }}</div>
+                </td>
+
+                <!-- Judicial -->
+                <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                  <span 
+                    v-if="solic.judicializado === 'Sim'" 
+                    :class="[
+                      'px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800 text-[10px]',
+                      abaAcompanhamentoAtiva === 'EDITAR' && solic.judicializado !== obterEstadoAnterior(solic).judicializado ? 'ring-2 ring-yellow-400 font-bold bg-yellow-100 text-yellow-900 border border-yellow-300' : ''
+                    ]"
+                  >
+                    ⚖️ Sim
+                  </span>
+                  <span 
+                    v-else 
+                    :class="[
+                      'text-gray-400 text-[11px]',
+                      abaAcompanhamentoAtiva === 'EDITAR' && solic.judicializado !== obterEstadoAnterior(solic).judicializado ? 'bg-yellow-100 text-yellow-800 font-bold px-1.5 py-0.5 rounded ring-2 ring-yellow-300' : ''
+                    ]"
+                  >
+                    Não
+                  </span>
+                </td>
+
+                <!-- Swalis -->
+                <td class="px-3 py-2.5 text-center whitespace-nowrap font-mono text-xs">
+                  <span 
+                    v-if="solic.swalis || solic.swallis || solic.Swalis" 
+                    :title="getSwalisLabel(solic.swalis || solic.swallis || solic.Swalis)"
+                    :class="[
+                      getSwallisClass(solic.swalis || solic.swallis || solic.Swalis),
+                      abaAcompanhamentoAtiva === 'EDITAR' && (solic.swalis || solic.swallis || solic.Swalis || '') !== obterEstadoAnterior(solic).swalis ? 'ring-2 ring-yellow-400 font-extrabold' : ''
+                    ]"
+                  >
+                    {{ solic.swalis || solic.swallis || solic.Swalis }}
+                  </span>
+                  <span 
+                    v-else 
+                    :class="[
+                      'text-gray-400 text-[11px]',
+                      abaAcompanhamentoAtiva === 'EDITAR' && '' !== obterEstadoAnterior(solic).swalis ? 'bg-yellow-100 text-yellow-800 font-bold px-1.5 py-0.5 rounded ring-2 ring-yellow-300' : ''
+                    ]"
+                  >
+                    —
+                  </span>
+                </td>
+
+                <!-- Médico Responsável -->
+                <td 
+                  class="px-3 py-2.5 whitespace-nowrap text-xs"
                   :class="[
-                    'px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800',
-                    abaAcompanhamentoAtiva === 'EDITAR' && solic.judicializado !== obterEstadoAnterior(solic).judicializado ? 'ring-2 ring-yellow-400 font-bold bg-yellow-100 text-yellow-900 border border-yellow-300' : ''
+                    abaAcompanhamentoAtiva === 'EDITAR' && solic.medico_responsavel !== obterEstadoAnterior(solic).medico_responsavel ? 'text-blue-700 font-bold bg-yellow-50 px-1 rounded ring-2 ring-yellow-300' : 'text-gray-700 font-medium'
                   ]"
                 >
-                  ⚖️ Sim
-                </span>
-                <span 
-                  v-else 
-                  :class="[
-                    'text-gray-400',
-                    abaAcompanhamentoAtiva === 'EDITAR' && solic.judicializado !== obterEstadoAnterior(solic).judicializado ? 'bg-yellow-100 text-yellow-800 font-bold px-1.5 py-0.5 rounded ring-2 ring-yellow-300' : ''
-                  ]"
-                >
-                  Não
-                </span>
-              </td>
+                  {{ solic.medico_responsavel || '—' }}
+                </td>
 
-              <!-- Swalis (com destaque se editado) -->
-              <td class="px-4 py-4 whitespace-nowrap">
-                <span 
-                  v-if="solic.swalis || solic.swallis || solic.Swalis" 
-                  :title="getSwalisLabel(solic.swalis || solic.swallis || solic.Swalis)"
-                  :class="[
-                    getSwallisClass(solic.swalis || solic.swallis || solic.Swalis),
-                    abaAcompanhamentoAtiva === 'EDITAR' && (solic.swalis || solic.swallis || solic.Swalis || '') !== obterEstadoAnterior(solic).swalis ? 'ring-2 ring-yellow-400 font-extrabold' : ''
-                  ]"
-                >
-                  {{ solic.swalis || solic.swallis || solic.Swalis }}
-                </span>
-                <span 
-                  v-else 
-                  :class="[
-                    'text-gray-400',
-                    abaAcompanhamentoAtiva === 'EDITAR' && '' !== obterEstadoAnterior(solic).swalis ? 'bg-yellow-100 text-yellow-800 font-bold px-1.5 py-0.5 rounded ring-2 ring-yellow-300' : ''
-                  ]"
-                >
-                  —
-                </span>
-              </td>
+                <!-- Status -->
+                <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                  <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
+                </td>
 
-              <!-- Médico (com destaque se editado) -->
-              <td 
-                class="px-4 py-4 whitespace-nowrap text-xs"
-                :class="[
-                  abaAcompanhamentoAtiva === 'EDITAR' && solic.medico_responsavel !== obterEstadoAnterior(solic).medico_responsavel ? 'text-blue-700 font-bold bg-yellow-50 px-1 rounded ring-2 ring-yellow-300' : 'text-gray-600'
-                ]"
-              >
-                {{ solic.medico_responsavel || '—' }}
-              </td>
+                <!-- Info Extra (Standby) -->
+                <td class="px-3 py-2.5 text-center text-xs text-gray-600 whitespace-nowrap">
+                  <div v-if="solic.tempo_standby" class="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block">
+                    ⏱️ {{ solic.tempo_standby }}d
+                  </div>
+                  <div v-else class="text-gray-400">—</div>
+                </td>
 
-              <td class="px-4 py-4 whitespace-nowrap">
-                <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
-              </td>
-              <td class="px-4 py-4 text-xs text-gray-600">
-                <div v-if="solic.tempo_standby" class="font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded">
-                  ⏱️ {{ solic.tempo_standby }} dias
-                </div>
-                <div v-else class="text-gray-400">—</div>
-              </td>
-              <!-- Descrição com botão modal -->
-              <td class="px-4 py-4 whitespace-nowrap text-xs">
-                <button 
-                  type="button"
-                  @click="abrirModalDescricao(solic)" 
-                  class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded border border-indigo-200 transition cursor-pointer text-xs flex items-center space-x-1"
-                  title="Clique para ver a justificativa completa"
-                >
-                  <span>📄 Ver Descrição</span>
-                </button>
-              </td>
+                <!-- Descrição com botão modal -->
+                <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                  <button 
+                    type="button"
+                    @click="abrirModalDescricao(solic)" 
+                    class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded border border-indigo-200 transition cursor-pointer text-xs flex items-center space-x-1 mx-auto"
+                    title="Clique para ver todos os detalhes da solicitação e da resposta"
+                  >
+                    <span>📄 Ver Descrição</span>
+                  </button>
+                </td>
 
-              <!-- Data/Hora Ação (Condicional) -->
-              <td v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
-                {{ formatarDataHora(solic.data_acao) }}
-              </td>
+                <!-- Data/Hora Ação (Condicional para Concluídos) -->
+                <td v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-3 py-2.5 whitespace-nowrap font-mono text-[11px] text-gray-700">
+                  {{ formatarDataHora(solic.data_acao) }}
+                </td>
 
-              <td v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-4 py-4 whitespace-nowrap text-xs">
-                <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo?.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo?.tipo === 'ADMIN')" class="flex space-x-1">
-                  <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
-                    Aprovar
-                  </Button>
-                  <Button @click="atualizarStatus(solic.id, 'REJEITADO')" variant="danger" size="sm">Rejeitar</Button>
-                </div>
-                <div v-else-if="solic.status === 'PENDENTE' && perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'" class="flex space-x-1">
-                  <Button @click="solicitarCancelamento(solic)" variant="danger" size="sm">
-                    Cancelar
-                  </Button>
-                </div>
-                <span v-else class="text-gray-400">-</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <!-- Ações (Condicional para Pendentes) -->
+                <td v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-3 py-2.5 text-center whitespace-nowrap">
+                  <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo?.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo?.tipo === 'ADMIN')" class="flex items-center justify-center space-x-1.5">
+                    <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
+                      Aprovar
+                    </Button>
+                    <Button @click="abrirModalRejeicao(solic)" variant="danger" size="sm">
+                      Rejeitar
+                    </Button>
+                  </div>
+                  <div v-else-if="solic.status === 'PENDENTE' && perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'" class="flex justify-center">
+                    <Button @click="solicitarCancelamento(solic)" variant="danger" size="sm">
+                      Cancelar
+                    </Button>
+                  </div>
+                  <span v-else class="text-gray-400">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </Card>
 
-    <!-- Modal de Descrição / Justificativa -->
+    <!-- Modal de Descrição / Detalhes Completos da Solicitação e Resposta -->
     <div v-if="modalDescricao.aberto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-gray-200">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-gray-200">
         <div class="flex justify-between items-start border-b border-gray-150 pb-3">
           <div>
-            <h3 class="text-lg font-bold text-gray-900">Justificativa da Solicitação</h3>
+            <h3 class="text-lg font-bold text-gray-900">Detalhes da Solicitação</h3>
             <p class="text-xs text-gray-500">
               Solicitação #{{ modalDescricao.solic?.id }} · {{ formatarTipo(modalDescricao.solic?.tipo) }}
             </p>
           </div>
-          <button @click="modalDescricao.aberto = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold">
+          <button @click="modalDescricao.aberto = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold p-1">
             ✕
           </button>
         </div>
 
-        <div v-if="modalDescricao.solic" class="space-y-3 text-xs text-gray-700">
-          <div class="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
-            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Paciente:</span> <br/><span class="font-bold text-gray-900">{{ modalDescricao.solic.nome_paciente }}</span></div>
-            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Prontuário:</span> <br/><span class="font-mono font-bold text-gray-900">#{{ modalDescricao.solic.codigo_paciente }}</span></div>
-            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Especialidade:</span> <br/><span class="font-medium text-gray-800">{{ modalDescricao.solic.especialidade }}</span></div>
-            <div><span class="font-bold text-gray-500 uppercase text-[10px]">Procedimento:</span> <br/><span class="font-medium text-gray-800">{{ modalDescricao.solic.procedimento }}</span></div>
+        <div v-if="modalDescricao.solic" class="space-y-4 text-xs text-gray-700 max-h-[70vh] overflow-y-auto pr-1">
+          <!-- Bloco 1: Dados da Solicitação Inicial -->
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <span class="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block border-b border-slate-200 pb-1">
+              📌 Dados da Solicitação
+            </span>
+            <div class="grid grid-cols-2 gap-2.5 text-xs">
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Data/Hora Solicitação:</span>
+                <span class="font-mono font-medium text-gray-900">{{ formatarDataHora(modalDescricao.solic.data_criacao) }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Usuário Solicitante:</span>
+                <span class="font-medium text-gray-900">
+                  {{ modalDescricao.solic.usuario || '—' }} 
+                  <span v-if="modalDescricao.solic.perfil_executor" class="text-[10px] text-gray-500 font-normal">({{ modalDescricao.solic.perfil_executor }})</span>
+                </span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Paciente:</span>
+                <span class="font-bold text-gray-900">{{ modalDescricao.solic.nome_paciente }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Nº Prontuário:</span>
+                <span class="font-mono font-bold text-gray-900">#{{ modalDescricao.solic.codigo_paciente }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Especialidade:</span>
+                <span class="font-semibold text-gray-800">{{ modalDescricao.solic.especialidade }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Procedimento:</span>
+                <span class="font-semibold text-gray-800">{{ modalDescricao.solic.procedimento }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Judicialização:</span>
+                <span class="font-medium text-gray-800">{{ modalDescricao.solic.judicializado || 'Não' }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Swalis:</span>
+                <span class="font-medium text-gray-800">{{ modalDescricao.solic.swalis || modalDescricao.solic.swallis || modalDescricao.solic.Swalis || '—' }}</span>
+              </div>
+              <div class="col-span-2">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Médico Responsável:</span>
+                <span class="font-medium text-gray-800">{{ modalDescricao.solic.medico_responsavel || '—' }}</span>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200/80">
+              <label class="block font-bold text-gray-700 text-[11px] mb-1">Justificativa / Indicação Clínica:</label>
+              <div class="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs leading-relaxed whitespace-pre-wrap font-medium">
+                {{ modalDescricao.solic.detalhes || modalDescricao.solic.campos_modificados || 'Nenhuma justificativa detalhada foi fornecida.' }}
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label class="block font-bold text-gray-800 text-xs mb-1">Descrição / Justificativa Clínica:</label>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap font-medium">
-              {{ modalDescricao.solic.detalhes || modalDescricao.solic.campos_modificados || 'Nenhuma justificativa detalhada foi fornecida.' }}
+          <!-- Bloco 2: Dados da Resposta da Gestão LEC (se concluída/respondida) -->
+          <div 
+            v-if="modalDescricao.solic.status !== 'PENDENTE' || modalDescricao.solic.dados_resposta" 
+            class="p-3.5 rounded-xl border space-y-2.5"
+            :class="modalDescricao.solic.status === 'REJEITADO' ? 'bg-red-50/70 border-red-200' : modalDescricao.solic.status === 'APROVADO' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-gray-50 border-gray-200'"
+          >
+            <div 
+              class="flex justify-between items-center border-b pb-1"
+              :class="modalDescricao.solic.status === 'REJEITADO' ? 'border-red-200' : modalDescricao.solic.status === 'APROVADO' ? 'border-emerald-200' : 'border-gray-200'"
+            >
+              <span 
+                class="text-[11px] font-bold uppercase tracking-wider"
+                :class="modalDescricao.solic.status === 'REJEITADO' ? 'text-red-800' : modalDescricao.solic.status === 'APROVADO' ? 'text-emerald-800' : 'text-gray-700'"
+              >
+                💬 Resposta da Gestão LEC
+              </span>
+              <span :class="getStatusBadgeClass(modalDescricao.solic.status)">{{ modalDescricao.solic.status }}</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Data/Hora da Resposta:</span>
+                <span class="font-mono font-medium text-gray-900">
+                  {{ formatarDataHora(modalDescricao.solic.dados_resposta?.data_hora || modalDescricao.solic.data_acao || modalDescricao.solic.data_criacao) }}
+                </span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Respondido por:</span>
+                <span class="font-medium text-gray-900">
+                  {{ modalDescricao.solic.dados_resposta?.usuario || 'Gestão LEC' }}
+                  <span v-if="modalDescricao.solic.dados_resposta?.perfil" class="text-[10px] text-gray-500 font-normal">({{ modalDescricao.solic.dados_resposta.perfil }})</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t" :class="modalDescricao.solic.status === 'REJEITADO' ? 'border-red-200' : 'border-slate-200'">
+              <label 
+                class="block font-bold text-xs mb-1"
+                :class="modalDescricao.solic.status === 'REJEITADO' ? 'text-red-900' : 'text-gray-700'"
+              >
+                {{ modalDescricao.solic.status === 'REJEITADO' ? 'Justificativa / Motivo da Rejeição:' : 'Observações da Resposta:' }}
+              </label>
+              <div 
+                class="p-2.5 bg-white border rounded-lg text-xs leading-relaxed whitespace-pre-wrap font-medium"
+                :class="modalDescricao.solic.status === 'REJEITADO' ? 'border-red-300 text-red-950 font-semibold' : 'border-slate-200 text-slate-800'"
+              >
+                {{ extrairJustificativaResposta(modalDescricao.solic) }}
+              </div>
             </div>
           </div>
         </div>
@@ -765,6 +885,57 @@
         <div class="flex justify-end pt-2 border-t border-gray-100">
           <Button @click="modalDescricao.aberto = false" variant="primary" size="sm">
             Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Justificativa Obrigatória de Rejeição -->
+    <div v-if="modalRejeicao.aberto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-gray-200">
+        <div class="flex justify-between items-start border-b border-gray-150 pb-3">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900">Rejeitar Solicitação</h3>
+            <p class="text-xs text-gray-500">
+              Solicitação #{{ modalRejeicao.solic?.id }} · {{ formatarTipo(modalRejeicao.solic?.tipo) }}
+            </p>
+          </div>
+          <button @click="fecharModalRejeicao" class="text-gray-400 hover:text-gray-600 text-lg font-bold p-1">
+            ✕
+          </button>
+        </div>
+
+        <div v-if="modalRejeicao.solic" class="space-y-3 text-xs text-gray-700">
+          <div class="bg-red-50 p-3 rounded-lg border border-red-100 text-red-900 space-y-1">
+            <div><span class="font-bold">Paciente:</span> {{ modalRejeicao.solic.nome_paciente }} (#{{ modalRejeicao.solic.codigo_paciente }})</div>
+            <div><span class="font-bold">Especialidade:</span> {{ modalRejeicao.solic.especialidade }}</div>
+            <div><span class="font-bold">Procedimento:</span> {{ modalRejeicao.solic.procedimento }}</div>
+          </div>
+
+          <div class="space-y-1">
+            <label for="justificativa_rejeicao" class="block font-bold text-gray-800 text-xs">
+              Motivo / Justificativa da Rejeição <span class="text-red-500">*</span>
+            </label>
+            <textarea
+              id="justificativa_rejeicao"
+              v-model="modalRejeicao.justificativa"
+              rows="3"
+              placeholder="Descreva detalhadamente o motivo pelo qual esta solicitação está sendo rejeitada..."
+              class="form-control text-xs"
+              :class="{ 'border-red-500 ring-1 ring-red-500': modalRejeicao.erro }"
+            ></textarea>
+            <p v-if="modalRejeicao.erro" class="text-red-600 text-[11px] font-semibold">
+              {{ modalRejeicao.erro }}
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-gray-100">
+          <Button @click="fecharModalRejeicao" variant="secondary" size="sm">
+            Voltar
+          </Button>
+          <Button @click="confirmarRejeicao" variant="danger" size="sm" :disabled="submittingRejeicao">
+            {{ submittingRejeicao ? 'Rejeitando...' : 'Confirmar Rejeição' }}
           </Button>
         </div>
       </div>
@@ -816,7 +987,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { 
@@ -1111,7 +1282,25 @@ const camposEdicaoBloqueados = computed(() => {
 
 // Filtra a lista de solicitações de acordo com o perfil ativo, abas de acompanhamento, sub-abas e filtros de pesquisa
 const solicitacoesFiltradas = computed(() => {
-  let list = [...solicitacoes.value];
+  // Separamos todas as respostas para mapeamento rápido de dados da resposta
+  const respostasMap = new Map<string, any>();
+  const respostasPorChave = new Map<string, any>();
+
+  for (const s of solicitacoes.value) {
+    if (s.evento_tipo === 'RESPOSTA' || s.is_resposta) {
+      if (s.detalhes && s.detalhes.includes('#')) {
+        const match = s.detalhes.match(/#([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          respostasMap.set(match[1], s);
+        }
+      }
+      const key = `${s.codigo_paciente}||${s.tipo}||${s.especialidade}||${s.procedimento}`;
+      respostasPorChave.set(key, s);
+    }
+  }
+
+  // Apenas solicitações originais (desconsidera linhas avulsas de RESPOSTA na listagem)
+  let list = solicitacoes.value.filter(s => s.evento_tipo !== 'RESPOSTA' && !s.is_resposta);
   
   // 1. Filtra pelo tipo correspondente à aba de acompanhamento (Inclusão, Edição, Standby, Exclusão)
   list = list.filter(s => s.tipo === abaAcompanhamentoAtiva.value);
@@ -1123,7 +1312,23 @@ const solicitacoesFiltradas = computed(() => {
     list = list.filter(s => s.status === 'APROVADO' || s.status === 'REJEITADO' || s.status === 'CANCELADO');
   }
 
-  // 3. Filtro de Especialidade (perfil restrito ou digitado)
+  // 3. Associa os dados da resposta a cada solicitação
+  list = list.map(s => {
+    const resp = respostasMap.get(s.id) || respostasPorChave.get(`${s.codigo_paciente}||${s.tipo}||${s.especialidade}||${s.procedimento}`);
+    return {
+      ...s,
+      dados_resposta: resp ? {
+        data_hora: resp.data_criacao || resp.data_acao,
+        usuario: resp.usuario || resp.username,
+        perfil: resp.perfil_executor,
+        detalhes: resp.detalhes,
+        status: s.status
+      } : null,
+      data_acao: resp?.data_criacao || resp?.data_acao || s.data_acao || s.data_criacao
+    };
+  });
+
+  // 4. Filtro de Especialidade (perfil restrito ou digitado)
   if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade) {
     const activeSpecialtyName = (perfisStore.perfilAtivo.especialidade || '').toLowerCase();
     list = list.filter(s => 
@@ -1134,13 +1339,13 @@ const solicitacoesFiltradas = computed(() => {
     list = list.filter(s => s.especialidade && s.especialidade.toLowerCase().includes(query));
   }
 
-  // 4. Filtro de Procedimento
+  // 5. Filtro de Procedimento
   if (filtroProc.value) {
     const query = formatarNomeProcedimento(filtroProc.value);
     list = list.filter(s => s.procedimento && formatarNomeProcedimento(s.procedimento) === query);
   }
 
-  // 5. Filtro de Prontuário / Paciente
+  // 6. Filtro de Prontuário / Paciente
   if (filtroPac.value) {
     const query = filtroPac.value.toLowerCase().trim();
     list = list.filter(s => 
@@ -1149,12 +1354,12 @@ const solicitacoesFiltradas = computed(() => {
     );
   }
 
-  // 5. Filtro de Judicialização
+  // 7. Filtro de Judicialização
   if (filtroJud.value) {
     list = list.filter(s => s.judicializado === filtroJud.value);
   }
 
-  // 6. Filtro de Swalis
+  // 8. Filtro de Swalis
   if (filtroSwalis.value) {
     list = list.filter(s => {
       const sw = s.swalis || s.swallis || s.Swalis || '';
@@ -1162,13 +1367,13 @@ const solicitacoesFiltradas = computed(() => {
     });
   }
 
-  // 7. Filtro de Médico Responsável
+  // 9. Filtro de Médico Responsável
   if (filtroMed.value) {
     const query = filtroMed.value.toLowerCase().trim();
     list = list.filter(s => s.medico_responsavel && s.medico_responsavel.toLowerCase().includes(query));
   }
 
-  // 8. Ordenação padrão
+  // 10. Ordenação padrão
   if (subAbaAcompanhamento.value === 'PENDENTE') {
     // Da mais antiga para a mais nova (data_criacao ascendente)
     return list.sort((a, b) => {
@@ -1595,7 +1800,7 @@ const enviarSolicitacao = async () => {
   }
 };
 
-const atualizarStatus = async (id: string, status: string, skipConfirm: boolean = false) => {
+const atualizarStatus = async (id: string, status: string, skipConfirm: boolean = false, justificativa: string = "") => {
   if (!skipConfirm) {
     const acaoText = status === 'APROVADO' ? 'aprovar (dar baixa na)' : (status === 'CANCELADO' ? 'cancelar a' : 'rejeitar a');
     const confirmacao = window.confirm(`Tem certeza que deseja ${acaoText} solicitação?`);
@@ -1605,13 +1810,77 @@ const atualizarStatus = async (id: string, status: string, skipConfirm: boolean 
   try {
     const perfil_executor = perfisStore.perfilAtivo?.tipo || 'GESTAO_LEC';
     const usuario = authStore.user?.username || 'Usuário Sistema';
-    await api.put(`/api/solicitacoes/${id}/status`, { status, perfil_executor, usuario });
+    await api.put(`/api/solicitacoes/${id}/status`, { 
+      status, 
+      perfil_executor, 
+      usuario, 
+      justificativa 
+    });
     const statusMsg = status === 'CANCELADO' ? 'cancelada' : status.toLowerCase();
     toast.success(`Solicitação ${statusMsg} com sucesso!`);
     await carregarSolicitacoes();
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || 'Erro ao atualizar status.';
     toast.error(errorMsg);
+  }
+};
+
+// Modal de Rejeição com Justificativa Obrigatória
+const modalRejeicao = ref<{
+  aberto: boolean;
+  solic: any;
+  justificativa: string;
+  erro: string;
+}>({
+  aberto: false,
+  solic: null,
+  justificativa: '',
+  erro: ''
+});
+
+const submittingRejeicao = ref(false);
+
+const abrirModalRejeicao = (solic: any) => {
+  modalRejeicao.value = {
+    aberto: true,
+    solic: solic,
+    justificativa: '',
+    erro: ''
+  };
+};
+
+const fecharModalRejeicao = () => {
+  modalRejeicao.value.aberto = false;
+  modalRejeicao.value.solic = null;
+  modalRejeicao.value.justificativa = '';
+  modalRejeicao.value.erro = '';
+};
+
+const confirmarRejeicao = async () => {
+  if (!modalRejeicao.value.justificativa.trim()) {
+    modalRejeicao.value.erro = 'Por favor, informe detalhadamente a justificativa para a rejeição.';
+    return;
+  }
+  if (!modalRejeicao.value.solic) return;
+
+  submittingRejeicao.value = true;
+  try {
+    const perfil_executor = perfisStore.perfilAtivo?.tipo || 'GESTAO_LEC';
+    const usuario = authStore.user?.username || 'Usuário Sistema';
+    await api.put(`/api/solicitacoes/${modalRejeicao.value.solic.id}/status`, {
+      status: 'REJEITADO',
+      perfil_executor,
+      usuario,
+      justificativa: modalRejeicao.value.justificativa.trim()
+    });
+    toast.success('Solicitação rejeitada com sucesso!');
+    fecharModalRejeicao();
+    await carregarSolicitacoes();
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.detail || 'Erro ao rejeitar solicitação.';
+    toast.error(errorMsg);
+  } finally {
+    submittingRejeicao.value = false;
   }
 };
 
@@ -1687,6 +1956,23 @@ const abrirModalDescricao = (solic: any) => {
     aberto: true,
     solic: solic
   };
+};
+
+const extrairJustificativaResposta = (solic: any) => {
+  if (!solic) return '—';
+  const detalhes = solic.dados_resposta?.detalhes || '';
+  if (detalhes.includes('Justificativa:')) {
+    return detalhes.split('Justificativa:')[1].trim();
+  }
+  if (detalhes.includes('Motivo:')) {
+    return detalhes.split('Motivo:')[1].trim();
+  }
+  if (detalhes) {
+    return detalhes;
+  }
+  return solic.status === 'REJEITADO' 
+    ? 'Nenhuma justificativa detalhada registrada (rejeição anterior à implementação deste campo).' 
+    : 'Solicitação processada e concluída com sucesso.';
 };
 
 const formatarTipo = (tipo: string) => {
@@ -1781,9 +2067,55 @@ const obterEstadoAnterior = (solic: any) => {
   return estado;
 };
 
+// Sincronização da barra de rolagem horizontal superior
+const topScrollRef = ref<HTMLElement | null>(null);
+const tableContainerRef = ref<HTMLElement | null>(null);
+const tableRef = ref<HTMLElement | null>(null);
+const larguraTabela = ref(0);
+const temOverflowHorizontal = ref(false);
+
+let isSyncingScroll = false;
+
+const onTopScroll = () => {
+  if (isSyncingScroll) return;
+  isSyncingScroll = true;
+  if (tableContainerRef.value && topScrollRef.value) {
+    tableContainerRef.value.scrollLeft = topScrollRef.value.scrollLeft;
+  }
+  requestAnimationFrame(() => { isSyncingScroll = false; });
+};
+
+const onBottomScroll = () => {
+  if (isSyncingScroll) return;
+  isSyncingScroll = true;
+  if (topScrollRef.value && tableContainerRef.value) {
+    topScrollRef.value.scrollLeft = tableContainerRef.value.scrollLeft;
+  }
+  requestAnimationFrame(() => { isSyncingScroll = false; });
+};
+
+const atualizarDimensoesTabela = () => {
+  if (tableRef.value && tableContainerRef.value) {
+    const scrollW = tableRef.value.scrollWidth;
+    const clientW = tableContainerRef.value.clientWidth;
+    larguraTabela.value = scrollW;
+    temOverflowHorizontal.value = scrollW > clientW + 10;
+  }
+};
+
+watch([solicitacoesFiltradas, abaAcompanhamentoAtiva, subAbaAcompanhamento], () => {
+  setTimeout(atualizarDimensoesTabela, 100);
+});
+
 onMounted(() => {
   carregarSolicitacoes();
   carregarPacientesBase();
   carregarUsuariosLocais();
+  window.addEventListener('resize', atualizarDimensoesTabela);
+  setTimeout(atualizarDimensoesTabela, 300);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', atualizarDimensoesTabela);
 });
 </script>

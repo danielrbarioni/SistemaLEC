@@ -87,7 +87,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             for s in solicitacoes
         ]
 
-    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
+    async def atualizar_status_solicitacao(self, id_solicitacao: str, novo_status: str, perfil_executor: str = "", usuario_executor: str = "", justificativa: str = "") -> Dict[str, Any]:
         stmt = select(Solicitacao).where(Solicitacao.id == id_solicitacao)
         result = await self.session.execute(stmt)
         solic = result.scalar_one_or_none()
@@ -101,7 +101,11 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         # Cria uma nova entrada no histórico representando especificamente a RESPOSTA
         data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         acao_verb = "Aprovou" if status_upper == "APROVADO" else ("Cancelou" if status_upper == "CANCELADO" else "Rejeitou")
-        detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo})"
+        
+        if justificativa and justificativa.strip():
+            detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo}) - Justificativa: {justificativa.strip()}"
+        else:
+            detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo})"
 
         resposta_solic = Solicitacao(
             id=str(uuid.uuid4())[:8],
@@ -142,7 +146,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'data_criacao': solic.data_criacao,
             'perfil_executor': solic.perfil_executor,
             'procedimento_anterior': solic.procedimento_anterior,
-            'evento_tipo': 'SOLICITACAO'
+            'evento_tipo': 'SOLICITACAO',
+            'detalhes_resposta': detalhes_resposta
         }
 
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:

@@ -36,7 +36,7 @@ async def criar_solicitacao(
         proc_map = {}
         # Ordena por data_criacao para simular a ordem correta dos acontecimentos
         approved_solics = sorted(
-            [s for s in solics_paciente if s.get("status") == "APROVADO"],
+            [s for s in solics_paciente if s.get("status") == "APROVADO" and s.get("evento_tipo") != "RESPOSTA"],
             key=lambda x: x.get("data_criacao", "")
         )
         
@@ -76,9 +76,16 @@ async def atualizar_status_solicitacao(
     novo_status: str,
     provider: SolicitacaoProviderInterface,
     perfil_executor: str = "",
-    usuario_executor: str = ""
+    usuario_executor: str = "",
+    justificativa: str = ""
 ) -> Dict[str, Any]:
-    return await provider.atualizar_status_solicitacao(id_solicitacao, novo_status, perfil_executor, usuario_executor)
+    return await provider.atualizar_status_solicitacao(
+        id_solicitacao=id_solicitacao,
+        novo_status=novo_status,
+        perfil_executor=perfil_executor,
+        usuario_executor=usuario_executor,
+        justificativa=justificativa
+    )
 
 async def salvar_status_local_paciente(
     codigo_paciente: str,
