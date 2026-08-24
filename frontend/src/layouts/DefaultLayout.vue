@@ -66,12 +66,12 @@
           <div v-if="authStore.isAuthenticated" class="flex items-center space-x-2 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 shadow-sm">
             <span class="text-[10px] uppercase font-bold text-gray-400">Perfil:</span>
             <select 
-              v-if="authStore.isAdmin"
+              v-if="perfisStore.podeAlternarPerfil"
               v-model="perfisStore.perfilAtivoId"
               @change="perfisStore.setPerfilAtivo(perfisStore.perfilAtivoId)"
               class="text-xs font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer"
             >
-              <option v-for="perf in perfisStore.perfis" :key="perf.id" :value="perf.id">
+              <option v-for="perf in (authStore.isAdmin ? perfisStore.perfis : perfisStore.perfisDoUsuario)" :key="perf.id" :value="perf.id">
                 {{ perf.nome }}
               </option>
             </select>

@@ -52,18 +52,27 @@ async def process_excel_pacientes_import(
     Utiliza estratégias de pré-carregamento em memória para máxima performance e resiliência a cabeçalhos.
     """
     excel_stream = io.BytesIO(file_bytes)
-    try:
-        df = pd.read_excel(excel_stream, header=0)
-    except Exception:
+    df = None
+    last_err = None
+
+    # Tenta ordenadamente com openpyxl (.xlsx), xlrd (.xls) e o padrão do pandas
+    for engine in ["openpyxl", "xlrd", None]:
         try:
             excel_stream.seek(0)
-            df = pd.read_excel(excel_stream, header=0, engine='openpyxl')
+            if engine:
+                df = pd.read_excel(excel_stream, header=0, engine=engine)
+            else:
+                df = pd.read_excel(excel_stream, header=0)
+            break
         except Exception as err:
-            from fastapi import HTTPException, status
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Não foi possível interpretar o arquivo Excel enviado. Certifique-se de que é uma planilha Excel (.xlsx ou .xls) válida. (Erro: {err})"
-            )
+            last_err = err
+
+    if df is None:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Não foi possível interpretar o arquivo Excel enviado. Certifique-se de que é uma planilha Excel (.xlsx ou .xls) válida. (Erro: {last_err})"
+        )
 
     total_linhas = len(df)
     solicitacoes_criadas = 0
@@ -95,9 +104,9 @@ async def process_excel_pacientes_import(
     res_profiles = await app_db.execute(select(Profile))
     existing_profiles = {p.id: p for p in res_profiles.scalars().all()}
 
-    # Usuários existentes
+    # Usuários existentes (indexados por username e perfil_id para compatibilidade multi-especialidade)
     res_users = await app_db.execute(select(User))
-    existing_users = {u.username.lower(): u for u in res_users.scalars().all() if u.username}
+    existing_users = {(u.username.lower(), u.perfil_id): u for u in res_users.scalars().all() if u.username}
 
     # Pacientes existentes
     res_pacientes = await app_db.execute(select(Paciente))
@@ -203,17 +212,18 @@ async def process_excel_pacientes_import(
         if medico_username != "NAO_INFORMADO":
             medico_clean = medico_username.strip()
             medico_lower = medico_clean.lower()
+            user_key = (medico_lower, perfil_id)
 
-            if medico_lower not in existing_users:
+            if user_key not in existing_users:
                 new_doctor = User(
                     username=medico_clean,
-                    nome=None,
+                    nome=medico_clean,
                     perfil_id=perfil_id,
                     especialidade=nome_especialidade,
                     funcao="Médico"
                 )
                 app_db.add(new_doctor)
-                existing_users[medico_lower] = new_doctor
+                existing_users[user_key] = new_doctor
                 novos_medicos.append({
                     "username": medico_clean,
                     "especialidade": nome_especialidade

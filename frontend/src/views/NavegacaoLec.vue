@@ -151,7 +151,9 @@ const toast = useToast();
 const router = useRouter();
 const perfisStore = usePerfisStore();
 const authStore = useAuthStore();
-const showModal = ref(true);
+const showModal = computed(() => {
+  return !(authStore.isAdmin || perfisStore.perfilAtivo?.tipo === 'ADMIN');
+});
 
 const irParaHome = () => {
   router.push('/interacoes');

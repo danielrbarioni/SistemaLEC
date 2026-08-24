@@ -151,13 +151,16 @@ async def create_usuario(
             detail="Você não tem permissão para criar usuários."
         )
 
-    stmt = select(User).where(func.lower(User.username) == func.lower(user_in.username))
+    stmt = select(User).where(
+        func.lower(User.username) == func.lower(user_in.username),
+        User.perfil_id == user_in.perfil_id
+    )
     result = await db.execute(stmt)
     existing_user = result.scalar_one_or_none()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nome de usuário já cadastrado."
+            detail="Este usuário já está cadastrado com este perfil."
         )
 
     # Cria o novo usuário
@@ -275,15 +278,19 @@ async def update_usuario(
             detail="Você não tem permissão para atualizar usuários."
         )
 
-    # Se alterou username, verifica duplicidade
-    if existing_user.username.lower() != user_in.username.lower():
-        stmt = select(User).where(func.lower(User.username) == func.lower(user_in.username))
+    # Se alterou username ou perfil_id, verifica duplicidade para (username, perfil_id) em outro registro
+    if existing_user.username.lower() != user_in.username.lower() or existing_user.perfil_id != user_in.perfil_id:
+        stmt = select(User).where(
+            func.lower(User.username) == func.lower(user_in.username),
+            User.perfil_id == user_in.perfil_id,
+            User.id != user_id
+        )
         result = await db.execute(stmt)
         duplicate_user = result.scalar_one_or_none()
         if duplicate_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Nome de usuário já cadastrado."
+                detail="Já existe um cadastro deste usuário com este perfil."
             )
 
     # Atualiza
@@ -493,25 +500,29 @@ async def create_solicitacao(
                         detail=f"Você só tem permissão para solicitar {action_name} de usuários da sua especialidade ({creator_specialty})."
                     )
     else:
-        # Verifica se o username já está cadastrado localmente para novos usuários
-        stmt = select(User).where(func.lower(User.username) == func.lower(req_in.username))
+        # Verifica se o username já está cadastrado localmente para novos usuários COM O MESMO PERFIL
+        stmt = select(User).where(
+            func.lower(User.username) == func.lower(req_in.username),
+            User.perfil_id == req_in.perfil_id
+        )
         result = await db.execute(stmt)
         if result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Nome de usuário já cadastrado no sistema."
+                detail="Este usuário já está cadastrado com este perfil no sistema."
             )
 
-    # Verifica se já existe solicitação pendente para este nome de usuário
+    # Verifica se já existe solicitação pendente para este nome de usuário COM ESTE PERFIL
     stmt = select(UserCreationRequest).where(
         func.lower(UserCreationRequest.username) == func.lower(req_in.username),
+        UserCreationRequest.perfil_id == req_in.perfil_id,
         UserCreationRequest.status == "PENDENTE"
     )
     result = await db.execute(stmt)
     if result.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Já existe uma solicitação pendente para este nome de usuário."
+            detail="Já existe uma solicitação pendente para este usuário com este perfil."
         )
 
     new_request = UserCreationRequest(
@@ -624,14 +635,17 @@ async def aprovar_solicitacao(
 
     # Para solicitações de criação (CRIACAO), mantém o fluxo original
     # Verifica duplicidade novamente antes de inserir
-    stmt = select(User).where(func.lower(User.username) == func.lower(request_obj.username))
+    stmt = select(User).where(
+        func.lower(User.username) == func.lower(request_obj.username),
+        User.perfil_id == request_obj.perfil_id
+    )
     result = await db.execute(stmt)
     if result.scalar_one_or_none():
         request_obj.status = "REJEITADO"
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Usuário já cadastrado anteriormente. Solicitação rejeitada automaticamente."
+            detail="Usuário já cadastrado com este perfil anteriormente. Solicitação rejeitada automaticamente."
         )
 
     # Cria o usuário real

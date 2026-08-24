@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
+from ..helpers.string_helper import generate_profile_id, remove_accents
 
 from ..auth.auth import auth_handler
 from ..resources.database import get_app_db_session
@@ -15,6 +16,9 @@ router = APIRouter(prefix="/api/perfis", tags=["Perfis"])
 class PerfilCreate(BaseModel):
     nome: str
     especialidade: Optional[str] = None
+
+class PerfilAtivarRequest(BaseModel):
+    perfil_id: str
 
 class PerfilResponse(BaseModel):
     id: str
@@ -87,6 +91,71 @@ async def get_perfis(
 
     return perfis
 
+@router.post("/ativar")
+async def ativar_perfil(
+    req: PerfilAtivarRequest,
+    db: AsyncSession = Depends(get_app_db_session),
+    current_user: dict = Depends(auth_handler.decode_token)
+):
+    """
+    Permite ao usuário ativo alternar seu perfil ativo de trabalho entre seus perfis vinculados (ou qualquer perfil se for ADMIN).
+    Retorna um novo token JWT atualizado.
+    """
+    username = current_user.get("username")
+    is_admin = current_user.get("username") == "admin" or "GLO-SEC-HCPE-SETISD" in current_user.get("groups", [])
+    
+    # Busca o perfil alvo
+    stmt = select(Profile).where(Profile.id == req.perfil_id)
+    res = await db.execute(stmt)
+    target_profile = res.scalar_one_or_none()
+    
+    if not target_profile and req.perfil_id not in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+
+    # Se não for ADMIN, verifica se o usuário tem este perfil associado na tabela usuarios
+    target_user_record = None
+    if not is_admin:
+        stmt = select(User).where(
+            func.lower(User.username) == func.lower(username),
+            User.perfil_id == req.perfil_id
+        )
+        res = await db.execute(stmt)
+        target_user_record = res.scalar_one_or_none()
+        if not target_user_record and req.perfil_id not in ["NENHUM", "OBSERVADOR"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Você não possui permissão para ativar este perfil."
+            )
+
+    # Determina os novos atributos do token
+    perfil_tipo = target_profile.tipo if target_profile else req.perfil_id
+    especialidade = target_profile.especialidade if target_profile else None
+    funcao = target_user_record.funcao if target_user_record else current_user.get("funcao")
+    
+    groups = []
+    if perfil_tipo == "ADMIN":
+        groups = ["GLO-SEC-HCPE-SETISD", "Users"]
+    elif perfil_tipo == "GESTAO_LEC":
+        groups = ["GESTAO_LEC", "Users"]
+    elif perfil_tipo in ["NENHUM", "OBSERVADOR"]:
+        groups = ["NENHUM", "Users"]
+    else:
+        groups = ["ESPECIALIDADE", "Users"]
+
+    new_user_data = dict(current_user)
+    new_user_data["perfil_id"] = req.perfil_id
+    new_user_data["perfil_tipo"] = perfil_tipo
+    new_user_data["especialidade"] = especialidade
+    new_user_data["funcao"] = funcao
+    new_user_data["groups"] = groups
+    
+    new_token = auth_handler.create_access_token(data=new_user_data)
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "user": new_user_data
+    }
+
 @router.post("", response_model=PerfilResponse, status_code=status.HTTP_201_CREATED)
 async def create_perfil(
     perfil_in: PerfilCreate,
@@ -104,32 +173,43 @@ async def create_perfil(
             detail="Apenas usuários ADMIN ou GESTÃO LEC podem criar novos perfis."
         )
 
-    if not perfil_in.especialidade:
+    if not perfil_in.especialidade or not perfil_in.especialidade.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A especialidade correspondente é obrigatória para perfis do tipo ESPECIALIDADE."
         )
 
-    # Verifica se já existe um perfil para esta especialidade
-    stmt = select(Profile).where(Profile.especialidade == perfil_in.especialidade)
-    result = await db.execute(stmt)
-    existing = result.scalar_one_or_none()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Já existe um perfil cadastrado para a especialidade {perfil_in.especialidade}."
-        )
+    spec_name = perfil_in.especialidade.strip()
+    norm_spec = remove_accents(spec_name).lower()
 
-    # Regras fixas do requisito: tipo ESPECIALIDADE e cor verde
-    # ID amigável ou baseado no nome
-    perfil_id = perfil_in.especialidade.upper().replace(" ", "_")
-    
+    # Busca todos os perfis para validações
+    stmt = select(Profile)
+    result = await db.execute(stmt)
+    all_profiles = list(result.scalars().all())
+
+    # 1. Valida se já existe uma especialidade com mesmo nome (insensível a acentos)
+    for p in all_profiles:
+        if p.especialidade and remove_accents(p.especialidade).lower() == norm_spec:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Já existe um perfil cadastrado para a especialidade '{spec_name}'."
+            )
+
+    # 2. Gera ID limpo e garante unicidade contra colisões
+    base_id = generate_profile_id(spec_name)
+    candidate_id = base_id
+    existing_ids = {p.id for p in all_profiles}
+    counter = 2
+    while candidate_id in existing_ids:
+        candidate_id = f"{base_id}_{counter}"
+        counter += 1
+
     new_profile = Profile(
-        id=perfil_id,
-        nome=perfil_in.nome.upper(),
+        id=candidate_id,
+        nome=perfil_in.nome.strip().upper(),
         tipo="ESPECIALIDADE",
         cor="verde",
-        especialidade=perfil_in.especialidade
+        especialidade=spec_name
     )
     
     db.add(new_profile)
@@ -185,20 +265,24 @@ async def update_perfil(
         )
 
     # Se alterou a especialidade, verifica duplicidade
-    if existing.tipo == "ESPECIALIDADE" and existing.especialidade != perfil_in.especialidade:
-        stmt = select(Profile).where(Profile.especialidade == perfil_in.especialidade)
+    if existing.tipo == "ESPECIALIDADE" and perfil_in.especialidade:
+        new_spec = perfil_in.especialidade.strip()
+        norm_new_spec = remove_accents(new_spec).lower()
+        
+        stmt = select(Profile).where(Profile.id != perfil_id)
         result = await db.execute(stmt)
-        duplicate = result.scalar_one_or_none()
-        if duplicate:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Já existe um perfil cadastrado para a especialidade {perfil_in.especialidade}."
-            )
+        other_profiles = result.scalars().all()
+        for p in other_profiles:
+            if p.especialidade and remove_accents(p.especialidade).lower() == norm_new_spec:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Já existe um perfil cadastrado para a especialidade '{new_spec}'."
+                )
 
     # Atualiza campos
-    existing.nome = perfil_in.nome.upper()
+    existing.nome = perfil_in.nome.strip().upper()
     if existing.tipo == "ESPECIALIDADE":
-        existing.especialidade = perfil_in.especialidade
+        existing.especialidade = perfil_in.especialidade.strip()
 
     await db.commit()
     await db.refresh(existing)

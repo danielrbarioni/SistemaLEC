@@ -43,6 +43,32 @@ export const usePerfisStore = defineStore('perfis', () => {
       || { id: 'NENHUM', nome: 'NENHUM', tipo: 'NENHUM', cor: 'cinza', especialidade: undefined };
   });
 
+  const perfisDoUsuario = computed<Perfil[]>(() => {
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated) return [];
+    if (authStore.isAdmin) return perfis.value;
+
+    const available = (authStore.user as any)?.available_profiles;
+    if (Array.isArray(available) && available.length > 0) {
+      const ids = available.map((ap: any) => ap.perfil_id);
+      const userPerfs = perfis.value.filter(p => ids.includes(p.id));
+      return userPerfs.length > 0 ? userPerfs : perfis.value.filter(p => p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR');
+    }
+    
+    // Fallback: busca pelo perfil do usuário atual
+    const userPerfilId = (authStore.user as any)?.perfil_id;
+    if (userPerfilId) {
+      return perfis.value.filter(p => p.id === userPerfilId);
+    }
+
+    return perfis.value.filter(p => p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR');
+  });
+
+  const podeAlternarPerfil = computed<boolean>(() => {
+    const authStore = useAuthStore();
+    return authStore.isAdmin || perfisDoUsuario.value.length > 1;
+  });
+
   function setPerfilAtivoInternal(id: string) {
     perfilAtivoId.value = id;
     localStorage.setItem('perfilAtivoId', id);
@@ -65,18 +91,33 @@ export const usePerfisStore = defineStore('perfis', () => {
           return;
         }
 
+        const userPerfilId = (authStore.user as any)?.perfil_id;
+        if (userPerfilId && data.some((p: Perfil) => p.id === userPerfilId)) {
+          if (perfilAtivoId.value && perfisDoUsuario.value.some(p => p.id === perfilAtivoId.value)) {
+            // Mantém perfil selecionado
+          } else {
+            setPerfilAtivoInternal(userPerfilId);
+          }
+          return;
+        }
+
         if (!authStore.isAdmin && authStore.user?.username) {
           try {
             const { data: usuariosData } = await api.get('/api/usuarios');
-            const meUser = usuariosData.find((u: any) => u.username?.toLowerCase() === authStore.user?.username?.toLowerCase());
-            if (meUser && meUser.perfil_id && data.some((p: Perfil) => p.id === meUser.perfil_id)) {
-              setPerfilAtivoInternal(meUser.perfil_id);
-              return;
-            } else {
-              // Usuário não cadastrado na tabela de usuários ou sem perfil específico -> NENHUM
-              setPerfilAtivoInternal(defaultNenhumId);
-              return;
+            const myUsers = usuariosData.filter((u: any) => u.username?.toLowerCase() === authStore.user?.username?.toLowerCase());
+            if (myUsers.length > 0) {
+              const matchedPerfs = data.filter((p: Perfil) => myUsers.some((u: any) => u.perfil_id === p.id));
+              if (matchedPerfs.length > 0) {
+                if (perfilAtivoId.value && matchedPerfs.some((p: Perfil) => p.id === perfilAtivoId.value)) {
+                  // mantém seleção válida
+                } else {
+                  setPerfilAtivoInternal(matchedPerfs[0].id);
+                }
+                return;
+              }
             }
+            setPerfilAtivoInternal(defaultNenhumId);
+            return;
           } catch (e) {
             console.error('Erro ao determinar perfil do usuário logado:', e);
             setPerfilAtivoInternal(defaultNenhumId);
@@ -101,13 +142,28 @@ export const usePerfisStore = defineStore('perfis', () => {
     }
   }
 
-  function setPerfilAtivo(id: string) {
+  async function setPerfilAtivo(id: string) {
     const authStore = useAuthStore();
-    // Apenas ADMIN pode alternar manualmente entre perfis
-    if (!authStore.isAdmin && perfilAtivoId.value) {
-      console.warn('Apenas usuários ADMIN podem alternar entre perfis.');
+    const permitido = authStore.isAdmin || perfisDoUsuario.value.some(p => p.id === id) || id === 'NENHUM' || id === 'OBSERVADOR';
+    if (!permitido) {
+      console.warn('Usuário não possui permissão para alternar para este perfil.');
       return;
     }
+
+    try {
+      if (authStore.isAuthenticated) {
+        const { data } = await api.post('/api/perfis/ativar', { perfil_id: id });
+        if (data.access_token) {
+          authStore.setToken(data.access_token);
+          if (data.user) {
+            authStore.setUser(data.user);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao ativar perfil no backend:', e);
+    }
+
     setPerfilAtivoInternal(id);
   }
 
@@ -129,6 +185,8 @@ export const usePerfisStore = defineStore('perfis', () => {
     perfis,
     perfilAtivoId,
     perfilAtivo,
+    perfisDoUsuario,
+    podeAlternarPerfil,
     loading,
     fetchPerfis,
     setPerfilAtivo,

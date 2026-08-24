@@ -198,48 +198,76 @@ class AuthHandler:
                 try:
                     conn = sqlite3.connect(db_path)
                     cursor = conn.cursor()
-                    print(f"DEBUG: Executing query with username = {user_data.get('username')}")
                     cursor.execute(
                         """
-                        SELECT u.nome, p.tipo, p.especialidade 
+                        SELECT u.id, u.nome, u.perfil_id, u.funcao, p.nome as perfil_nome, p.tipo, p.especialidade 
                         FROM usuarios u
                         JOIN perfis p ON u.perfil_id = p.id
                         WHERE LOWER(u.username) = LOWER(?)
+                        ORDER BY u.id ASC
                         """,
                         (user_data["username"],)
                     )
-                    row = cursor.fetchone()
-                    print(f"DEBUG: Query result row = {row}")
+                    rows = cursor.fetchall()
                     conn.close()
-                    if row:
-                        db_nome, db_perfil_tipo, db_especialidade = row
+                    
+                    if rows:
+                        available_profiles = []
+                        for r in rows:
+                            available_profiles.append({
+                                "usuario_id": r[0],
+                                "nome": r[1],
+                                "perfil_id": r[2],
+                                "funcao": r[3],
+                                "perfil_nome": r[4],
+                                "tipo": r[5],
+                                "especialidade": r[6]
+                            })
                         
-                        # Mapeia perfil_id/tipo para grupos correspondentes
+                        user_data["available_profiles"] = available_profiles
+                        # Prioriza ADMIN > GESTAO_LEC > primeiro perfil
+                        admin_prof = next((p for p in available_profiles if p["tipo"] == "ADMIN"), None)
+                        gestao_prof = next((p for p in available_profiles if p["tipo"] == "GESTAO_LEC"), None)
+                        active_prof = admin_prof or gestao_prof or available_profiles[0]
+
                         groups = []
-                        if db_perfil_tipo == "ADMIN":
+                        if active_prof["tipo"] == "ADMIN":
                             groups = ["GLO-SEC-HCPE-SETISD", "Users"]
-                        elif db_perfil_tipo == "GESTAO_LEC":
+                        elif active_prof["tipo"] == "GESTAO_LEC":
                             groups = ["GESTAO_LEC", "Users"]
-                        elif db_perfil_tipo == "NENHUM":
+                        elif active_prof["tipo"] in ["NENHUM", "OBSERVADOR"]:
                             groups = ["NENHUM", "Users"]
                         else:
                             groups = ["ESPECIALIDADE", "Users"]
-                            
-                        # Atualiza dados no token payload
-                        user_data["displayName"] = [db_nome]
+
+                        user_data["displayName"] = [active_prof["nome"]]
                         user_data["groups"] = groups
-                        user_data["perfil_tipo"] = db_perfil_tipo
-                        user_data["especialidade"] = db_especialidade
-                        print(f"INFO: Local profile enrichment successful for user: {user_data['username']}")
+                        user_data["perfil_id"] = active_prof["perfil_id"]
+                        user_data["perfil_tipo"] = active_prof["tipo"]
+                        user_data["especialidade"] = active_prof["especialidade"]
+                        user_data["funcao"] = active_prof["funcao"]
+                        print(f"INFO: Local profile enrichment successful for user: {user_data['username']} ({len(available_profiles)} perfis)")
                     else:
                         # Fallback seguro para usuários Ebserh/AD não cadastrados na tabela usuarios: atribui perfil NENHUM
+                        user_data["available_profiles"] = [{
+                            "usuario_id": 0,
+                            "nome": user_data.get("username", ""),
+                            "perfil_id": "NENHUM",
+                            "funcao": None,
+                            "perfil_nome": "NENHUM",
+                            "tipo": "NENHUM",
+                            "especialidade": None
+                        }]
                         user_data["groups"] = ["NENHUM", "Users"]
+                        user_data["perfil_id"] = "NENHUM"
                         user_data["perfil_tipo"] = "NENHUM"
                         user_data["especialidade"] = None
                         print(f"INFO: No local profile found for {user_data['username']}. Defaulting to NENHUM profile.")
                 except Exception as e:
                     print(f"Error enriching user from SQLite: {e}")
+                    user_data["available_profiles"] = []
                     user_data["groups"] = ["NENHUM", "Users"]
+                    user_data["perfil_id"] = "NENHUM"
                     user_data["perfil_tipo"] = "NENHUM"
                     user_data["especialidade"] = None
 
