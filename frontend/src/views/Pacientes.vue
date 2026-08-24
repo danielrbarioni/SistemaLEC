@@ -120,8 +120,8 @@
           </select>
         </div>
 
-        <!-- Filtro para Pacientes com Mais de 1 Procedimento -->
-        <div class="form-group flex items-center pt-2 md:col-span-2 lg:col-span-4">
+        <!-- Filtros para Pacientes com Múltiplos Procedimentos ou Múltiplas Especialidades -->
+        <div class="form-group flex flex-wrap items-center gap-3 pt-2 md:col-span-2 lg:col-span-4">
           <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
             <input 
               type="checkbox" 
@@ -129,6 +129,15 @@
               class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
             />
             <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 procedimento cadastrado</span>
+          </label>
+
+          <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+            <input 
+              type="checkbox" 
+              v-model="filtroApenasMultiplasEspecialidades" 
+              class="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+            />
+            <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 especialidade vinculada</span>
           </label>
         </div>
       </div>
@@ -423,6 +432,7 @@ const filtroMedico = ref('');
 const filtroJudicializado = ref('');
 const filtroSwalis = ref('');
 const filtroApenasMultiplos = ref(false);
+const filtroApenasMultiplasEspecialidades = ref(false);
 const usuarios = ref<any[]>([]);
 
 const espSelecionada = computed(() => {
@@ -653,7 +663,8 @@ const getSwalisClass = (Swalis: string) => {
   }
 };
 
-const pacientesProcessados = computed(() => {
+// 1. Mapa mestre com todos os pacientes e TODOS os seus procedimentos (sem filtros)
+const todosPacientesMap = computed(() => {
   const resolverMedicoNome = (med: string) => {
     if (!med || med === 'Não informado' || med === '—') return med || 'Não informado';
     const clean = med.trim();
@@ -661,7 +672,6 @@ const pacientesProcessados = computed(() => {
     return userMatch?.nome?.trim() || clean;
   };
 
-  // 1. Inicializa o mapa com pacientes da base
   const pacMap = new Map<string, any>();
   
   for (const p of basePacientes.value) {
@@ -675,7 +685,6 @@ const pacientesProcessados = computed(() => {
     });
   }
 
-  // 2. Aplica as solicitações aprovadas em ordem cronológica (desconsiderando eventos de RESPOSTA para não duplicar)
   const approvedSolics = solicitacoes.value
     .filter(s => s.status === 'APROVADO' && s.evento_tipo !== 'RESPOSTA' && !s.is_resposta)
     .sort((a, b) => a.data_criacao.localeCompare(b.data_criacao));
@@ -761,6 +770,13 @@ const pacientesProcessados = computed(() => {
     }
   }
 
+  return pacMap;
+});
+
+// 2. Lista de pacientes filtrados para a tabela principal
+const pacientesProcessados = computed(() => {
+  const pacMap = todosPacientesMap.value;
+
   // Se o perfil ativo for ESPECIALIDADE, filtra obrigatoriamente essa especialidade tanto para o paciente quanto para os procedimentos
   const espAtiva = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
     ? perfisStore.perfilAtivo.especialidade.toLowerCase().trim()
@@ -768,7 +784,8 @@ const pacientesProcessados = computed(() => {
 
   return Array.from(pacMap.values())
     .map(pac => {
-      let procs = pac.procedimentos;
+      // Clona o array de procedimentos para não alterar o objeto mestre
+      let procs = [...pac.procedimentos];
 
       if (espAtiva) {
         procs = procs.filter((p: any) => p.especialidade && p.especialidade.toLowerCase().trim().includes(espAtiva));
@@ -805,14 +822,24 @@ const pacientesProcessados = computed(() => {
         });
       }
 
+      // Total de especialidades únicas e procedimentos totais do paciente no sistema completo
+      const todasEspecialidades = new Set(pac.procedimentos.map((p: any) => (p.especialidade || '').trim()).filter(Boolean));
+
       return {
         ...pac,
-        procedimentos: procs
+        procedimentos: procs,
+        totalProcedimentosGerais: pac.procedimentos.length,
+        totalEspecialidadesGerais: todasEspecialidades.size
       };
     })
     .filter(pac => {
       if (pac.procedimentos.length === 0) return false;
-      if (filtroApenasMultiplos.value && pac.procedimentos.length <= 1) return false;
+      
+      // Filtro para mais de 1 procedimento cadastrado
+      if (filtroApenasMultiplos.value && pac.totalProcedimentosGerais <= 1) return false;
+
+      // Filtro para mais de 1 especialidade vinculada
+      if (filtroApenasMultiplasEspecialidades.value && pac.totalEspecialidadesGerais <= 1) return false;
 
       let matchBusca = true;
       if (buscaProntuario.value) {
@@ -828,7 +855,10 @@ const modalDetalhesAberto = ref(false);
 const pacienteSelecionadoModal = ref<any | null>(null);
 
 function abrirModalPaciente(paciente: any) {
-  pacienteSelecionadoModal.value = paciente;
+  const cod = String(paciente?.codigo || paciente);
+  // Sempre busca o registro completo e não-filtrado do paciente para exibir todas as especialidades e procedimentos no modal
+  const pacienteCompleto = todosPacientesMap.value.get(cod) || paciente;
+  pacienteSelecionadoModal.value = pacienteCompleto;
   modalDetalhesAberto.value = true;
 }
 
@@ -842,6 +872,7 @@ const procedimentosFlat = computed(() => {
   const list: any[] = [];
 
   for (const pac of pacientesProcessados.value) {
+    const pacMestre = todosPacientesMap.value.get(String(pac.codigo)) || pac;
     for (const proc of pac.procedimentos) {
       list.push({
         codigo: pac.codigo,
@@ -855,7 +886,7 @@ const procedimentosFlat = computed(() => {
         medico_responsavel: proc.medico_responsavel || 'Não informado',
         status: proc.status,
         tempo_standby: proc.tempo_standby,
-        pacienteCompleto: pac
+        pacienteCompleto: pacMestre
       });
     }
   }
