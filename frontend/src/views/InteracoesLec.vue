@@ -15,7 +15,7 @@
         </div>
         <h3 class="text-xl font-bold text-gray-900">Acesso Restrito</h3>
         <p class="text-sm text-gray-600 leading-relaxed">
-          A funcionalidade do menu <strong>Comunicação LEC</strong> é voltada exclusivamente para os perfis <strong>Médico</strong> e <strong>Residente</strong>.
+          A funcionalidade do menu <strong>Solicitações LEC</strong> é voltada exclusivamente para os perfis <strong>Médico</strong> e <strong>Residente</strong>.
         </p>
         <div class="pt-2">
           <Button @click="router.push('/pacientes')" variant="primary" class="w-full justify-center">
@@ -59,7 +59,7 @@
 
       <!-- Alerta indicando a origem dos dados quando buscados na Sede -->
       <div v-if="abaAtiva !== 'INSERIR' && formCarregadoDaSede" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center space-x-2">
-        <span>✅ Dados da solicitação ativa carregados com sucesso da <strong>Comunicação LEC Sede</strong>.</span>
+        <span>✅ Dados da solicitação ativa carregados com sucesso da <strong>Solicitações LEC Sede</strong>.</span>
       </div>
 
       <form @submit.prevent="enviarSolicitacao" class="space-y-5">
@@ -337,7 +337,7 @@
               :disabled="camposEdicaoBloqueados || !especialidadeForm"
             />
             <datalist id="medicos-lista">
-              <option v-for="med in medicosDaEspecialidade" :key="med" :value="med">{{ med }}</option>
+              <option v-for="med in medicosDaEspecialidade" :key="med" :value="med" />
             </datalist>
           </div>
         </div>
@@ -1003,6 +1003,7 @@ import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import { useAuthStore } from '../stores/auth';
 import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
+import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
 
 const toast = useToast();
 const router = useRouter();
@@ -1016,20 +1017,6 @@ const isEnfermeiro = computed(() => {
   return perfilTipo === 'EPO_GENERALISTA' || perfilNome.includes('epo generalista') || perfilNome.includes('enfermeiro') || userRole.includes('enfermeiro');
 });
 
-// Lista base de procedimentos por nome de especialidade
-const procedimentosBaseMap: Record<string, string[]> = {
-  'Cardiologia / Cirurgia Cardíaca': ['Revascularização do Miocárdio (Ponte de Safena)', 'Troca de Valva Aórtica', 'Troca de Valva Mitral', 'Implante de Marcapasso', 'Correção de CIA / CIV'],
-  'Cirurgia Geral': ['Colecistectomia', 'Herniorrafia Inguinal', 'Apendicectomia', 'Gastrectomia', 'Colostomia'],
-  'Ginecologia': ['Histerectomia', 'Miomectomia', 'Laparoscopia Diagnóstica', 'Colpoperineoplastia', 'Ooforectomia'],
-  'Neurocirurgia': ['Craniectomia Descompressiva', 'Clipagem de Aneurisma', 'Derivação Ventrículo-Peritoneal', 'Microdiscectomia', 'Tumor Cerebral — Ressecção'],
-  'Oftalmologia': ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser'],
-  'Ortopedia': ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna'],
-  'Otorrinolaringologia': ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe'],
-  'Plástica': [],
-  'Torácica': ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia'],
-  'Urologia': ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
-};
-
 const especialidades = computed(() => {
   const perfis = perfisStore.perfis;
   const lista = perfis
@@ -1040,7 +1027,7 @@ const especialidades = computed(() => {
 
   return lista.map(nome => ({
     nome,
-    procedimentos: procedimentosBaseMap[nome] || []
+    procedimentos: []
   }));
 });
 
@@ -1063,43 +1050,41 @@ const form = ref({
 });
 
 const procedimentosAghuMap = ref<Record<string, string[]>>({});
-
-
+const carregandoProcedimentosAghu = ref(false);
 
 watch(() => form.value.especialidade, async (newEsp) => {
   if (!newEsp) return;
-  const norm = newEsp.toLowerCase().trim();
-  if ((norm.includes('plástica') || norm.includes('plastica')) && !procedimentosAghuMap.value['Plástica']) {
+  const espTrim = newEsp.trim();
+  if (!procedimentosAghuMap.value[espTrim]) {
+    carregandoProcedimentosAghu.value = true;
     try {
-      const { data } = await api.get('/api/especialidades/1884/procedimentos');
-      const procs = data
-        .map((p: any) => p.id_procedimento ? `${p.descricao} (ID ${p.id_procedimento})` : p.descricao)
-        .filter(Boolean);
+      const procs = await fetchProcedimentosAghuPorEspecialidade(espTrim);
       if (procs.length > 0) {
-        procedimentosAghuMap.value['Plástica'] = procs;
+        procedimentosAghuMap.value[espTrim] = procs;
       }
     } catch (err) {
-      console.error('Erro ao buscar procedimentos do AGHU para Plástica:', err);
+      console.error(`Erro ao buscar procedimentos do AGHU para ${espTrim}:`, err);
+    } finally {
+      carregandoProcedimentosAghu.value = false;
     }
   }
 }, { immediate: true });
 
-// Procedimentos filtrados pela especialidade selecionada (unindo AGHU, base e solicitações)
+// Procedimentos filtrados pela especialidade selecionada (unindo AGHU e histórico com preferência rigorosa ao ID do AGHU)
 const procedimentosDaEspecialidade = computed(() => {
-  const espName = form.value.especialidade;
+  const espName = form.value.especialidade ? form.value.especialidade.trim() : '';
   if (!espName) return [];
-  const espNorm = espName.toLowerCase().trim();
+  const espNorm = espName.toLowerCase();
 
-  let baseProcs: string[] = [];
-  for (const [key, list] of Object.entries(procedimentosBaseMap)) {
+  // Lista obtida dinamicamente do AGHU para a especialidade
+  let listFromAghu: string[] = [];
+  for (const [key, list] of Object.entries(procedimentosAghuMap.value)) {
     const keyNorm = key.toLowerCase().trim();
-    if (keyNorm.includes(espNorm) || espNorm.includes(keyNorm)) {
-      baseProcs = list;
+    if (keyNorm === espNorm || keyNorm.includes(espNorm) || espNorm.includes(keyNorm)) {
+      listFromAghu = list;
       break;
     }
   }
-
-  const listFromAghu = (espNorm.includes('plástica') || espNorm.includes('plastica')) ? (procedimentosAghuMap.value['Plástica'] || []) : [];
 
   const extraProcs: string[] = [];
   for (const s of solicitacoes.value) {
@@ -1119,7 +1104,7 @@ const procedimentosDaEspecialidade = computed(() => {
     }
   }
 
-  const raw = [...listFromAghu, ...baseProcs, ...extraProcs];
+  const raw = [...listFromAghu, ...extraProcs];
   return desduplicarProcedimentos(raw);
 });
 
@@ -1571,7 +1556,7 @@ const buscarDados = async (isAutomatic = false) => {
       const temInclusaoNaLec = solicsDosPac.some(s => s.tipo === 'INSERIR' || s.status === 'APROVADO');
       
       if (!temInclusaoNaLec && solicsDosPac.length === 0) {
-        toast.error('Paciente não incluído no Sistema de Gestão LEC HC-UFPE');
+        toast.error('Paciente não incluído no Sistema de Comunicação Cirúrgica HC-UFPE');
         limparFormulario(true);
         return;
       }

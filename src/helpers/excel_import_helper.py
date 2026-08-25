@@ -13,6 +13,7 @@ from ..models.user import User
 from ..models.profile import Profile
 from ..models.paciente import Paciente
 from ..models.solicitacao import Solicitacao
+from ..helpers.string_helper import generate_profile_id, remove_accents
 
 
 def normalize_col_name(text: Any) -> str:
@@ -100,9 +101,19 @@ async def process_excel_pacientes_import(
     # 1. Carregar caches em memória para performance em lote (Zero N+1 DB Queries)
     procedimentos_cache = {}
     
-    # Perfis existentes
+    # Perfis existentes indexados por ID e por nome/especialidade normalizados
     res_profiles = await app_db.execute(select(Profile))
-    existing_profiles = {p.id: p for p in res_profiles.scalars().all()}
+    all_db_profiles = res_profiles.scalars().all()
+    existing_profiles: Dict[str, Profile] = {}
+    for p in all_db_profiles:
+        if p.id:
+            existing_profiles[p.id] = p
+        if p.especialidade:
+            norm_key = remove_accents(p.especialidade).strip().upper()
+            existing_profiles[norm_key] = p
+        if p.nome:
+            norm_nome = remove_accents(p.nome).strip().upper()
+            existing_profiles[norm_nome] = p
 
     # Usuários existentes (indexados por username e perfil_id para compatibilidade multi-especialidade)
     res_users = await app_db.execute(select(User))
@@ -155,9 +166,9 @@ async def process_excel_pacientes_import(
         id_procedimento_int = int(raw_id_procedimento) if raw_id_procedimento and raw_id_procedimento.isdigit() else None
         id_especialidade_int = int(raw_id_especialidade) if raw_id_especialidade and raw_id_especialidade.isdigit() else None
 
-        # Resolução de Nome do Procedimento e Especialidade no AGHU ou Fallback
+        # Resolução de Nome do Procedimento e Especialidade no AGHU ou Fallback (sempre padronizado em CAIXA ALTA)
         if especialidade_override:
-            nome_especialidade = especialidade_override
+            nome_especialidade = especialidade_override.strip().upper()
         else:
             nome_especialidade = f"ESPECIALIDADE {id_especialidade_int}" if id_especialidade_int else "GERAL"
 
@@ -169,7 +180,7 @@ async def process_excel_pacientes_import(
                 proc_cached, esp_cached = procedimentos_cache[cache_key]
                 nome_procedimento = proc_cached
                 if not especialidade_override:
-                    nome_especialidade = esp_cached
+                    nome_especialidade = esp_cached.strip().upper()
             else:
                 try:
                     query_aghu = text("""
@@ -189,23 +200,31 @@ async def process_excel_pacientes_import(
                         esp_nome = row_aghu.get("esp_nome") or nome_especialidade
                         nome_procedimento = f"{proc_desc} (ID {id_procedimento_int})"
                         if not especialidade_override:
-                            nome_especialidade = esp_nome
-                        procedimentos_cache[cache_key] = (nome_procedimento, esp_nome)
+                            nome_especialidade = esp_nome.strip().upper()
+                        procedimentos_cache[cache_key] = (nome_procedimento, nome_especialidade)
                 except Exception as e:
                     print(f"Erro ao buscar procedimento {id_procedimento_int} no AGHU: {e}")
 
-        # Garantir existência do Perfil da Especialidade no SQLite local
-        perfil_id = nome_especialidade.upper().replace(" ", "_")
-        if perfil_id not in existing_profiles:
-            new_profile = Profile(
-                id=perfil_id,
+        # Garantir existência do Perfil da Especialidade no SQLite local usando ID canônico limpo
+        canonical_perfil_id = generate_profile_id(nome_especialidade)
+        norm_esp_key = remove_accents(nome_especialidade).strip().upper()
+
+        target_profile = existing_profiles.get(canonical_perfil_id) or existing_profiles.get(norm_esp_key)
+        if not target_profile:
+            target_profile = Profile(
+                id=canonical_perfil_id,
                 nome=nome_especialidade.upper(),
                 tipo="ESPECIALIDADE",
                 cor="verde",
-                especialidade=nome_especialidade
+                especialidade=nome_especialidade.upper()
             )
-            app_db.add(new_profile)
-            existing_profiles[perfil_id] = new_profile
+            app_db.add(target_profile)
+            existing_profiles[canonical_perfil_id] = target_profile
+            existing_profiles[norm_esp_key] = target_profile
+            existing_profiles[target_profile.nome] = target_profile
+
+        perfil_id = target_profile.id
+        nome_especialidade = target_profile.especialidade or target_profile.nome or nome_especialidade.upper()
 
         # Garantir existência do Médico Responsável
         medico_username = raw_medico_responsavel or "NAO_INFORMADO"
@@ -219,14 +238,14 @@ async def process_excel_pacientes_import(
                     username=medico_clean,
                     nome=medico_clean,
                     perfil_id=perfil_id,
-                    especialidade=nome_especialidade,
+                    especialidade=nome_especialidade.upper(),
                     funcao="Médico"
                 )
                 app_db.add(new_doctor)
                 existing_users[user_key] = new_doctor
                 novos_medicos.append({
                     "username": medico_clean,
-                    "especialidade": nome_especialidade
+                    "especialidade": nome_especialidade.upper()
                 })
 
         # Garantir registro do Paciente (AGHU ou SQLite Local)

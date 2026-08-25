@@ -102,8 +102,25 @@ async def ativar_perfil(
     Retorna um novo token JWT atualizado.
     """
     username = current_user.get("username")
-    is_admin = current_user.get("username") == "admin" or "GLO-SEC-HCPE-SETISD" in current_user.get("groups", [])
+    is_admin = (
+        current_user.get("username") == "admin" 
+        or current_user.get("is_admin") is True
+        or current_user.get("is_admin_user") is True
+        or "GLO-SEC-HCPE-SETISD" in current_user.get("groups", [])
+        or "GLO-SEC-HCPE-SETISD" in current_user.get("original_groups", [])
+        or any(p.get("tipo") == "ADMIN" or p.get("perfil_id") == "ADMIN" for p in current_user.get("available_profiles", []))
+    )
     
+    # Se ainda não detectou is_admin, consulta se o usuário possui perfil ADMIN na tabela de usuarios
+    if not is_admin and username:
+        stmt_admin = select(User).where(
+            func.lower(User.username) == func.lower(username),
+            User.perfil_id == "ADMIN"
+        )
+        res_admin = await db.execute(stmt_admin)
+        if res_admin.scalar_one_or_none():
+            is_admin = True
+
     # Busca o perfil alvo
     stmt = select(Profile).where(Profile.id == req.perfil_id)
     res = await db.execute(stmt)
@@ -126,6 +143,14 @@ async def ativar_perfil(
                 status_code=403,
                 detail="Você não possui permissão para ativar este perfil."
             )
+    else:
+        # Se for admin, busca se existe registro específico para a especialidade
+        stmt = select(User).where(
+            func.lower(User.username) == func.lower(username),
+            User.perfil_id == req.perfil_id
+        )
+        res = await db.execute(stmt)
+        target_user_record = res.scalar_one_or_none()
 
     # Determina os novos atributos do token
     perfil_tipo = target_profile.tipo if target_profile else req.perfil_id
@@ -142,12 +167,20 @@ async def ativar_perfil(
     else:
         groups = ["ESPECIALIDADE", "Users"]
 
+    # Se o usuário for ADMIN, preservar o grupo administrativo em groups para que nunca perca o poder de navegação
+    if is_admin and "GLO-SEC-HCPE-SETISD" not in groups:
+        groups.insert(0, "GLO-SEC-HCPE-SETISD")
+
     new_user_data = dict(current_user)
     new_user_data["perfil_id"] = req.perfil_id
     new_user_data["perfil_tipo"] = perfil_tipo
     new_user_data["especialidade"] = especialidade
     new_user_data["funcao"] = funcao
     new_user_data["groups"] = groups
+    new_user_data["is_admin"] = is_admin
+    new_user_data["is_admin_user"] = is_admin
+    if "original_groups" not in new_user_data and is_admin:
+        new_user_data["original_groups"] = ["GLO-SEC-HCPE-SETISD", "Users"]
     
     new_token = auth_handler.create_access_token(data=new_user_data)
     return {
@@ -179,7 +212,7 @@ async def create_perfil(
             detail="A especialidade correspondente é obrigatória para perfis do tipo ESPECIALIDADE."
         )
 
-    spec_name = perfil_in.especialidade.strip()
+    spec_name = perfil_in.especialidade.strip().upper()
     norm_spec = remove_accents(spec_name).lower()
 
     # Busca todos os perfis para validações
@@ -266,7 +299,7 @@ async def update_perfil(
 
     # Se alterou a especialidade, verifica duplicidade
     if existing.tipo == "ESPECIALIDADE" and perfil_in.especialidade:
-        new_spec = perfil_in.especialidade.strip()
+        new_spec = perfil_in.especialidade.strip().upper()
         norm_new_spec = remove_accents(new_spec).lower()
         
         stmt = select(Profile).where(Profile.id != perfil_id)
@@ -282,7 +315,7 @@ async def update_perfil(
     # Atualiza campos
     existing.nome = perfil_in.nome.strip().upper()
     if existing.tipo == "ESPECIALIDADE":
-        existing.especialidade = perfil_in.especialidade.strip()
+        existing.especialidade = perfil_in.especialidade.strip().upper()
 
     await db.commit()
     await db.refresh(existing)

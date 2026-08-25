@@ -40,21 +40,46 @@ export function formatarNomeProcedimento(str: string): string {
 }
 
 /**
+ * Extrai o nome base do procedimento sem o sufixo (ID XXX) ou prefixos de ID
+ */
+export function extrairNomeBaseProcedimento(str: string): string {
+  if (!str) return '';
+  const s = str.trim();
+  return s
+    .replace(/\s*\(\s*(?:ID\s*)?\d+\s*\)$/i, '')
+    .replace(/\s*[-–—]\s*(?:ID\s*)?\d+$/i, '')
+    .replace(/^\d+\s*[-–—]\s*/, '')
+    .trim()
+    .toUpperCase();
+}
+
+/**
  * Remove duplicidades de uma lista de procedimentos aplicando a normalização de formato.
+ * Sempre prioriza a versão completa que contém (ID XXX) sobre a versão sem ID.
  */
 export function desduplicarProcedimentos(procedimentos: string[]): string[] {
   if (!procedimentos || !Array.isArray(procedimentos)) return [];
   
-  const mapNormalizado = new Map<string, string>();
+  // Mapa de chave normalizada (apenas nome base) para a melhor versão formatada (preferindo a que tem ID)
+  const mapPorNomeBase = new Map<string, string>();
 
   for (const proc of procedimentos) {
     if (!proc) continue;
     const formatado = formatarNomeProcedimento(proc);
-    // Usa a versão formatada como chave e valor no map para desduplicar
-    if (!mapNormalizado.has(formatado)) {
-      mapNormalizado.set(formatado, formatado);
+    const nomeBase = extrairNomeBaseProcedimento(formatado);
+    const temId = /\(ID \d+\)$/.test(formatado);
+
+    if (!mapPorNomeBase.has(nomeBase)) {
+      mapPorNomeBase.set(nomeBase, formatado);
+    } else {
+      const existente = mapPorNomeBase.get(nomeBase)!;
+      const existenteTemId = /\(ID \d+\)$/.test(existente);
+      if (!existenteTemId && temId) {
+        // A versão com ID substitui a versão sem ID!
+        mapPorNomeBase.set(nomeBase, formatado);
+      }
     }
   }
 
-  return Array.from(mapNormalizado.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return Array.from(mapPorNomeBase.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }

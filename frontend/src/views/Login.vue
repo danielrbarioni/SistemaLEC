@@ -6,7 +6,7 @@
           <div class="w-80 h-20 mb-2">
             <HospitalIcon />
           </div>
-          <h2 class="text-2xl font-black text-gray-800 text-center tracking-tight">GESTÃO LEC HC-UFPE</h2>
+          <h2 class="text-2xl font-black text-gray-800 text-center tracking-tight">COMUNICAÇÃO CIRÚRGICA HC-UFPE</h2>
         </div>
       </template>
       <form @submit.prevent="handleLogin">

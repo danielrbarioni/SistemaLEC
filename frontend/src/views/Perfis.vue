@@ -783,17 +783,20 @@ const salvarPerfil = async () => {
     const nomePerfil = perfilForm.value.tipo === 'ESPECIALIDADE' 
       ? perfilForm.value.especialidade.trim().toUpperCase() 
       : perfilForm.value.nome.trim().toUpperCase();
+    const nomeEspecialidade = perfilForm.value.tipo === 'ESPECIALIDADE' 
+      ? perfilForm.value.especialidade.trim().toUpperCase() 
+      : undefined;
 
     if (editingPerfilId.value) {
       await api.put(`/api/perfis/${editingPerfilId.value}`, {
         nome: nomePerfil,
-        especialidade: perfilForm.value.tipo === 'ESPECIALIDADE' ? perfilForm.value.especialidade.trim() : null
+        especialidade: nomeEspecialidade
       });
       toast.success('Perfil atualizado com sucesso!');
     } else {
       await perfisStore.adicionarPerfil(
         nomePerfil,
-        perfilForm.value.especialidade.trim()
+        nomeEspecialidade
       );
       toast.success('Perfil criado com sucesso!');
     }

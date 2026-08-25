@@ -203,7 +203,26 @@ const isDragging = ref(false);
 let dragCounter = 0;
 
 const especialidadesDisponiveis = computed(() => {
-  return perfisStore.perfis.filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.especialidade.trim() !== ''));
+  const filtered = perfisStore.perfis.filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.especialidade.trim() !== ''));
+  const seen = new Set<string>();
+  const uniqueList: typeof filtered = [];
+
+  for (const item of filtered) {
+    const nomeEsp = (item.especialidade || item.nome || '').trim().toUpperCase();
+    if (!nomeEsp) continue;
+    // Normaliza sem acentos para evitar duplicatas visuais
+    const norm = nomeEsp.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      uniqueList.push({
+        ...item,
+        especialidade: nomeEsp,
+        nome: nomeEsp
+      });
+    }
+  }
+
+  return uniqueList.sort((a, b) => (a.especialidade || a.nome).localeCompare(b.especialidade || b.nome, 'pt-BR'));
 });
 
 function preventWindowDrop(e: DragEvent) {

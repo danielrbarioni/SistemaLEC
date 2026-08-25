@@ -19,7 +19,17 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!accessToken.value);
   const isAdmin = computed(() => {
     const ADMIN_GROUP = "GLO-SEC-HCPE-SETISD"; 
-    return user.value?.groups?.includes(ADMIN_GROUP) || false;
+    const u = user.value as any;
+    if (!u) return false;
+    return (
+      u.is_admin === true ||
+      u.is_admin_user === true ||
+      u.groups?.includes(ADMIN_GROUP) ||
+      u.original_groups?.includes(ADMIN_GROUP) ||
+      u.available_profiles?.some((p: any) => p.tipo === 'ADMIN' || p.perfil_id === 'ADMIN') ||
+      u.username === 'admin' ||
+      false
+    );
   });
   const isObservador = computed(() => {
     return user.value?.groups?.includes("NENHUM") || user.value?.groups?.includes("OBSERVADOR") || (user.value as any)?.perfil_tipo === "NENHUM" || (user.value as any)?.perfil_tipo === "OBSERVADOR" || false;

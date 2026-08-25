@@ -402,6 +402,7 @@ import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
 import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
+import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
@@ -498,19 +499,6 @@ const medicosOpcoes = computed(() => {
   return Array.from(medicosSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
-const procedimentosBaseMap: Record<string, string[]> = {
-  'Cardiologia': ['Revascularização do Miocárdio (Ponte de Safena)', 'Troca de Valva Aórtica', 'Troca de Valva Mitral', 'Implante de Marcapasso', 'Correção de CIA / CIV'],
-  'Cirurgia Geral': ['Colecistectomia', 'Herniorrafia Inguinal', 'Apendicectomia', 'Gastrectomia', 'Colostomia'],
-  'Ginecologia': ['Histerectomia', 'Miomectomia', 'Laparoscopia Diagnóstica', 'Colpoperineoplastia', 'Ooforectomia'],
-  'Neurocirurgia': ['Craniectomia Descompressiva', 'Clipagem de Aneurisma', 'Derivação Ventrículo-Peritoneal', 'Microdiscectomia', 'Tumor Cerebral — Ressecção'],
-  'Oftalmologia': ['Facoemulsificação (Catarata)', 'Trabeculectomia (Glaucoma)', 'Vitrectomia', 'Transplante de Córnea', 'Fotocoagulação a Laser'],
-  'Ortopedia': ['Artroplastia Total de Quadril', 'Artroplastia Total de Joelho', 'Artroscopia de Joelho', 'Fixação de Fratura de Fêmur', 'Osteossíntese de Coluna'],
-  'Otorrinolaringologia': ['Septoplastia', 'Amigdalectomia', 'Timpanoplastia', 'Adenoidectomia', 'Microcirurgia de Laringe'],
-  'Plástica': [],
-  'Torácica': ['Lobectomia', 'Pleuroscopia', 'Simpatectomia', 'Ressecção de Nódulo Pulmonar', 'Broncoscopia'],
-  'Urologia': ['Prostatectomia Radical', 'Nefrectomia', 'Ureteroscopia', 'Litotripsia', 'Ressecção Transuretral de Próstata (RTUP)']
-};
-
 const procedimentosAghuMap = ref<Record<string, string[]>>({});
 const carregandoProcedimentos = ref(false);
 
@@ -519,19 +507,16 @@ watch(espSelecionada, async (newEsp) => {
   filtroMedico.value = '';
   if (!newEsp) return;
 
-  const espNorm = newEsp.toLowerCase().trim();
-  if ((espNorm.includes('plástica') || espNorm.includes('plastica')) && !procedimentosAghuMap.value['Plástica']) {
+  const espTrim = newEsp.trim();
+  if (!procedimentosAghuMap.value[espTrim]) {
     carregandoProcedimentos.value = true;
     try {
-      const { data } = await api.get('/api/especialidades/1884/procedimentos');
-      const procs = data
-        .map((p: any) => p.id_procedimento ? `${p.descricao} (ID ${p.id_procedimento})` : p.descricao)
-        .filter(Boolean);
+      const procs = await fetchProcedimentosAghuPorEspecialidade(espTrim);
       if (procs.length > 0) {
-        procedimentosAghuMap.value['Plástica'] = procs;
+        procedimentosAghuMap.value[espTrim] = procs;
       }
     } catch (err) {
-      console.error('Erro ao buscar procedimentos do AGHU para Plástica:', err);
+      console.error(`Erro ao buscar procedimentos do AGHU para ${espTrim}:`, err);
     } finally {
       carregandoProcedimentos.value = false;
     }
@@ -543,8 +528,15 @@ const procedimentosOpcoes = computed(() => {
   if (!esp) return [];
 
   const espLower = esp.toLowerCase().trim();
-  const listFromAghu = procedimentosAghuMap.value['Plástica'] || [];
-  const listFromBase = procedimentosBaseMap[esp] || [];
+
+  let listFromAghu: string[] = [];
+  for (const [key, list] of Object.entries(procedimentosAghuMap.value)) {
+    const keyNorm = key.toLowerCase().trim();
+    if (keyNorm === espLower || keyNorm.includes(espLower) || espLower.includes(keyNorm)) {
+      listFromAghu = list;
+      break;
+    }
+  }
 
   const extraProcs: string[] = [];
 
@@ -559,7 +551,7 @@ const procedimentosOpcoes = computed(() => {
     }
   }
 
-  const raw = [...listFromAghu, ...listFromBase, ...extraProcs];
+  const raw = [...listFromAghu, ...extraProcs];
   return desduplicarProcedimentos(raw);
 });
 

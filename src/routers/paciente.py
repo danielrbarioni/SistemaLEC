@@ -10,6 +10,7 @@ from ..auth.auth import auth_handler
 from ..resources.database import get_app_db_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..helpers.excel_import_helper import process_excel_pacientes_import
+from ..helpers.string_helper import generate_profile_id, remove_accents
 from ..models.profile import Profile
 from .perfil import get_current_user_role
 
@@ -63,21 +64,28 @@ async def importar_planilha_excel(
         )
 
     especialidade_limpa = especialidade.strip()
+    canonical_id = generate_profile_id(especialidade_limpa)
+    norm_esp = remove_accents(especialidade_limpa).upper()
 
     # Verificar se a especialidade/perfil existe no banco
-    stmt_prof = select(Profile).where(
-        (Profile.especialidade == especialidade_limpa) | 
-        (Profile.nome == especialidade_limpa) |
-        (Profile.id == especialidade_limpa.upper().replace(" ", "_"))
-    )
+    stmt_prof = select(Profile)
     res_prof = await app_db.execute(stmt_prof)
-    perfil_obj = res_prof.scalars().first()
+    all_profiles = res_prof.scalars().all()
+    
+    perfil_obj = None
+    for p in all_profiles:
+        if p.id == canonical_id or (p.especialidade and remove_accents(p.especialidade).upper() == norm_esp) or (p.nome and remove_accents(p.nome).upper() == norm_esp):
+            perfil_obj = p
+            break
 
     if not perfil_obj:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"O perfil para a especialidade '{especialidade_limpa}' não foi encontrado no sistema. Por favor, crie este perfil na tela de Perfis antes de importar a planilha."
         )
+
+    # Usa o nome canônico e padronizado da especialidade
+    especialidade_canonica = (perfil_obj.especialidade or perfil_obj.nome or especialidade_limpa).upper()
 
     if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(
@@ -109,7 +117,7 @@ async def importar_planilha_excel(
         app_db=app_db,
         aghu_db=aghu_db,
         usuario_executor=usuario_executor,
-        especialidade_override=perfil_obj.especialidade or perfil_obj.nome
+        especialidade_override=especialidade_canonica
     )
 
     return resultado

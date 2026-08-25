@@ -30,7 +30,7 @@ const routes = [
   },
   {
     path: '/interacoes',
-    name: 'Comunicação LEC',
+    name: 'Solicitações LEC',
     component: InteracoesLec,
     meta: { requiresAuth: true },
   },
@@ -82,6 +82,14 @@ router.beforeEach((to, _from, next: NavigationGuardNext) => {
         return;
       }
     }
+
+    if (to.path === '/navegacao') {
+      if (perfilTipo !== 'ADMIN') {
+        next({ path: '/interacoes' });
+        return;
+      }
+    }
+
     next();
   }
 });

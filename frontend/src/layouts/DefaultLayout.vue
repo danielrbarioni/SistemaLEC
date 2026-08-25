@@ -2,7 +2,7 @@
   <div class="relative h-screen overflow-hidden md:flex">
     <!-- Mobile Menu -->
     <div class="bg-paper-sidebar text-gray-100 flex justify-between md:hidden shrink-0">
-      <router-link to="/" class="block p-4 text-white font-bold">Gestão LEC HC-UFPE</router-link>
+      <router-link to="/" class="block p-4 text-white font-bold">Comunicação Cirúrgica HC-UFPE</router-link>
       <button @click="sidebarOpen = !sidebarOpen" class="p-4 focus:outline-none focus:bg-paper-active-link">
         <Bars3Icon class="h-6 w-6" />
       </button>
@@ -14,7 +14,7 @@
         <div class="h-12 w-12 shrink-0">
           <HospitalIcon />
         </div>
-        <span class="text-2xl font-extrabold">Gestão LEC HC-UFPE</span>
+        <span class="text-2xl font-extrabold">Comunicação Cirúrgica HC-UFPE</span>
       </div>
       <div class="px-4 my-6">
         <div class="border-t border-white border-opacity-20"></div>
@@ -23,13 +23,13 @@
       <nav class="space-y-1">
         <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
           <ComputerDesktopIcon class="h-6 w-6" />
-          <span>Comunicação LEC</span>
+          <span>Solicitações LEC</span>
           <span v-if="mostrarBadgeSistemaLec" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
             {{ countPendentes }}
           </span>
         </router-link>
 
-        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" to="/navegacao" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
+        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo?.tipo === 'ADMIN'" to="/navegacao" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
           <MapIcon class="h-6 w-6" />
           <span>Navegação</span>
           <ClockIcon class="h-4 w-4 text-amber-400 animate-pulse ml-auto" title="Aguardando liberação / Em desenvolvimento" />
