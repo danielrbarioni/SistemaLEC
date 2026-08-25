@@ -58,8 +58,14 @@
           <!-- 5. Especialidade -->
           <div class="form-group">
             <label for="filtroEspecialidade" class="form-label font-semibold">Especialidade</label>
-            <select id="filtroEspecialidade" v-model="filtroEspecialidade" class="form-control text-xs">
-              <option value="">Todas</option>
+            <select 
+              id="filtroEspecialidade" 
+              v-model="filtroEspecialidade" 
+              class="form-control text-xs"
+              :disabled="perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'"
+              :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' }"
+            >
+              <option v-if="perfisStore.perfilAtivo?.tipo !== 'ESPECIALIDADE'" value="">Todas</option>
               <option v-for="esp in especialidadesDisponiveis" :key="esp" :value="esp">
                 {{ esp }}
               </option>
@@ -212,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import api from '../services/api';
 import Card from '../components/Card.vue';
@@ -236,6 +242,12 @@ const filtroEventoTipo = ref('');
 const filtroStatus = ref('');
 const filtroUsuario = ref('');
 
+watch(() => perfisStore.perfilAtivo, (newProfile) => {
+  if (newProfile?.tipo === 'ESPECIALIDADE' && (newProfile.especialidade || newProfile.nome)) {
+    filtroEspecialidade.value = newProfile.especialidade || newProfile.nome;
+  }
+}, { immediate: true });
+
 const especialidadesDisponiveis = computed(() => {
   const perfisEspecialidades = perfisStore.perfis
     .filter(p => p.tipo === 'ESPECIALIDADE')
@@ -246,7 +258,11 @@ const especialidadesDisponiveis = computed(() => {
 });
 
 const limparFiltros = () => {
-  filtroEspecialidade.value = '';
+  if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)) {
+    filtroEspecialidade.value = perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome;
+  } else {
+    filtroEspecialidade.value = '';
+  }
   dataInicio.value = '';
   dataFim.value = '';
   filtroOrigemMenu.value = '';
@@ -384,7 +400,12 @@ const solicitacoesFiltradas = computed(() => {
   return solicitacoes.value
     .filter(s => {
       // 1. Especialidade
-      if (filtroEspecialidade.value && !(s.especialidade && s.especialidade.toLowerCase().includes(filtroEspecialidade.value.toLowerCase()))) {
+      if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)) {
+        const espAtivaNorm = (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome).toLowerCase().trim();
+        if (!(s.especialidade && s.especialidade.toLowerCase().includes(espAtivaNorm))) {
+          return false;
+        }
+      } else if (filtroEspecialidade.value && !(s.especialidade && s.especialidade.toLowerCase().includes(filtroEspecialidade.value.toLowerCase()))) {
         return false;
       }
 

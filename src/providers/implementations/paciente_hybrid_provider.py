@@ -32,7 +32,7 @@ class HybridPacienteProvider(PacienteProviderInterface):
         if not list_codigos:
             return []
 
-        # 2. Busca os dados cadastrais (nome, nascimento, mãe) apenas desses pacientes
+        found_map = {}
         if self.postgres:
             try:
                 from sqlalchemy import text
@@ -42,36 +42,39 @@ class HybridPacienteProvider(PacienteProviderInterface):
                     WHERE prontuario = ANY(:codigos)
                 """)
                 res = await self.postgres.session.execute(query, {"codigos": list(list_codigos)})
-                return [dict(row) for row in res.mappings().all()]
+                for row in res.mappings().all():
+                    found_map[row["codigo"]] = dict(row)
             except Exception as e:
                 print(f"Erro ao obter dados dos pacientes do AGHU: {e}. Executando fallback para SQLite local.")
 
-        try:
-            from ...models.paciente import Paciente
-            stmt = select(Paciente).where(Paciente.codigo.in_(list_codigos))
-            res = await self.sqlite.session.execute(stmt)
-            rows = res.scalars().all()
-            return [
-                {
-                    "codigo": p.codigo,
-                    "nome": p.nome,
-                    "dt_nascimento": p.dt_nascimento,
-                    "cpf": p.cpf,
-                    "sexo": p.sexo,
-                    "cor": p.cor,
-                    "nome_mae": p.nome_mae,
-                    "nome_pai": p.nome_pai,
-                    "data_hora_inicio": p.data_hora_inicio,
-                    "status_consulta": p.status_consulta,
-                    "especialidade": p.especialidade,
-                    "procedimento": p.procedimento,
-                    "ultima_consulta_epo": p.ultima_consulta_epo
-                }
-                for p in rows
-            ]
-        except Exception as e:
-            print(f"Erro ao obter dados dos pacientes do SQLite: {e}")
-            return []
+        # Complementa os pacientes que não foram encontrados no AGHU com os dados do SQLite local
+        missing_codigos = [c for c in list_codigos if c not in found_map]
+        if missing_codigos:
+            try:
+                from ...models.paciente import Paciente
+                stmt = select(Paciente).where(Paciente.codigo.in_(missing_codigos))
+                res = await self.sqlite.session.execute(stmt)
+                rows = res.scalars().all()
+                for p in rows:
+                    found_map[p.codigo] = {
+                        "codigo": p.codigo,
+                        "nome": p.nome,
+                        "dt_nascimento": p.dt_nascimento,
+                        "cpf": p.cpf,
+                        "sexo": p.sexo,
+                        "cor": p.cor,
+                        "nome_mae": p.nome_mae,
+                        "nome_pai": p.nome_pai,
+                        "data_hora_inicio": p.data_hora_inicio,
+                        "status_consulta": p.status_consulta,
+                        "especialidade": p.especialidade,
+                        "procedimento": p.procedimento,
+                        "ultima_consulta_epo": p.ultima_consulta_epo
+                    }
+            except Exception as e:
+                print(f"Erro ao obter dados dos pacientes do SQLite: {e}")
+
+        return list(found_map.values())
 
     async def obter_paciente_por_codigo(self, codigo: int) -> Dict[str, Any]:
         if self.postgres:
