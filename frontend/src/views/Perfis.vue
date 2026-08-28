@@ -246,6 +246,7 @@
                     <option value="" disabled>Selecione...</option>
                     <option value="Médico">Médico</option>
                     <option value="Residente">Residente</option>
+                    <option value="Administrativo">Administrativo</option>
                     <option value="Enfermeiro">Enfermeiro</option>
                   </select>
                 </div>
@@ -383,6 +384,7 @@
                 <option value="" disabled>Selecione...</option>
                 <option value="Médico">Médico</option>
                 <option value="Residente">Residente</option>
+                <option value="Administrativo">Administrativo</option>
                 <option value="Enfermeiro">Enfermeiro</option>
               </select>
             </div>
@@ -439,6 +441,7 @@
                 <option value="">Todas</option>
                 <option value="Médico">Médico</option>
                 <option value="Residente">Residente</option>
+                <option value="Administrativo">Administrativo</option>
                 <option value="Enfermeiro">Enfermeiro</option>
               </select>
             </div>

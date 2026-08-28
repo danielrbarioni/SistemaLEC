@@ -10,7 +10,7 @@ class UserCreationRequest(Base):
     nome = Column(String, nullable=False)
     perfil_id = Column(String, nullable=False)
     especialidade = Column(String, nullable=True)
-    funcao = Column(String, nullable=True) # "Médico", "Residente", "Enfermeiro"
+    funcao = Column(String, nullable=True) # "Médico", "Residente", "Administrativo", "Enfermeiro"
     status = Column(String, default="PENDENTE", nullable=False) # "PENDENTE", "APROVADO", "REJEITADO"
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     tipo = Column(String, default="CRIACAO", nullable=False) # "CRIACAO" or "EDICAO"
