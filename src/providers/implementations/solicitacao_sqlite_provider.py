@@ -150,6 +150,104 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'detalhes_resposta': detalhes_resposta
         }
 
+    async def editar_solicitacao(self, id_solicitacao: str, dados_atualizados: Dict[str, Any], perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
+        stmt = select(Solicitacao).where(Solicitacao.id == id_solicitacao)
+        result = await self.session.execute(stmt)
+        solic = result.scalar_one_or_none()
+        
+        if not solic:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+            
+        if solic.status != 'PENDENTE':
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Apenas solicitações com status PENDENTE podem ser editadas.")
+            
+        if solic.tipo == 'EXCLUIR':
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solicitações de exclusão não podem ser editadas, apenas canceladas.")
+
+        # Rastreia campos alterados para histórico
+        campos_alterados = []
+        if 'especialidade' in dados_atualizados and dados_atualizados['especialidade'] and dados_atualizados['especialidade'] != solic.especialidade:
+            campos_alterados.append(f"Especialidade: {solic.especialidade} -> {dados_atualizados['especialidade']}")
+            solic.especialidade = dados_atualizados['especialidade']
+            
+        if 'procedimento' in dados_atualizados and dados_atualizados['procedimento'] and dados_atualizados['procedimento'] != solic.procedimento:
+            campos_alterados.append(f"Procedimento: {solic.procedimento} -> {dados_atualizados['procedimento']}")
+            solic.procedimento = dados_atualizados['procedimento']
+            
+        if 'judicializado' in dados_atualizados and dados_atualizados['judicializado'] != solic.judicializado:
+            campos_alterados.append(f"Judicializado: {solic.judicializado} -> {dados_atualizados['judicializado']}")
+            solic.judicializado = dados_atualizados['judicializado']
+            
+        if 'swallis' in dados_atualizados and dados_atualizados['swallis'] != solic.swallis:
+            campos_alterados.append(f"Swalis: {solic.swallis} -> {dados_atualizados['swallis']}")
+            solic.swallis = dados_atualizados['swallis']
+            
+        if 'medico_responsavel' in dados_atualizados and dados_atualizados['medico_responsavel'] != solic.medico_responsavel:
+            campos_alterados.append(f"Médico: {solic.medico_responsavel} -> {dados_atualizados['medico_responsavel']}")
+            solic.medico_responsavel = dados_atualizados['medico_responsavel']
+            
+        if 'tempo_standby' in dados_atualizados and dados_atualizados['tempo_standby'] != solic.tempo_standby:
+            novo_tempo = int(dados_atualizados['tempo_standby']) if dados_atualizados['tempo_standby'] else None
+            campos_alterados.append(f"Standby: {solic.tempo_standby}d -> {novo_tempo}d")
+            solic.tempo_standby = novo_tempo
+            
+        if 'detalhes' in dados_atualizados and dados_atualizados['detalhes']:
+            solic.detalhes = dados_atualizados['detalhes']
+            
+        if 'procedimento_anterior' in dados_atualizados:
+            solic.procedimento_anterior = dados_atualizados['procedimento_anterior']
+            
+        # O data_criacao original da solicitação permanece intacto para manter sua posição na fila
+        data_alteracao = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Cria uma nova linha no histórico representando a ação de ALTERAÇÃO
+        resumo_mudancas = "; ".join(campos_alterados) if campos_alterados else "Atualização de justificativa/detalhes"
+        detalhes_historico = f"Editou a solicitação #{solic.id} ({solic.tipo}) - {resumo_mudancas}. Justificativa: {solic.detalhes}"
+        
+        evento_alteracao = Solicitacao(
+            id=str(uuid.uuid4())[:8],
+            tipo=solic.tipo,
+            especialidade=solic.especialidade,
+            procedimento=solic.procedimento,
+            codigo_paciente=solic.codigo_paciente,
+            nome_paciente=solic.nome_paciente,
+            judicializado=solic.judicializado,
+            swallis=solic.swallis,
+            medico_responsavel=solic.medico_responsavel,
+            detalhes=detalhes_historico,
+            tempo_standby=solic.tempo_standby,
+            status='PENDENTE',
+            data_criacao=data_alteracao,
+            perfil_executor=perfil_executor or solic.perfil_executor,
+            usuario=usuario_executor or solic.usuario,
+            procedimento_anterior=solic.procedimento_anterior,
+            origem_menu=solic.origem_menu or "Sistema LEC",
+            evento_tipo="ALTERACAO"
+        )
+        self.session.add(evento_alteracao)
+        await self.session.commit()
+        
+        return {
+            'id': solic.id,
+            'tipo': solic.tipo,
+            'especialidade': solic.especialidade,
+            'procedimento': solic.procedimento,
+            'codigo_paciente': solic.codigo_paciente,
+            'nome_paciente': solic.nome_paciente,
+            'judicializado': solic.judicializado,
+            'swallis': solic.swallis,
+            'medico_responsavel': solic.medico_responsavel,
+            'detalhes': solic.detalhes,
+            'tempo_standby': solic.tempo_standby,
+            'status': solic.status,
+            'data_criacao': solic.data_criacao,
+            'perfil_executor': solic.perfil_executor,
+            'usuario': solic.usuario,
+            'procedimento_anterior': solic.procedimento_anterior,
+            'origem_menu': solic.origem_menu,
+            'evento_tipo': 'SOLICITACAO'
+        }
+
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:
         cod_paciente_int = int(codigo_paciente)
         stmt = select(StatusLocal).where(StatusLocal.codigo_paciente == cod_paciente_int)

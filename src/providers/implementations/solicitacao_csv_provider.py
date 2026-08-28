@@ -156,6 +156,99 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
                 
         return solic_original
 
+    async def editar_solicitacao(self, id_solicitacao: str, dados_atualizados: Dict[str, Any], perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
+        solicitacoes = await self.listar_solicitacoes()
+        encontrado = False
+        solic_original = None
+        
+        for solic in solicitacoes:
+            if solic['id'] == id_solicitacao:
+                solic_original = solic
+                encontrado = True
+                break
+                
+        if not encontrado or not solic_original:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+            
+        if solic_original.get('status') != 'PENDENTE':
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Apenas solicitações com status PENDENTE podem ser editadas.")
+            
+        if solic_original.get('tipo') == 'EXCLUIR':
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solicitações de exclusão não podem ser editadas, apenas canceladas.")
+
+        campos_alterados = []
+        if 'especialidade' in dados_atualizados and dados_atualizados['especialidade'] and dados_atualizados['especialidade'] != solic_original.get('especialidade'):
+            campos_alterados.append(f"Especialidade: {solic_original.get('especialidade')} -> {dados_atualizados['especialidade']}")
+            solic_original['especialidade'] = dados_atualizados['especialidade']
+            
+        if 'procedimento' in dados_atualizados and dados_atualizados['procedimento'] and dados_atualizados['procedimento'] != solic_original.get('procedimento'):
+            campos_alterados.append(f"Procedimento: {solic_original.get('procedimento')} -> {dados_atualizados['procedimento']}")
+            solic_original['procedimento'] = dados_atualizados['procedimento']
+            
+        if 'judicializado' in dados_atualizados and dados_atualizados['judicializado'] != solic_original.get('judicializado'):
+            campos_alterados.append(f"Judicializado: {solic_original.get('judicializado')} -> {dados_atualizados['judicializado']}")
+            solic_original['judicializado'] = dados_atualizados['judicializado']
+            
+        if 'swallis' in dados_atualizados and dados_atualizados['swallis'] != (solic_original.get('swallis') or solic_original.get('swalis')):
+            campos_alterados.append(f"Swalis: {solic_original.get('swallis') or solic_original.get('swalis')} -> {dados_atualizados['swallis']}")
+            solic_original['swallis'] = dados_atualizados['swallis']
+            solic_original['swalis'] = dados_atualizados['swallis']
+            
+        if 'medico_responsavel' in dados_atualizados and dados_atualizados['medico_responsavel'] != solic_original.get('medico_responsavel'):
+            campos_alterados.append(f"Médico: {solic_original.get('medico_responsavel')} -> {dados_atualizados['medico_responsavel']}")
+            solic_original['medico_responsavel'] = dados_atualizados['medico_responsavel']
+            
+        if 'tempo_standby' in dados_atualizados and dados_atualizados['tempo_standby'] != solic_original.get('tempo_standby'):
+            campos_alterados.append(f"Standby: {solic_original.get('tempo_standby')}d -> {dados_atualizados['tempo_standby']}d")
+            solic_original['tempo_standby'] = str(dados_atualizados['tempo_standby']) if dados_atualizados['tempo_standby'] else ''
+            
+        if 'detalhes' in dados_atualizados and dados_atualizados['detalhes']:
+            solic_original['detalhes'] = dados_atualizados['detalhes']
+            
+        if 'procedimento_anterior' in dados_atualizados:
+            solic_original['procedimento_anterior'] = dados_atualizados['procedimento_anterior']
+
+        data_alteracao = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        resumo_mudancas = "; ".join(campos_alterados) if campos_alterados else "Atualização de justificativa/detalhes"
+        detalhes_historico = f"Editou a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')}) - {resumo_mudancas}. Justificativa: {solic_original.get('detalhes', '')}"
+
+        evento_alteracao = {
+            'id': str(uuid.uuid4())[:8],
+            'tipo': solic_original.get('tipo', 'INSERIR'),
+            'especialidade': solic_original.get('especialidade', ''),
+            'procedimento': solic_original.get('procedimento', ''),
+            'codigo_paciente': solic_original.get('codigo_paciente', ''),
+            'nome_paciente': solic_original.get('nome_paciente', ''),
+            'judicializado': solic_original.get('judicializado', 'Não'),
+            'swalis': solic_original.get('swalis', ''),
+            'medico_responsavel': solic_original.get('medico_responsavel', ''),
+            'detalhes': detalhes_historico,
+            'tempo_standby': solic_original.get('tempo_standby', ''),
+            'status': 'PENDENTE',
+            'data_criacao': data_alteracao,
+            'perfil_executor': perfil_executor or solic_original.get('perfil_executor', ''),
+            'usuario': usuario_executor or solic_original.get('usuario', ''),
+            'procedimento_anterior': solic_original.get('procedimento_anterior', ''),
+            'origem_menu': solic_original.get('origem_menu', 'Sistema LEC'),
+            'evento_tipo': 'ALTERACAO',
+            'data_acao': data_alteracao
+        }
+
+        solicitacoes.append(evento_alteracao)
+
+        with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
+            if solicitacoes:
+                fieldnames = list(solicitacoes[0].keys())
+                if 'evento_tipo' not in fieldnames:
+                    fieldnames.append('evento_tipo')
+                if 'origem_menu' not in fieldnames:
+                    fieldnames.append('origem_menu')
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+                writer.writeheader()
+                writer.writerows(solicitacoes)
+
+        return solic_original
+
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:
         status_atualizados = []
         encontrado = False

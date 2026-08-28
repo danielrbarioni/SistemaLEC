@@ -2,6 +2,8 @@ from typing import List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from fastapi import HTTPException, status
+
 from ..interfaces.paciente_provider_interface import PacienteProviderInterface
 from .paciente_postgres_provider import PacientePostgresProvider
 from .paciente_sqlite_provider import PacienteSqliteProvider
@@ -80,6 +82,10 @@ class HybridPacienteProvider(PacienteProviderInterface):
         if self.postgres:
             try:
                 return await self.postgres.obter_paciente_por_codigo(codigo)
+            except HTTPException as e:
+                # Se não encontrado no AGHU (404), verifica no SQLite local antes de falhar
+                if e.status_code != status.HTTP_404_NOT_FOUND:
+                    raise e
             except Exception as e:
                 print(f"Erro ao obter paciente {codigo} do AGHU: {e}. Executando fallback para SQLite local.")
         return await self.sqlite.obter_paciente_por_codigo(codigo)

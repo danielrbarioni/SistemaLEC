@@ -87,10 +87,11 @@
 
           <!-- 7. Solicitação ou Resposta -->
           <div class="form-group">
-            <label for="filtroEventoTipo" class="form-label font-semibold">Solicitação ou Resposta</label>
+            <label for="filtroEventoTipo" class="form-label font-semibold">Tipo de Evento</label>
             <select id="filtroEventoTipo" v-model="filtroEventoTipo" class="form-control text-xs">
               <option value="">Todas</option>
               <option value="SOLICITACAO">Solicitação</option>
+              <option value="ALTERACAO">Alteração (Edição)</option>
               <option value="RESPOSTA">Resposta</option>
             </select>
           </div>
@@ -139,7 +140,7 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prontuário / Paciente</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Especialidade / Procedimento</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitação ou Resposta</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo de Evento</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perfil Executor / Usuário Executor</th>
             </tr>
@@ -180,11 +181,14 @@
                 <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
               </td>
 
-              <!-- 6. Solicitação ou Resposta -->
+              <!-- 6. Solicitação, Alteração ou Resposta -->
               <td class="px-4 py-4 text-xs text-gray-600 max-w-xs" :title="solic.detalhes">
                 <div class="flex items-center space-x-1.5 mb-1">
                   <span v-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     Resposta
+                  </span>
+                  <span v-else-if="solic.evento_tipo === 'ALTERACAO' || solic.evento_tipo === 'EDICAO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    ✏️ Alteração
                   </span>
                   <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
                     Solicitação
@@ -435,11 +439,13 @@ const solicitacoesFiltradas = computed(() => {
         return false;
       }
 
-      // 6. Solicitação ou Resposta
+      // 6. Solicitação, Alteração ou Resposta
       if (filtroEventoTipo.value) {
         const isResp = s.evento_tipo === 'RESPOSTA' || s.is_resposta;
+        const isAlt = s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO';
         if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
-        if (filtroEventoTipo.value === 'SOLICITACAO' && isResp) return false;
+        if (filtroEventoTipo.value === 'ALTERACAO' && !isAlt) return false;
+        if (filtroEventoTipo.value === 'SOLICITACAO' && (isResp || isAlt)) return false;
       }
 
       // 7. Status

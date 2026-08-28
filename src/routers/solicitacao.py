@@ -3,14 +3,16 @@ from typing import List, Dict
 from pydantic import BaseModel
 
 from ..controllers import solicitacao_controller
-from ..dependencies import get_solicitacao_provider
+from ..dependencies import get_solicitacao_provider, get_paciente_provider
 from ..providers.interfaces.solicitacao_provider_interface import SolicitacaoProviderInterface
+from ..providers.interfaces.paciente_provider_interface import PacienteProviderInterface
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..resources.database import get_app_db_session
 from ..auth.auth import auth_handler
 
 import os
 STRATEGY = os.getenv("SOLICITACOES_PROVIDER_TYPE", "sqlite")
+PACIENTE_STRATEGY = os.getenv("PACIENTE_PROVIDER_TYPE", "sqlite")
 
 router = APIRouter(
     prefix="/api/solicitacoes",
@@ -35,6 +37,22 @@ class SolicitacaoCreate(BaseModel):
     procedimento_anterior: str = ""
     origem_menu: str = "Sistema LEC"
 
+class SolicitacaoUpdate(BaseModel):
+    especialidade: str = ""
+    procedimento: str = ""
+    codigo_paciente: str = ""
+    nome_paciente: str = ""
+    judicializado: str = "Não"
+    swalis: str = ""
+    swallis: str = ""
+    medico_responsavel: str = ""
+    detalhes: str = ""
+    tempo_standby: int = None
+    perfil_executor: str = ""
+    usuario: str = ""
+    procedimento_anterior: str = ""
+    origem_menu: str = "Sistema LEC"
+
 class SolicitacaoStatusUpdate(BaseModel):
     status: str
     perfil_executor: str = ""
@@ -48,6 +66,7 @@ class StatusLocalUpdate(BaseModel):
 async def criar_solicitacao(
     solic: SolicitacaoCreate,
     provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    paciente_provider: PacienteProviderInterface = Depends(get_paciente_provider(PACIENTE_STRATEGY)),
     user_info: dict = Depends(auth_handler.decode_token)
 ):
     """Envia uma nova solicitação (Inserir, Editar, Excluir, Stand-by)."""
@@ -63,7 +82,7 @@ async def criar_solicitacao(
     data["evento_tipo"] = "SOLICITACAO"
     if not data.get("usuario") and user_info:
         data["usuario"] = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
-    return await solicitacao_controller.criar_solicitacao(data, provider)
+    return await solicitacao_controller.criar_solicitacao(data, provider, paciente_provider)
 
 @router.get("", response_model=List[dict])
 async def listar_solicitacoes(
@@ -107,6 +126,36 @@ async def obter_solicitacao_por_paciente(
             detail="Nenhuma solicitação encontrada para este prontuário no Sistema LEC."
         )
     return solics_paciente[-1]
+
+@router.put("/{id_solicitacao}", response_model=dict)
+async def editar_solicitacao(
+    id_solicitacao: str,
+    solic_update: SolicitacaoUpdate,
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    paciente_provider: PacienteProviderInterface = Depends(get_paciente_provider(PACIENTE_STRATEGY)),
+    user_info: dict = Depends(auth_handler.decode_token)
+):
+    """Edita os dados de uma solicitação pendente e registra o evento de alteração no histórico."""
+    from .perfil import get_current_user_role
+    role = get_current_user_role(user_info)
+    if role in ["NENHUM", "OBSERVADOR"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solicite criação de usuário e associação a um perfil, no menu Perfis"
+        )
+
+    data = solic_update.model_dump()
+    perfil_executor = solic_update.perfil_executor or user_info.get("currentProfile") or role
+    usuario_executor = solic_update.usuario or user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
+
+    return await solicitacao_controller.editar_solicitacao(
+        id_solicitacao=id_solicitacao,
+        dados_atualizados=data,
+        provider=provider,
+        paciente_provider=paciente_provider,
+        perfil_executor=perfil_executor,
+        usuario_executor=usuario_executor
+    )
 
 @router.put("/{id_solicitacao}/status", response_model=dict)
 async def atualizar_status_solicitacao(

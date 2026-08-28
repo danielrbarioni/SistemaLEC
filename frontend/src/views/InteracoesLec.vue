@@ -57,8 +57,26 @@
         </button>
       </div>
 
+      <!-- Alerta de Modo de Edição de Solicitação Pendente -->
+      <div v-if="modoEdicaoSolicitacao" class="mb-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-xl text-xs text-amber-900 flex items-center justify-between shadow-sm">
+        <div class="flex items-center space-x-2">
+          <span class="text-base">✏️</span>
+          <div>
+            <span class="font-bold text-sm block">Modo de Edição de Solicitação #{{ solicitacaoEmEdicaoId }}</span>
+            <span>Você está editando uma solicitação pendente. Modifique os dados necessários e clique em <strong>"Salvar Alterações"</strong>.</span>
+          </div>
+        </div>
+        <button 
+          type="button" 
+          @click="cancelarEdicaoSolicitacao" 
+          class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-bold rounded-lg text-xs transition cursor-pointer"
+        >
+          ✕ Cancelar Edição
+        </button>
+      </div>
+
       <!-- Alerta indicando a origem dos dados quando buscados na Sede -->
-      <div v-if="abaAtiva !== 'INSERIR' && formCarregadoDaSede" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center space-x-2">
+      <div v-if="!modoEdicaoSolicitacao && abaAtiva !== 'INSERIR' && formCarregadoDaSede" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center space-x-2">
         <span>✅ Dados da solicitação ativa carregados com sucesso da <strong>Solicitações LEC Sede</strong>.</span>
       </div>
 
@@ -75,14 +93,20 @@
                 type="text" 
                 placeholder="Prontuário" 
                 class="form-control"
+                @keydown.enter.prevent="buscarDados(false)"
                 required
               />
-              <Button type="button" @click="buscarDados" :disabled="loadingBusca" variant="info" class="whitespace-nowrap">
+              <Button type="button" @click="() => buscarDados(false)" :disabled="loadingBusca || !form.codigo_paciente" variant="info" class="whitespace-nowrap">
                 {{ loadingBusca ? '...' : 'Buscar' }}
               </Button>
             </div>
-            <p class="text-xs text-gray-400 mt-1">
-              {{ abaAtiva === 'INSERIR' ? 'Busca dados no AGHU' : 'Puxa dados do módulo Pacientes' }}
+            <p class="text-xs mt-1" :class="abaAtiva === 'INSERIR' && pacienteValidadoNoAghu ? (form.nome_paciente.includes('não identificado no AGHU') ? 'text-amber-600 font-semibold' : 'text-green-600 font-semibold') : 'text-gray-400'">
+              {{ abaAtiva === 'INSERIR' 
+                ? (pacienteValidadoNoAghu 
+                    ? (form.nome_paciente.includes('não identificado no AGHU') ? '⚠️ Prontuário não localizado no AGHU (Confirmado para inclusão)' : '✓ Paciente validado no AGHU') 
+                    : 'Digite o prontuário e clique em "Buscar" para validar no AGHU') 
+                : 'Puxa dados do módulo Pacientes' 
+              }}
             </p>
           </div>
 
@@ -416,11 +440,29 @@
 
         <!-- Botões -->
         <div class="flex justify-end space-x-3 pt-2">
-          <Button type="button" @click="limparFormulario" variant="secondary" :disabled="(perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR'">
+          <Button 
+            v-if="modoEdicaoSolicitacao" 
+            type="button" 
+            @click="cancelarEdicaoSolicitacao" 
+            variant="secondary"
+          >
+            Cancelar Edição
+          </Button>
+          <Button 
+            v-else 
+            type="button" 
+            @click="limparFormulario" 
+            variant="secondary" 
+            :disabled="(perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR'"
+          >
             Limpar
           </Button>
-          <Button type="submit" :disabled="submitting || (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR'" :variant="abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary'">
-            {{ (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' ? 'Somente Leitura' : (submitting ? 'Enviando...' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação')) }}
+          <Button 
+            type="submit" 
+            :disabled="submitting || (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' || (abaAtiva === 'INSERIR' && !pacienteValidadoNoAghu)" 
+            :variant="modoEdicaoSolicitacao ? 'warning' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary')"
+          >
+            {{ (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' ? 'Somente Leitura' : (submitting ? 'Salvando...' : (modoEdicaoSolicitacao ? 'Salvar Alterações da Solicitação' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação'))) }}
           </Button>
         </div>
       </form>
@@ -476,11 +518,15 @@
             id="filtroEsp"
             type="text"
             v-model="filtroEsp"
+            list="filtro-especialidades-lista"
             :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
-            placeholder="Filtrar por especialidade..."
+            placeholder="Digite para pesquisar especialidade..."
             class="form-control text-xs"
             :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
           />
+          <datalist id="filtro-especialidades-lista">
+            <option v-for="esp in especialidadesFiltroLista" :key="esp" :value="esp" />
+          </datalist>
         </div>
 
         <!-- Prontuário / Paciente -->
@@ -738,6 +784,15 @@
                 <!-- Ações (Condicional para Pendentes) -->
                 <td v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-3 py-2.5 text-center whitespace-nowrap">
                   <div v-if="solic.status === 'PENDENTE' && (perfisStore.perfilAtivo?.tipo === 'GESTAO_LEC' || perfisStore.perfilAtivo?.tipo === 'ADMIN')" class="flex items-center justify-center space-x-1.5">
+                    <Button 
+                      v-if="solic.tipo !== 'EXCLUIR'" 
+                      @click="iniciarEdicaoSolicitacao(solic)" 
+                      variant="secondary" 
+                      size="sm" 
+                      title="Editar dados desta solicitação pendente"
+                    >
+                      ✏️ Editar
+                    </Button>
                     <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
                       Aprovar
                     </Button>
@@ -745,9 +800,23 @@
                       Rejeitar
                     </Button>
                   </div>
-                  <div v-else-if="solic.status === 'PENDENTE' && perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'" class="flex justify-center">
+                  <div v-else-if="solic.status === 'PENDENTE' && perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'" class="flex items-center justify-center space-x-1.5">
+                    <Button 
+                      v-if="solic.tipo !== 'EXCLUIR'" 
+                      @click="iniciarEdicaoSolicitacao(solic)" 
+                      variant="secondary" 
+                      size="sm" 
+                      title="Editar dados desta solicitação pendente"
+                    >
+                      ✏️ Editar
+                    </Button>
                     <Button @click="solicitarCancelamento(solic)" variant="danger" size="sm">
                       Cancelar
+                    </Button>
+                  </div>
+                  <div v-else-if="solic.status === 'PENDENTE' && solic.tipo !== 'EXCLUIR' && (perfisStore.perfilAtivo?.tipo as string) !== 'OBSERVADOR'" class="flex justify-center">
+                    <Button @click="iniciarEdicaoSolicitacao(solic)" variant="secondary" size="sm" title="Editar dados desta solicitação pendente">
+                      ✏️ Editar
                     </Button>
                   </div>
                   <span v-else class="text-gray-400">-</span>
@@ -983,6 +1052,41 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Confirmação para Prontuário Não Identificado no AGHU -->
+    <div v-if="modalConfirmacaoProntuarioNaoLocalizado.aberto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-gray-200">
+        <div class="flex items-start space-x-3">
+          <div class="p-2.5 bg-amber-100 text-amber-800 rounded-full text-xl flex-shrink-0">
+            ⚠️
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-gray-900">Atenção: Prontuário não localizado</h3>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Prontuário <strong>#{{ modalConfirmacaoProntuarioNaoLocalizado.prontuario }}</strong>
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 space-y-2">
+          <p class="font-medium text-xs leading-relaxed">
+            Número de prontuário não identificado no AGHU. Deseja continuar com a solicitação de inclusão desse prontuário mesmo assim?
+          </p>
+          <p class="text-[11px] text-amber-700 italic">
+            Caso continue, o nome do paciente será registrado como "Prontuário {{ modalConfirmacaoProntuarioNaoLocalizado.prontuario }} não identificado no AGHU".
+          </p>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-2 border-t border-gray-150">
+          <Button @click="confirmarInserirNovoProntuario" variant="secondary" size="sm">
+            Inserir novo prontuário
+          </Button>
+          <Button @click="confirmarContinuarSemAghu" variant="primary" size="sm">
+            Continuar
+          </Button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1049,6 +1153,44 @@ const form = ref({
   tempo_standby: undefined as number | undefined
 });
 
+const pacienteValidadoNoAghu = ref(false);
+const modoEdicaoSolicitacao = ref(false);
+const solicitacaoEmEdicaoId = ref<string | null>(null);
+
+const modalConfirmacaoProntuarioNaoLocalizado = ref({
+  aberto: false,
+  prontuario: ''
+});
+
+const confirmarInserirNovoProntuario = () => {
+  modalConfirmacaoProntuarioNaoLocalizado.value.aberto = false;
+  form.value.codigo_paciente = '';
+  limparFormulario();
+};
+
+const confirmarContinuarSemAghu = () => {
+  const cod = modalConfirmacaoProntuarioNaoLocalizado.value.prontuario || form.value.codigo_paciente;
+  modalConfirmacaoProntuarioNaoLocalizado.value.aberto = false;
+  form.value.nome_paciente = `Prontuário ${cod} não identificado no AGHU`;
+  form.value.dt_nascimento = '';
+  form.value.nome_mae = '';
+  pacienteValidadoNoAghu.value = true;
+  toast.info(`Prosseguindo com a solicitação para o Prontuário #${cod}.`);
+};
+
+// Invalida a busca e limpa os dados do paciente ao alterar o número do prontuário
+watch(() => form.value.codigo_paciente, (newVal, oldVal) => {
+  if (newVal !== oldVal) {
+    pacienteValidadoNoAghu.value = false;
+    form.value.nome_paciente = '';
+    form.value.dt_nascimento = '';
+    form.value.nome_mae = '';
+    formCarregadoDaSede.value = false;
+    procedimentosPaciente.value = [];
+    procedimentoSelecionadoParaEdicao.value = null;
+  }
+});
+
 const procedimentosAghuMap = ref<Record<string, string[]>>({});
 const carregandoProcedimentosAghu = ref(false);
 
@@ -1106,6 +1248,18 @@ const procedimentosDaEspecialidade = computed(() => {
 
   const raw = [...listFromAghu, ...extraProcs];
   return desduplicarProcedimentos(raw);
+});
+
+// Lista de especialidades dos perfis criados no menu Perfis (para a caixa de listagem de Especialidade)
+const especialidadesFiltroLista = computed(() => {
+  const perfis = perfisStore.perfis;
+  const lista = perfis
+    .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
+    .map(p => (p.especialidade || p.nome).trim())
+    .filter((nome, index, self) => nome && self.indexOf(nome) === index)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  return lista;
 });
 
 // Médicos conhecidos extraídos das solicitações (para o autocomplete)
@@ -1284,8 +1438,8 @@ const solicitacoesFiltradas = computed(() => {
     }
   }
 
-  // Apenas solicitações originais (desconsidera linhas avulsas de RESPOSTA na listagem)
-  let list = solicitacoes.value.filter(s => s.evento_tipo !== 'RESPOSTA' && !s.is_resposta);
+  // Apenas solicitações originais (desconsidera linhas avulsas de RESPOSTA ou ALTERAÇÃO na listagem)
+  let list = solicitacoes.value.filter(s => s.evento_tipo !== 'RESPOSTA' && !s.is_resposta && s.evento_tipo !== 'ALTERACAO' && s.evento_tipo !== 'EDICAO');
   
   // 1. Filtra pelo tipo correspondente à aba de acompanhamento (Inclusão, Edição, Standby, Exclusão)
   list = list.filter(s => s.tipo === abaAcompanhamentoAtiva.value);
@@ -1465,6 +1619,8 @@ const formatarDataHora = (dataStr: string) => {
 };
 
 const limparFormulario = (manterCodigo = false) => {
+  modoEdicaoSolicitacao.value = false;
+  solicitacaoEmEdicaoId.value = null;
   const codSalvo = manterCodigo ? form.value.codigo_paciente : '';
   form.value = {
     especialidade: '',
@@ -1480,6 +1636,7 @@ const limparFormulario = (manterCodigo = false) => {
     detalhes: '',
     tempo_standby: undefined
   };
+  pacienteValidadoNoAghu.value = false;
   formCarregadoDaSede.value = false;
   procedimentosPaciente.value = [];
   procedimentoSelecionadoParaEdicao.value = null;
@@ -1491,6 +1648,49 @@ const limparFormulario = (manterCodigo = false) => {
     const found = especialidades.value.find(e => e.nome.toLowerCase().includes(profile.especialidade!.toLowerCase()));
     form.value.especialidade = found ? found.nome : profile.especialidade;
   }
+};
+
+const iniciarEdicaoSolicitacao = (solic: any) => {
+  modoEdicaoSolicitacao.value = true;
+  solicitacaoEmEdicaoId.value = String(solic.id);
+  abaAtiva.value = solic.tipo;
+  
+  form.value = {
+    especialidade: solic.especialidade || '',
+    procedimento: solic.procedimento || '',
+    procedimento_anterior: solic.procedimento_anterior || '',
+    codigo_paciente: String(solic.codigo_paciente || ''),
+    nome_paciente: solic.nome_paciente || '',
+    dt_nascimento: '',
+    nome_mae: '',
+    judicializado: solic.judicializado || 'Não',
+    swallis: solic.swallis || solic.swalis || '',
+    medico_responsavel: solic.medico_responsavel || '',
+    detalhes: solic.detalhes || '',
+    tempo_standby: solic.tempo_standby || undefined
+  };
+
+  pacienteValidadoNoAghu.value = true;
+  formCarregadoDaSede.value = true;
+  if (solic.tipo === 'EDITAR' && solic.procedimento_anterior && solic.procedimento !== solic.procedimento_anterior) {
+    desejaAlterarProcedimento.value = 'Sim';
+  } else {
+    desejaAlterarProcedimento.value = 'Não';
+  }
+
+  if (solic.tipo === 'STANDBY') {
+    opcaoStandbyVigente.value = 'NOVO';
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast.info(`Editando solicitação #${solic.id}. Altere os dados e clique em "Salvar Alterações".`);
+};
+
+const cancelarEdicaoSolicitacao = () => {
+  modoEdicaoSolicitacao.value = false;
+  solicitacaoEmEdicaoId.value = null;
+  limparFormulario();
+  toast.info('Edição cancelada.');
 };
 
 // Preenche o formulário ao selecionar o procedimento para edição/exclusão/standby
@@ -1521,27 +1721,47 @@ const buscarDados = async (isAutomatic = false) => {
   procedimentosPaciente.value = [];
   procedimentoSelecionadoParaEdicao.value = null;
 
+  let pacData: any = null;
   try {
-    // 1. Busca dados cadastrais do paciente no AGHU (Cadastro de Pacientes)
-    let pacData;
-    try {
-      const resp = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
-      pacData = resp.data;
-      form.value.nome_paciente = pacData.nome;
-      form.value.dt_nascimento = pacData.dt_nascimento;
-      form.value.nome_mae = pacData.nome_mae;
-    } catch {
-      toast.error('Paciente não encontrado no AGHU (Cadastro de Pacientes).');
-      limparFormulario();
-      return;
-    }
-
     if (abaAtiva.value === 'INSERIR') {
-      if (!isAutomatic) {
-        toast.success(`Paciente localizado no AGHU: ${pacData.nome}`);
+      // 1. Busca dados cadastrais do paciente no AGHU (Cadastro de Pacientes)
+      try {
+        const resp = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
+        pacData = resp.data;
+        if (!pacData || !pacData.nome || String(pacData.nome).toLowerCase().startsWith('paciente #')) {
+          throw new Error('Paciente não encontrado');
+        }
+        form.value.nome_paciente = pacData.nome;
+        form.value.dt_nascimento = pacData.dt_nascimento;
+        form.value.nome_mae = pacData.nome_mae;
+        pacienteValidadoNoAghu.value = true;
+        if (!isAutomatic) {
+          toast.success(`Paciente localizado no AGHU: ${pacData.nome}`);
+        }
+      } catch {
+        pacienteValidadoNoAghu.value = false;
+        // Abre o diálogo de confirmação para o usuário
+        modalConfirmacaoProntuarioNaoLocalizado.value = {
+          aberto: true,
+          prontuario: String(form.value.codigo_paciente)
+        };
+        return;
       }
     } else {
-      // 2. EDITAR / EXCLUIR / STANDBY: Busca procedimentos do paciente no histórico de solicitações da LEC
+      // 2. EDITAR / EXCLUIR / STANDBY: Tenta buscar dados do AGHU se existirem
+      try {
+        const resp = await api.get(`/api/pacientes/${form.value.codigo_paciente}`);
+        pacData = resp.data;
+        if (pacData && pacData.nome && !String(pacData.nome).toLowerCase().startsWith('paciente #')) {
+          form.value.nome_paciente = pacData.nome;
+          form.value.dt_nascimento = pacData.dt_nascimento;
+          form.value.nome_mae = pacData.nome_mae;
+        }
+      } catch {
+        // Ignora erro do AGHU nas outras abas
+      }
+
+      // Busca procedimentos do paciente no histórico de solicitações da LEC
       const { data: solicsData } = await api.get('/api/solicitacoes');
       const especialidadeAtual = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
         ? perfisStore.perfilAtivo.especialidade.toLowerCase()
@@ -1686,6 +1906,15 @@ const carregarSolicitacoes = async () => {
 };
 
 const enviarSolicitacao = async () => {
+  // Validação da Inclusão: obriga que o paciente tenha sido buscado no AGHU ou confirmado pelo usuário
+  if (abaAtiva.value === 'INSERIR') {
+    const nomePac = (form.value.nome_paciente || '').trim();
+    if (!pacienteValidadoNoAghu.value || !nomePac) {
+      toast.error('Por favor, clique no botão "Buscar" e confirme a localização ou identificação do prontuário antes de enviar a solicitação.');
+      return;
+    }
+  }
+
   // Validação do Médico Responsável (deve ser um médico cadastrado na especialidade)
   if (abaAtiva.value === 'INSERIR' || abaAtiva.value === 'EDITAR') {
     const medDigitado = (form.value.medico_responsavel || '').trim();
@@ -1758,27 +1987,48 @@ const enviarSolicitacao = async () => {
 
   submitting.value = true;
   try {
-    await api.post('/api/solicitacoes', {
-      tipo: tipoFinal,
-      especialidade: form.value.especialidade,
-      procedimento: form.value.procedimento,
-      codigo_paciente: form.value.codigo_paciente,
-      nome_paciente: form.value.nome_paciente,
-      judicializado: form.value.judicializado,
-      swalis: form.value.swallis,
-      swallis: form.value.swallis,
-      medico_responsavel: form.value.medico_responsavel,
-      detalhes: form.value.detalhes,
-      tempo_standby: tempoStandbyFinal,
-      perfil_executor: perfisStore.perfilAtivo.tipo,
-      usuario: authStore.user?.username || 'Usuário Sistema',
-      procedimento_anterior: form.value.procedimento_anterior || undefined
-    });
-    toast.success('Solicitação registrada com sucesso!');
+    if (modoEdicaoSolicitacao.value && solicitacaoEmEdicaoId.value) {
+      await api.put(`/api/solicitacoes/${solicitacaoEmEdicaoId.value}`, {
+        especialidade: form.value.especialidade,
+        procedimento: form.value.procedimento,
+        codigo_paciente: form.value.codigo_paciente,
+        nome_paciente: form.value.nome_paciente,
+        judicializado: form.value.judicializado,
+        swalis: form.value.swallis,
+        swallis: form.value.swallis,
+        medico_responsavel: form.value.medico_responsavel,
+        detalhes: form.value.detalhes,
+        tempo_standby: tempoStandbyFinal,
+        perfil_executor: perfisStore.perfilAtivo.tipo,
+        usuario: authStore.user?.username || 'Usuário Sistema',
+        procedimento_anterior: form.value.procedimento_anterior || undefined
+      });
+      toast.success('Solicitação atualizada com sucesso!');
+    } else {
+      await api.post('/api/solicitacoes', {
+        tipo: tipoFinal,
+        especialidade: form.value.especialidade,
+        procedimento: form.value.procedimento,
+        codigo_paciente: form.value.codigo_paciente,
+        nome_paciente: form.value.nome_paciente,
+        judicializado: form.value.judicializado,
+        swalis: form.value.swallis,
+        swallis: form.value.swallis,
+        medico_responsavel: form.value.medico_responsavel,
+        detalhes: form.value.detalhes,
+        tempo_standby: tempoStandbyFinal,
+        perfil_executor: perfisStore.perfilAtivo.tipo,
+        usuario: authStore.user?.username || 'Usuário Sistema',
+        procedimento_anterior: form.value.procedimento_anterior || undefined
+      });
+      toast.success('Solicitação registrada com sucesso!');
+    }
+    modoEdicaoSolicitacao.value = false;
+    solicitacaoEmEdicaoId.value = null;
     limparFormulario();
     await carregarSolicitacoes();
   } catch (error: any) {
-    const errorMsg = error.response?.data?.detail || 'Erro ao registrar solicitação.';
+    const errorMsg = error.response?.data?.detail || 'Erro ao processar solicitação.';
     toast.error(errorMsg);
   } finally {
     submitting.value = false;
@@ -2093,6 +2343,7 @@ watch([solicitacoesFiltradas, abaAcompanhamentoAtiva, subAbaAcompanhamento], () 
 });
 
 onMounted(() => {
+  perfisStore.fetchPerfis();
   carregarSolicitacoes();
   carregarPacientesBase();
   carregarUsuariosLocais();

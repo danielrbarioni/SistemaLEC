@@ -20,6 +20,11 @@ class SolicitacaoProviderInterface(ABC):
         pass
 
     @abstractmethod
+    async def editar_solicitacao(self, id_solicitacao: str, dados_atualizados: Dict[str, Any], perfil_executor: str = "", usuario_executor: str = "") -> Dict[str, Any]:
+        """Edita os dados de uma solicitação pendente e registra o evento de alteração no histórico."""
+        pass
+
+    @abstractmethod
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:
         """Salva o status local (HC-UFPE) de um paciente (ex: 'Exames Prontos')."""
         pass
