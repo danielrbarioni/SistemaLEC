@@ -120,25 +120,49 @@
           </select>
         </div>
 
-        <!-- Filtros para Pacientes com Múltiplos Procedimentos ou Múltiplas Especialidades -->
-        <div class="form-group flex flex-wrap items-center gap-3 pt-2 md:col-span-2 lg:col-span-4">
-          <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
-            <input 
-              type="checkbox" 
-              v-model="filtroApenasMultiplos" 
-              class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
-            />
-            <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 procedimento cadastrado</span>
-          </label>
+        <!-- Filtros para Pacientes com Procedimentos ou Especialidades -->
+        <div class="form-group grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 md:col-span-2 lg:col-span-4">
+          <!-- Coluna Procedimentos -->
+          <div class="flex flex-col gap-2">
+            <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+              <input 
+                type="checkbox" 
+                v-model="filtroApenasUmProcedimento" 
+                class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com 1 procedimento cadastrado</span>
+            </label>
 
-          <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
-            <input 
-              type="checkbox" 
-              v-model="filtroApenasMultiplasEspecialidades" 
-              class="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
-            />
-            <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 especialidade vinculada</span>
-          </label>
+            <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+              <input 
+                type="checkbox" 
+                v-model="filtroApenasMultiplos" 
+                class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 procedimento cadastrado</span>
+            </label>
+          </div>
+
+          <!-- Coluna Especialidades -->
+          <div class="flex flex-col gap-2">
+            <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+              <input 
+                type="checkbox" 
+                v-model="filtroApenasUmaEspecialidade" 
+                class="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com 1 especialidade vinculada</span>
+            </label>
+
+            <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+              <input 
+                type="checkbox" 
+                v-model="filtroApenasMultiplasEspecialidades" 
+                class="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 especialidade vinculada</span>
+            </label>
+          </div>
         </div>
       </div>
     </Card>
@@ -445,7 +469,9 @@ const filtroProcedimento = ref('');
 const filtroMedico = ref('');
 const filtroJudicializado = ref('');
 const filtroSwalis = ref('');
+const filtroApenasUmProcedimento = ref(false);
 const filtroApenasMultiplos = ref(false);
+const filtroApenasUmaEspecialidade = ref(false);
 const filtroApenasMultiplasEspecialidades = ref(false);
 const usuarios = ref<any[]>([]);
 
@@ -543,6 +569,22 @@ watch(espSelecionada, async (newEsp) => {
     }
   }
 }, { immediate: true });
+
+watch(filtroApenasUmProcedimento, (val) => {
+  if (val) filtroApenasMultiplos.value = false;
+});
+
+watch(filtroApenasMultiplos, (val) => {
+  if (val) filtroApenasUmProcedimento.value = false;
+});
+
+watch(filtroApenasUmaEspecialidade, (val) => {
+  if (val) filtroApenasMultiplasEspecialidades.value = false;
+});
+
+watch(filtroApenasMultiplasEspecialidades, (val) => {
+  if (val) filtroApenasUmaEspecialidade.value = false;
+});
 
 const procedimentosOpcoes = computed(() => {
   const esp = espSelecionada.value;
@@ -986,10 +1028,12 @@ const pacientesProcessados = computed(() => {
     .filter(pac => {
       if (pac.procedimentos.length === 0) return false;
       
-      // Filtro para mais de 1 procedimento cadastrado
+      // Filtro para procedimentos (1 ou múltiplos)
+      if (filtroApenasUmProcedimento.value && pac.totalProcedimentosGerais !== 1) return false;
       if (filtroApenasMultiplos.value && pac.totalProcedimentosGerais <= 1) return false;
 
-      // Filtro para mais de 1 especialidade vinculada
+      // Filtro para especialidades (1 ou múltiplas)
+      if (filtroApenasUmaEspecialidade.value && pac.totalEspecialidadesGerais !== 1) return false;
       if (filtroApenasMultiplasEspecialidades.value && pac.totalEspecialidadesGerais <= 1) return false;
 
       let matchBusca = true;
