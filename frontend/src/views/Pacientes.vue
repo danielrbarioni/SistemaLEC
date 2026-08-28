@@ -186,6 +186,7 @@
               <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Procedimento</th>
               <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Judicialização</th>
               <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Swalis</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Data de Inserção</th>
               <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Médico Responsável</th>
             </tr>
           </thead>
@@ -253,6 +254,11 @@
                 <span :class="getSwalisClass(row.Swalis)" :title="getSwalisLabel(row.Swalis)">
                   {{ row.Swalis }}
                 </span>
+              </td>
+
+              <!-- Data de Inserção -->
+              <td class="px-4 py-3 text-center whitespace-nowrap font-mono text-xs text-gray-700">
+                {{ formatarDataHora(row.data_insercao) }}
               </td>
 
               <!-- Médico Responsável -->
@@ -346,7 +352,14 @@
                 </div>
 
                 <!-- Detalhes Específicos do Procedimento -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-slate-50 p-3.5 rounded-lg border border-slate-100">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-slate-50 p-3.5 rounded-lg border border-slate-100">
+                  <div>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Data de Inserção</span>
+                    <span class="text-gray-900 font-mono font-medium mt-0.5 block">
+                      {{ formatarDataHora(proc.data_insercao) }}
+                    </span>
+                  </div>
+
                   <div>
                     <span class="text-gray-400 font-semibold block uppercase text-[10px]">Judicialização</span>
                     <span :class="proc.judicializado === 'Sim' ? 'text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded inline-block mt-0.5' : 'text-gray-800 font-medium'">
@@ -603,6 +616,110 @@ const formatarData = (dataStr: string) => {
   }
 };
 
+const formatarDataHora = (dataStr?: string) => {
+  if (!dataStr || dataStr === '—' || dataStr === 'Não informado') return '—';
+  try {
+    const cleaned = String(dataStr).trim().replace('T', ' ');
+    const parts = cleaned.split(' ');
+    const dataPart = parts[0];
+    const horaPart = parts[1] || '';
+
+    let dia = '', mes = '', ano = '';
+    if (dataPart.includes('-')) {
+      const p = dataPart.split('-');
+      if (p[0].length === 4) {
+        [ano, mes, dia] = p;
+      } else {
+        [dia, mes, ano] = p;
+      }
+    } else if (dataPart.includes('/')) {
+      const p = dataPart.split('/');
+      if (p[0].length === 4) {
+        [ano, mes, dia] = p;
+      } else {
+        [dia, mes, ano] = p;
+      }
+    } else {
+      return dataStr;
+    }
+
+    let horaFormatada = '';
+    if (horaPart) {
+      const hParts = horaPart.split(':');
+      if (hParts.length >= 2) {
+        horaFormatada = `${hParts[0].padStart(2, '0')}:${hParts[1].padStart(2, '0')}`;
+      }
+    }
+
+    const dataFormatada = `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${ano}`;
+    return horaFormatada ? `${dataFormatada} ${horaFormatada}` : dataFormatada;
+  } catch (e) {
+    return dataStr;
+  }
+};
+
+const getSwalisPriorityRank = (swalisVal?: string): number => {
+  if (!swalisVal) return 99;
+  const clean = String(swalisVal).trim().toUpperCase();
+  switch (clean) {
+    case 'A1': return 1;
+    case 'A2': return 2;
+    case 'B':  return 3;
+    case 'C':  return 4;
+    case 'D':  return 5;
+    default:   return 99;
+  }
+};
+
+const parseDataHoraSort = (dStr?: string): number => {
+  if (!dStr || dStr === '—' || dStr === 'Não informado') return Infinity;
+  try {
+    const cleaned = String(dStr).trim().replace('T', ' ');
+    const parts = cleaned.split(' ');
+    const dataPart = parts[0];
+    const horaPart = parts[1] || '00:00:00';
+
+    let ano = 9999, mes = 12, dia = 31;
+    if (dataPart.includes('-')) {
+      const p = dataPart.split('-');
+      if (p[0].length === 4) {
+        ano = parseInt(p[0], 10);
+        mes = parseInt(p[1], 10);
+        dia = parseInt(p[2], 10);
+      } else {
+        dia = parseInt(p[0], 10);
+        mes = parseInt(p[1], 10);
+        ano = parseInt(p[2], 10);
+      }
+    } else if (dataPart.includes('/')) {
+      const p = dataPart.split('/');
+      if (p[0].length === 4) {
+        ano = parseInt(p[0], 10);
+        mes = parseInt(p[1], 10);
+        dia = parseInt(p[2], 10);
+      } else {
+        dia = parseInt(p[0], 10);
+        mes = parseInt(p[1], 10);
+        ano = parseInt(p[2], 10);
+      }
+    } else {
+      const dt = new Date(cleaned);
+      if (!isNaN(dt.getTime())) return dt.getTime();
+      return Infinity;
+    }
+
+    const hParts = horaPart.split(':');
+    const hh = parseInt(hParts[0], 10) || 0;
+    const mm = parseInt(hParts[1], 10) || 0;
+    const ss = parseInt(hParts[2], 10) || 0;
+
+    const dt = new Date(ano, mes - 1, dia, hh, mm, ss);
+    return isNaN(dt.getTime()) ? Infinity : dt.getTime();
+  } catch (e) {
+    return Infinity;
+  }
+};
+
 const calcularTempoStandbyRestante = (tempoOriginal: number | null, dataStr?: string) => {
   if (!tempoOriginal || tempoOriginal <= 0) return null;
   if (!dataStr) return tempoOriginal;
@@ -713,6 +830,7 @@ const todosPacientesMap = computed(() => {
         procedimento: s.procedimento,
         judicializado: s.judicializado || 'Não',
         Swalis: s.swalis || s.swallis || s.Swalis || s.Swallis || '—',
+        data_insercao: s.data_criacao || '—',
         medico_responsavel: resolverMedicoNome(s.medico_responsavel),
         status: 'ATIVO',
         tempo_standby: null
@@ -726,6 +844,9 @@ const todosPacientesMap = computed(() => {
         const novoSwalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '';
         proc.Swalis = novoSwalis || proc.Swalis || '—';
         proc.medico_responsavel = resolverMedicoNome(s.medico_responsavel);
+        if (!proc.data_insercao || proc.data_insercao === '—') {
+          proc.data_insercao = s.data_criacao || '—';
+        }
       }
     } else if (s.tipo === 'EXCLUIR') {
       pac.procedimentos = pac.procedimentos.filter((p: any) => !( (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento) ));
@@ -754,12 +875,28 @@ const todosPacientesMap = computed(() => {
           procedimento: baseMatch.procedimento,
           judicializado: 'Não',
           Swalis: baseMatch.swalis || baseMatch.swallis || '—',
+          data_insercao: baseMatch.data_hora_inicio || '—',
           medico_responsavel: resolverMedicoNome(baseMatch.medico_responsavel),
           status: 'ATIVO',
           tempo_standby: null
         });
       }
     }
+
+    // Ordena os procedimentos de cada paciente também pelos critérios clínicos
+    pac.procedimentos.sort((a: any, b: any) => {
+      const rankA = getSwalisPriorityRank(a.Swalis || a.swalis || a.swallis);
+      const rankB = getSwalisPriorityRank(b.Swalis || b.swalis || b.swallis);
+      if (rankA !== rankB) return rankA - rankB;
+
+      const timeA = parseDataHoraSort(a.data_insercao);
+      const timeB = parseDataHoraSort(b.data_insercao);
+      if (timeA !== timeB) return timeA - timeB;
+
+      const procA = (a.procedimento || '').trim();
+      const procB = (b.procedimento || '').trim();
+      return procA.localeCompare(procB, 'pt-BR');
+    });
   }
 
   return pacMap;
@@ -859,7 +996,11 @@ function fecharModalPaciente() {
   pacienteSelecionadoModal.value = null;
 }
 
-// Mapeia os pacientes filtrados em linhas individuais de procedimento (Flat Table) com ordenação alfabética e por data de nascimento
+// Mapeia os pacientes filtrados em linhas individuais de procedimento (Flat Table)
+// com ordenação hierárquica multi-critério:
+// 1º Critério: Swalis (do mais crítico para o menos crítico)
+// 2º Critério: Data/Hora de Inserção na LEC (do mais antigo para o mais recente)
+// 3º Critério: Ordem Alfabética (Nome do Paciente e Procedimento)
 const procedimentosFlat = computed(() => {
   const list: any[] = [];
 
@@ -875,6 +1016,7 @@ const procedimentosFlat = computed(() => {
         procedimento: proc.procedimento,
         judicializado: proc.judicializado || 'Não',
         Swalis: proc.Swalis || proc.swalis || proc.swallis || '—',
+        data_insercao: proc.data_insercao || '—',
         medico_responsavel: proc.medico_responsavel || 'Não informado',
         status: proc.status,
         tempo_standby: proc.tempo_standby,
@@ -883,9 +1025,22 @@ const procedimentosFlat = computed(() => {
     }
   }
 
-  // Ordena primeiramente por Nome Completo (Ordem Alfabética em pt-BR)
-  // Em caso de empate absoluto de Nome, ordena por Data de Nascimento (da mais antiga para a mais recente)
   return list.sort((a, b) => {
+    // 1º Critério: Swalis (do mais crítico para o menos crítico: A1 > A2 > B > C > D > Sem Swalis)
+    const rankA = getSwalisPriorityRank(a.Swalis);
+    const rankB = getSwalisPriorityRank(b.Swalis);
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+
+    // 2º Critério: Data/Hora de Inserção na LEC (do mais antigo para o mais recente / ASC)
+    const timeA = parseDataHoraSort(a.data_insercao);
+    const timeB = parseDataHoraSort(b.data_insercao);
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    // 3º Critério: Ordem Alfabética (Nome do Paciente em pt-BR)
     const nomeA = (a.nome || '').trim();
     const nomeB = (b.nome || '').trim();
     const diffNome = nomeA.localeCompare(nomeB, 'pt-BR');
@@ -894,8 +1049,16 @@ const procedimentosFlat = computed(() => {
       return diffNome;
     }
 
-    // Fallback de empate pelo nome: compara data de nascimento (AAAA-MM-DD ou DD/MM/AAAA)
-    const parseData = (dStr: string) => {
+    // Fallback de desempate alfabético por nome do procedimento
+    const procA = (a.procedimento || '').trim();
+    const procB = (b.procedimento || '').trim();
+    const diffProc = procA.localeCompare(procB, 'pt-BR');
+    if (diffProc !== 0) {
+      return diffProc;
+    }
+
+    // Fallback final: Data de Nascimento (da mais antiga para a mais recente)
+    const parseDataNasc = (dStr: string) => {
       if (!dStr || dStr === '—') return '9999-99-99';
       if (dStr.includes('/')) {
         const parts = dStr.split('/');
@@ -904,8 +1067,8 @@ const procedimentosFlat = computed(() => {
       return dStr;
     };
 
-    const dataA = parseData(a.dt_nascimento);
-    const dataB = parseData(b.dt_nascimento);
+    const dataA = parseDataNasc(a.dt_nascimento);
+    const dataB = parseDataNasc(b.dt_nascimento);
     return dataA.localeCompare(dataB);
   });
 });
