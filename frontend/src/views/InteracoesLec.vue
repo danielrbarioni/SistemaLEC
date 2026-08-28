@@ -1800,11 +1800,23 @@ const buscarDados = async (isAutomatic = false) => {
           });
         }
 
+    const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
     const resolverMedicoNome = (med: string) => {
       if (!med || med === 'Não informado' || med === '—') return med || '';
       const clean = med.trim();
-      const userMatch = usuariosLocais.value.find(u => u.username?.toLowerCase() === clean.toLowerCase() || u.nome?.toLowerCase() === clean.toLowerCase());
-      return userMatch?.nome?.trim() || clean;
+      if (!clean) return '';
+
+      const cleanNorm = norm(clean);
+      const userMatch = usuariosLocais.value.find(u => {
+        if (!u) return false;
+        const uNameNorm = u.nome ? norm(u.nome) : '';
+        const uUserNorm = u.username ? norm(u.username) : '';
+        return uUserNorm === cleanNorm || uNameNorm === cleanNorm || (cleanNorm.length > 5 && uNameNorm.includes(cleanNorm)) || (uNameNorm.length > 5 && cleanNorm.includes(uNameNorm));
+      });
+
+      const finalName = userMatch?.nome?.trim() || clean;
+      return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
     };
 
     const approvedSolics = solicsDosPac

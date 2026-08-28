@@ -106,7 +106,9 @@ async def listar_solicitacoes(
                 medico_clean = str(medico).strip()
                 medico_lower = medico_clean.lower()
                 if medico_lower in user_map:
-                    s['medico_responsavel'] = user_map[medico_lower]
+                    s['medico_responsavel'] = user_map[medico_lower].upper()
+                elif medico_clean not in ['Não informado', '—', '']:
+                    s['medico_responsavel'] = medico_clean.upper()
     except Exception as e:
         pass
         

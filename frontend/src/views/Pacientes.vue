@@ -472,6 +472,7 @@ const medicosOpcoes = computed(() => {
   if (!esp) return [];
 
   const espLower = esp.toLowerCase().trim();
+  const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
   // Encontra perfis da especialidade cirúrgica selecionada
   const perfisEspIds = new Set(
@@ -489,7 +490,7 @@ const medicosOpcoes = computed(() => {
     const isMedico = u.funcao === 'Médico' || (u.funcao && u.funcao.toLowerCase().includes('médico'));
 
     if ((perfMatch || espMatch) && isMedico && u.nome) {
-      medicosSet.add(u.nome.trim());
+      medicosSet.add(u.nome.trim().toUpperCase());
     }
   }
 
@@ -498,12 +499,19 @@ const medicosOpcoes = computed(() => {
     if (s.especialidade && s.especialidade.toLowerCase().trim() === espLower && s.medico_responsavel) {
       const val = s.medico_responsavel.trim();
       if (val !== 'Não informado' && val !== '—') {
-        const userMatch = usuarios.value.find(u => u.username?.toLowerCase() === val.toLowerCase() || u.nome?.toLowerCase() === val.toLowerCase());
+        const valNorm = norm(val);
+        const userMatch = usuarios.value.find(u => {
+          if (!u) return false;
+          const uNameNorm = u.nome ? norm(u.nome) : '';
+          const uUserNorm = u.username ? norm(u.username) : '';
+          return uUserNorm === valNorm || uNameNorm === valNorm || (valNorm.length > 5 && uNameNorm.includes(valNorm)) || (uNameNorm.length > 5 && valNorm.includes(uNameNorm));
+        });
+
         if (userMatch && userMatch.nome) {
-          medicosSet.add(userMatch.nome.trim());
+          medicosSet.add(userMatch.nome.trim().toUpperCase());
         } else if (!val.includes('.')) {
           // Se não tiver ponto (padrão de username ebserh como nome.sobrenome), considera como nome
-          medicosSet.add(val);
+          medicosSet.add(val.toUpperCase());
         }
       }
     }
@@ -600,6 +608,8 @@ const carregarDados = async () => {
     loading.value = false;
   }
 };
+
+const norm = (str?: string) => str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
 
 const formatarData = (dataStr: string) => {
   if (!dataStr || dataStr === '—') return '—';
@@ -774,11 +784,23 @@ const getSwalisClass = (Swalis: string) => {
 
 // 1. Mapa mestre com todos os pacientes e TODOS os seus procedimentos (sem filtros)
 const todosPacientesMap = computed(() => {
+  const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
   const resolverMedicoNome = (med: string) => {
     if (!med || med === 'Não informado' || med === '—') return med || 'Não informado';
     const clean = med.trim();
-    const userMatch = usuarios.value.find(u => u.username?.toLowerCase() === clean.toLowerCase() || u.nome?.toLowerCase() === clean.toLowerCase());
-    return userMatch?.nome?.trim() || clean;
+    if (!clean) return 'Não informado';
+
+    const cleanNorm = norm(clean);
+    const userMatch = usuarios.value.find(u => {
+      if (!u) return false;
+      const uNameNorm = u.nome ? norm(u.nome) : '';
+      const uUserNorm = u.username ? norm(u.username) : '';
+      return uUserNorm === cleanNorm || uNameNorm === cleanNorm || (cleanNorm.length > 5 && uNameNorm.includes(cleanNorm)) || (uNameNorm.length > 5 && cleanNorm.includes(uNameNorm));
+    });
+
+    const finalName = userMatch?.nome?.trim() || clean;
+    return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
   };
 
   const pacMap = new Map<string, any>();
@@ -926,14 +948,14 @@ const pacientesProcessados = computed(() => {
       }
 
       if (filtroMedico.value) {
-        const medicoSelecionado = filtroMedico.value.toLowerCase().trim();
-        const userMatch = usuarios.value.find(u => u.nome?.toLowerCase().trim() === medicoSelecionado);
-        const usernameMatch = userMatch?.username?.toLowerCase().trim();
+        const medicoSelecionado = filtroMedico.value.toUpperCase().trim();
+        const medicoNorm = norm(medicoSelecionado);
 
         procs = procs.filter((p: any) => {
           if (!p.medico_responsavel) return false;
-          const mLower = p.medico_responsavel.toLowerCase().trim();
-          return mLower === medicoSelecionado || (usernameMatch && mLower === usernameMatch);
+          const mUpper = p.medico_responsavel.toUpperCase().trim();
+          const mNorm = norm(mUpper);
+          return mUpper === medicoSelecionado || mNorm === medicoNorm;
         });
       }
 
