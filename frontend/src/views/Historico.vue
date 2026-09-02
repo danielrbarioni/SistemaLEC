@@ -37,9 +37,9 @@
             <label for="filtroOrigemMenu" class="form-label font-semibold">Origem / Menu</label>
             <select id="filtroOrigemMenu" v-model="filtroOrigemMenu" class="form-control text-xs">
               <option value="">Todas</option>
-              <option value="Sistema LEC">Sistema LEC</option>
-              <option value="Pacientes">Pacientes</option>
+              <option value="Solicitações LEC">Solicitações LEC</option>
               <option value="Perfis">Perfis</option>
+              <option value="Pacientes">Pacientes</option>
             </select>
           </div>
 
@@ -77,22 +77,35 @@
             <label for="filtroAcaoTipo" class="form-label font-semibold">Ação</label>
             <select id="filtroAcaoTipo" v-model="filtroAcaoTipo" class="form-control text-xs">
               <option value="">Todas</option>
-              <option value="INSERIR">Inclusão</option>
-              <option value="EDITAR">Edição</option>
-              <option value="STANDBY">Standby</option>
-              <option value="EXCLUIR">Exclusão</option>
-              <option value="SOLICITAR_APA">Solicitação APA</option>
+              <optgroup label="Menu Solicitações LEC ou Pacientes">
+                <option value="INSERIR">Inclusão de Procedimento (Menu Solicitações LEC ou Pacientes)</option>
+                <option value="EDITAR">Edição de Procedimento</option>
+                <option value="STANDBY">Standby de Procedimento</option>
+                <option value="EXCLUIR">Exclusão de Procedimento</option>
+                <option value="SOLICITAR_APA">Solicitação APA</option>
+              </optgroup>
+              <optgroup label="Menu Perfis">
+                <option value="CRIAR_PERFIL">Criação de Perfil</option>
+                <option value="EXCLUIR_PERFIL">Exclusão de Perfil</option>
+                <option value="CRIAR_USUARIO">Criação de Usuário</option>
+                <option value="EDITAR_USUARIO">Edição de Usuário</option>
+                <option value="EXCLUIR_USUARIO">Exclusão de Usuário</option>
+                <option value="CRIAR_CATEGORIZACAO">Criação de Categorização</option>
+                <option value="EDITAR_CATEGORIZACAO">Edição de Categorização</option>
+                <option value="EXCLUIR_CATEGORIZACAO">Exclusão de Categorização</option>
+              </optgroup>
             </select>
           </div>
 
-          <!-- 7. Solicitação ou Resposta -->
+          <!-- 7. Tipo de Evento -->
           <div class="form-group">
             <label for="filtroEventoTipo" class="form-label font-semibold">Tipo de Evento</label>
             <select id="filtroEventoTipo" v-model="filtroEventoTipo" class="form-control text-xs">
               <option value="">Todas</option>
               <option value="SOLICITACAO">Solicitação</option>
-              <option value="ALTERACAO">Alteração (Edição)</option>
               <option value="RESPOSTA">Resposta</option>
+              <option value="EXECUCAO">Execução</option>
+              <option value="ALTERACAO">Alteração (Edição)</option>
             </select>
           </div>
 
@@ -105,6 +118,7 @@
               <option value="APROVADO">APROVADO</option>
               <option value="REJEITADO">REJEITADO</option>
               <option value="CANCELADO">CANCELADO</option>
+              <option value="CONCLUIDO">CONCLUÍDO</option>
             </select>
           </div>
 
@@ -155,20 +169,24 @@
               <!-- 2. Origem/Menu -->
               <td class="px-4 py-4 whitespace-nowrap text-xs font-semibold text-indigo-700">
                 <span class="px-2 py-1 rounded bg-indigo-50 border border-indigo-100">
-                  {{ solic.origem_menu || 'Sistema LEC' }}
+                  {{ formatarOrigemMenu(solic.origem_menu) }}
                 </span>
               </td>
 
               <!-- 3. Prontuário/Paciente -->
               <td class="px-4 py-4 text-xs">
-                <div class="font-mono font-semibold text-gray-800">#{{ solic.codigo_paciente }}</div>
-                <div class="text-gray-900 font-medium">{{ solic.nome_paciente }}</div>
+                <div v-if="solic.codigo_paciente && String(solic.codigo_paciente) !== '0'" class="font-mono font-semibold text-gray-800">
+                  #{{ solic.codigo_paciente }}
+                </div>
+                <div class="text-gray-900 font-medium">
+                  {{ solic.nome_paciente && solic.nome_paciente !== '—' && !String(solic.nome_paciente).startsWith('Paciente #0') ? solic.nome_paciente : '—' }}
+                </div>
               </td>
 
               <!-- 4. Especialidade/Procedimento -->
               <td class="px-4 py-4 text-xs text-gray-700 max-w-xs break-words whitespace-normal leading-snug">
                 <div class="font-semibold">{{ solic.especialidade || '—' }}</div>
-                <div class="text-gray-600 mt-0.5">
+                <div v-if="solic.procedimento && solic.procedimento !== '—'" class="text-gray-600 mt-0.5">
                   <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="text-gray-400 line-through mr-1">
                     {{ solic.procedimento_anterior }}
                   </span>
@@ -176,7 +194,7 @@
                     ➔
                   </span>
                   <span :class="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento ? 'font-bold text-blue-800' : ''">
-                    {{ solic.procedimento || '—' }}
+                    {{ solic.procedimento }}
                   </span>
                 </div>
               </td>
@@ -186,11 +204,14 @@
                 <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
               </td>
 
-              <!-- 6. Solicitação, Alteração ou Resposta -->
+              <!-- 6. Solicitação, Alteração, Execução ou Resposta -->
               <td class="px-4 py-4 text-xs text-gray-600 max-w-xs" :title="solic.detalhes">
                 <div class="flex items-center space-x-1.5 mb-1">
                   <span v-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     Resposta
+                  </span>
+                  <span v-else-if="solic.evento_tipo === 'EXECUCAO' || solic.origem_menu === 'Pacientes' || solic.origem_menu === 'Importação Planilha'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                    Execução
                   </span>
                   <span v-else-if="solic.evento_tipo === 'ALTERACAO' || solic.evento_tipo === 'EDICAO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                     ✏️ Alteração
@@ -263,7 +284,11 @@ const especialidadesDisponiveis = computed(() => {
     .map(p => p.especialidade || p.nome)
     .filter(Boolean);
 
-  return Array.from(new Set(perfisEspecialidades)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const solicitacoesEsp = solicitacoes.value
+    .map(s => s.especialidade)
+    .filter((e): e is string => Boolean(e) && e !== '—');
+
+  return Array.from(new Set([...perfisEspecialidades, ...solicitacoesEsp])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 const limparFiltros = () => {
@@ -302,27 +327,17 @@ const carregarHistorico = async () => {
       }
     }
 
-    const solicitacoesValidas = solicitacoesData.filter((s: any) => {
-      const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
-      const procStr = String(s.procedimento || '').toLowerCase().trim();
-      const origStr = String(s.origem_menu || '').toLowerCase().trim();
-      if (codStr === '0' || procStr.startsWith('perfil:') || origStr === 'perfis') {
-        return false;
-      }
-      return true;
-    });
-
-    solicitacoes.value = solicitacoesValidas.map((s: any) => {
+    solicitacoes.value = solicitacoesData.map((s: any) => {
       const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
       let nomeReal = s.nome_paciente || s.nome;
       if (!nomeReal || nomeReal.startsWith('Paciente #') || nomeReal === 'Não informado') {
-        if (pacMap.has(codStr)) {
+        if (pacMap.has(codStr) && codStr !== '0') {
           nomeReal = pacMap.get(codStr);
         }
       }
       return {
         ...s,
-        nome_paciente: nomeReal || (codStr ? `Paciente #${codStr}` : 'Não informado')
+        nome_paciente: nomeReal || (codStr && codStr !== '0' ? `Paciente #${codStr}` : '—')
       };
     });
   } catch (error) {
@@ -330,6 +345,12 @@ const carregarHistorico = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const formatarOrigemMenu = (origem?: string) => {
+  if (!origem || origem === 'Sistema LEC') return 'Solicitações LEC';
+  if (origem === 'Importação Planilha' || origem === 'Pacientes') return 'Pacientes';
+  return origem;
 };
 
 const formatarDataHora = (dataStr: string) => {
@@ -373,24 +394,57 @@ const formatarDataHora = (dataStr: string) => {
 
 const formatarTipo = (tipo: string) => {
   switch (tipo) {
-    case 'INSERIR': return 'Inclusão';
-    case 'EDITAR': return 'Edição';
-    case 'EXCLUIR': return 'Exclusão';
-    case 'STANDBY': return 'Standby';
+    case 'INSERIR':
+    case 'INCLUSAO': return 'Inclusão de Procedimento';
+    case 'EDITAR':
+    case 'EDICAO': return 'Edição de Procedimento';
+    case 'EXCLUIR':
+    case 'EXCLUSAO': return 'Exclusão de Procedimento';
+    case 'STANDBY': return 'Standby de Procedimento';
     case 'SOLICITAR_APA':
     case 'APA': return 'Solicitação APA';
+    
+    // Ações do menu Perfis
+    case 'CRIAR_PERFIL': return 'Criação de Perfil';
+    case 'EXCLUIR_PERFIL': return 'Exclusão de Perfil';
+    case 'CRIAR_USUARIO': return 'Criação de Usuário';
+    case 'EDITAR_USUARIO': return 'Edição de Usuário';
+    case 'EXCLUIR_USUARIO': return 'Exclusão de Usuário';
+    case 'CRIAR_CATEGORIZACAO': return 'Criação de Categorização';
+    case 'EDITAR_CATEGORIZACAO': return 'Edição de Categorização';
+    case 'EXCLUIR_CATEGORIZACAO': return 'Exclusão de Categorização';
+    
     default: return tipo;
   }
 };
 
 const getTipoBadgeClass = (tipo: string) => {
   switch (tipo) {
-    case 'INSERIR': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200';
-    case 'EDITAR': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200';
-    case 'EXCLUIR': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200';
+    // Procedimentos
+    case 'INSERIR':
+    case 'INCLUSAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200';
+    case 'EDITAR':
+    case 'EDICAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200';
+    case 'EXCLUIR':
+    case 'EXCLUSAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200';
     case 'STANDBY': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200';
     case 'SOLICITAR_APA':
     case 'APA': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
+    
+    // Perfis (Lilás)
+    case 'CRIAR_PERFIL': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300';
+    case 'EXCLUIR_PERFIL': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-red-700 border border-purple-300';
+    
+    // Usuários (Laranja Claro)
+    case 'CRIAR_USUARIO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-300';
+    case 'EDITAR_USUARIO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-blue-800 border border-orange-300';
+    case 'EXCLUIR_USUARIO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-red-700 border border-orange-300';
+    
+    // Categorização (Marrom Claro)
+    case 'CRIAR_CATEGORIZACAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300';
+    case 'EDITAR_CATEGORIZACAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-blue-800 border border-amber-300';
+    case 'EXCLUIR_CATEGORIZACAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-red-700 border border-amber-300';
+    
     default: return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800';
   }
 };
@@ -399,6 +453,7 @@ const getStatusBadgeClass = (status: string) => {
   switch (status) {
     case 'PENDENTE': return 'px-2 py-0.5 text-xs font-semibold rounded bg-yellow-100 text-yellow-800 border border-yellow-200';
     case 'APROVADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800 border border-green-200';
+    case 'CONCLUIDO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-emerald-100 text-emerald-800 border border-emerald-200';
     case 'REJEITADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-red-100 text-red-800 border border-red-200';
     case 'CANCELADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800 border border-gray-300';
     default: return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800';
@@ -427,7 +482,9 @@ const solicitacoesFiltradas = computed(() => {
 
       // 3. Origem / Menu
       if (filtroOrigemMenu.value) {
-        const origem = s.origem_menu || 'Sistema LEC';
+        let origem = (s.origem_menu || 'Solicitações LEC').trim();
+        if (origem === 'Sistema LEC') origem = 'Solicitações LEC';
+        if (origem === 'Importação Planilha') origem = 'Pacientes';
         if (origem.toLowerCase() !== filtroOrigemMenu.value.toLowerCase()) return false;
       }
 
@@ -440,17 +497,24 @@ const solicitacoesFiltradas = computed(() => {
       }
 
       // 5. Ação / Tipo
-      if (filtroAcaoTipo.value && s.tipo !== filtroAcaoTipo.value) {
-        return false;
+      if (filtroAcaoTipo.value) {
+        if (filtroAcaoTipo.value === 'INSERIR' && !(s.tipo === 'INSERIR' || s.tipo === 'INCLUSAO')) return false;
+        else if (filtroAcaoTipo.value === 'EDITAR' && !(s.tipo === 'EDITAR' || s.tipo === 'EDICAO')) return false;
+        else if (filtroAcaoTipo.value === 'EXCLUIR' && !(s.tipo === 'EXCLUIR' || s.tipo === 'EXCLUSAO')) return false;
+        else if (filtroAcaoTipo.value !== 'INSERIR' && filtroAcaoTipo.value !== 'EDITAR' && filtroAcaoTipo.value !== 'EXCLUIR' && s.tipo !== filtroAcaoTipo.value) return false;
       }
 
-      // 6. Solicitação, Alteração ou Resposta
+      // 6. Solicitação, Execução, Alteração ou Resposta
       if (filtroEventoTipo.value) {
         const isResp = s.evento_tipo === 'RESPOSTA' || s.is_resposta;
         const isAlt = s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO';
+        const isExec = s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha';
+        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec;
+
         if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
+        if (filtroEventoTipo.value === 'EXECUCAO' && !isExec) return false;
         if (filtroEventoTipo.value === 'ALTERACAO' && !isAlt) return false;
-        if (filtroEventoTipo.value === 'SOLICITACAO' && (isResp || isAlt)) return false;
+        if (filtroEventoTipo.value === 'SOLICITACAO' && !isSolic) return false;
       }
 
       // 7. Status
@@ -468,7 +532,34 @@ const solicitacoesFiltradas = computed(() => {
       return true;
     })
     // Ordena do mais recente para o mais antigo (descending)
-    .sort((a, b) => (b.data_criacao || '').localeCompare(a.data_criacao || ''));
+    // Para itens sem data (início do histórico): Categorizações -> Usuários -> Perfis (no fundo de tudo)
+    .sort((a, b) => {
+      const dataA = a.data_criacao || '';
+      const dataB = b.data_criacao || '';
+      
+      if (dataA && dataB) {
+        return dataB.localeCompare(dataA);
+      }
+      
+      if (dataA && !dataB) return -1;
+      if (!dataA && dataB) return 1;
+
+      // Ambos sem data: Ordem: Categorizações (topo do bloco sem data) -> Usuários -> Perfis (fundo absoluto)
+      const getPriority = (item: any) => {
+        if (item.tipo === 'CRIAR_PERFIL') return 3;
+        if (item.tipo === 'CRIAR_USUARIO' || item.tipo === 'EDITAR_USUARIO') return 2;
+        if (item.tipo === 'CRIAR_CATEGORIZACAO' || item.tipo === 'EDITAR_CATEGORIZACAO') return 1;
+        return 0;
+      };
+
+      const prioA = getPriority(a);
+      const prioB = getPriority(b);
+      if (prioA !== prioB) {
+        return prioA - prioB;
+      }
+
+      return (a.detalhes || '').localeCompare(b.detalhes || '');
+    });
 });
 
 onMounted(() => {

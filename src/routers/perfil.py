@@ -10,6 +10,7 @@ from ..auth.auth import auth_handler
 from ..resources.database import get_app_db_session
 from ..models.profile import Profile
 from ..models.user import User
+from ..helpers.historico_helper import registrar_evento_historico
 
 router = APIRouter(prefix="/api/perfis", tags=["Perfis"])
 
@@ -246,6 +247,21 @@ async def create_perfil(
     )
     
     db.add(new_profile)
+
+    # Registra evento no Histórico
+    await registrar_evento_historico(
+        db=db,
+        tipo="CRIAR_PERFIL",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Perfil "{new_profile.nome}" criado',
+        status="CONCLUIDO",
+        especialidade=new_profile.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or role,
+        usuario=current_user.get("username", "")
+    )
+
     await db.commit()
     await db.refresh(new_profile)
     return new_profile
@@ -369,6 +385,20 @@ async def delete_perfil(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não é possível excluir um perfil associado a usuários."
         )
+
+    # Registra evento no Histórico
+    await registrar_evento_historico(
+        db=db,
+        tipo="EXCLUIR_PERFIL",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Perfil "{existing.nome}" excluído',
+        status="CONCLUIDO",
+        especialidade=existing.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or role,
+        usuario=current_user.get("username", "")
+    )
 
     await db.delete(existing)
     await db.commit()

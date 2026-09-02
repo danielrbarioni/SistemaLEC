@@ -323,8 +323,8 @@ async def process_excel_pacientes_import(
                 data_criacao=dth_indicacao_str,
                 usuario=usuario_executor,
                 perfil_executor="Gestão LEC",
-                origem_menu="Importação Planilha",
-                evento_tipo="SOLICITACAO"
+                origem_menu="Pacientes",
+                evento_tipo="EXECUCAO"
             )
             app_db.add(new_solic)
             existing_solicitacoes[solic_id] = new_solic

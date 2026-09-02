@@ -10,6 +10,7 @@ from ..resources.database import get_app_db_session
 from ..models.categorizacao_profissional import CategorizacaoProfissional
 from ..models.solicitacao import Solicitacao
 from ..models.paciente import Paciente
+from ..helpers.historico_helper import registrar_evento_historico
 from .perfil import get_current_user_role
 
 router = APIRouter(
@@ -124,6 +125,23 @@ async def criar_categorizacao(
         categorias_json=json.dumps(clean_cats, ensure_ascii=False)
     )
     db.add(novo)
+
+    # Registra evento no Histórico
+    role = get_current_user_role(current_user)
+    perfil_exec = current_user.get("perfil_tipo") or current_user.get("currentProfile") or role
+    await registrar_evento_historico(
+        db=db,
+        tipo="CRIAR_CATEGORIZACAO",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Categorização criada para o profissional {medico_norm} na especialidade {esp_norm}: {", ".join(clean_cats)}',
+        status="CONCLUIDO",
+        especialidade=esp_norm,
+        procedimento="—",
+        perfil_executor=perfil_exec,
+        usuario=current_user.get("username", "")
+    )
+
     await db.commit()
     await db.refresh(novo)
 
@@ -215,6 +233,23 @@ async def atualizar_categorizacao(
             )
 
     record.categorias_json = json.dumps(clean_new_cats, ensure_ascii=False)
+
+    # Registra evento no Histórico
+    role = get_current_user_role(current_user)
+    perfil_exec = current_user.get("perfil_tipo") or current_user.get("currentProfile") or role
+    await registrar_evento_historico(
+        db=db,
+        tipo="EDITAR_CATEGORIZACAO",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Categorização do profissional {record.medico} na especialidade {record.especialidade} editada: {", ".join(clean_new_cats)}',
+        status="CONCLUIDO",
+        especialidade=record.especialidade,
+        procedimento="—",
+        perfil_executor=perfil_exec,
+        usuario=current_user.get("username", "")
+    )
+
     await db.commit()
     await db.refresh(record)
 
@@ -258,6 +293,22 @@ async def excluir_categorizacao(
             Paciente.especialidade == record.especialidade
         )
         .values(categorizacao=None)
+    )
+
+    # Registra evento no Histórico
+    role = get_current_user_role(current_user)
+    perfil_exec = current_user.get("perfil_tipo") or current_user.get("currentProfile") or role
+    await registrar_evento_historico(
+        db=db,
+        tipo="EXCLUIR_CATEGORIZACAO",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Categorização excluída do profissional {record.medico} na especialidade {record.especialidade}',
+        status="CONCLUIDO",
+        especialidade=record.especialidade,
+        procedimento="—",
+        perfil_executor=perfil_exec,
+        usuario=current_user.get("username", "")
     )
 
     await db.delete(record)

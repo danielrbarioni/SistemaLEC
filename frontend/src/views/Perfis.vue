@@ -15,8 +15,8 @@
     <div v-else class="space-y-6">
       <!-- Seção Superior: Perfis Disponíveis (Esquerda) e Formulários de Criação (Direita) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Coluna Esquerda: Perfis Disponíveis + Detalhes do Perfil Ativo (7 colunas) -->
-        <div class="lg:col-span-7 space-y-6">
+        <!-- Coluna Esquerda: Perfis Disponíveis + Detalhes do Perfil Ativo -->
+        <div :class="[perfisStore.perfilAtivo.tipo === 'NENHUM' || perfisStore.perfilAtivo.tipo === 'OBSERVADOR' || perfisStore.perfilAtivo.tipo === 'EPO_GENERALISTA' ? 'lg:col-span-12' : 'lg:col-span-7', 'space-y-6']">
           <!-- Perfis Disponíveis -->
           <Card>
             <template #header>
@@ -103,9 +103,9 @@
         </div>
 
         <!-- Coluna Direita: Formulários de Criação (5 colunas) -->
-        <div class="lg:col-span-5 space-y-6">
-          <!-- Formulário: Criar Novo Perfil / Editar Perfil (Oculto para OBSERVADOR) -->
-          <Card v-if="podeCriarPerfil && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'">
+        <div v-if="perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'EPO_GENERALISTA'" class="lg:col-span-5 space-y-6">
+          <!-- Formulário: Criar Novo Perfil / Editar Perfil -->
+          <Card v-if="podeCriarPerfil">
             <template #header>
               <h2 class="text-lg font-bold text-gray-800">{{ editingPerfilId ? 'Editar Perfil' : 'Criar Novo Perfil' }}</h2>
             </template>
@@ -164,7 +164,7 @@
           </Card>
 
           <!-- Seção: Criar / Solicitar Criação de Usuário (Com Abas para Admin/Gestão) -->
-          <Card v-if="!editingUserId && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM'">
+          <Card v-if="!editingUserId">
             <template #header>
               <div v-if="podeCriarPerfil" class="w-full">
                 <div class="flex border-b border-gray-200">
@@ -322,7 +322,7 @@
       </div>
 
       <!-- Seção Inferior: Tabela de Usuários Cadastrados Localmente (100% Largura total, sem rolagem horizontal) -->
-      <Card class="w-full">
+      <Card v-if="perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" class="w-full">
         <template #header>
           <div class="flex justify-between items-center">
             <h2 class="text-lg font-bold text-gray-800">
@@ -458,7 +458,7 @@
                   <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Perfil ID</th>
                   <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Especialidade</th>
                   <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Função</th>
-                  <th v-if="podeGerenciarCategorizacao" scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Categorização</th>
+                  <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Categorização</th>
                   <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Ações</th>
                 </tr>
               </thead>
@@ -479,19 +479,35 @@
                   <td class="px-4 py-3 text-gray-700">
                     {{ user.funcao || '—' }}
                   </td>
-                  <td v-if="podeGerenciarCategorizacao" class="px-4 py-3 text-center whitespace-nowrap">
-                    <div v-if="user.funcao === 'Médico' && user.especialidade">
+                  <td class="px-4 py-3 text-center">
+                    <!-- Usuário com Categorização Cadastrada -->
+                    <div 
+                      v-if="obterCategorizacaoDoUsuario(user) && obterCategorizacaoDoUsuario(user).categorias?.length" 
+                      class="flex items-center justify-center gap-1.5 flex-wrap"
+                    >
+                      <span 
+                        v-for="catNome in obterCategorizacaoDoUsuario(user).categorias" 
+                        :key="catNome"
+                        class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs"
+                      >
+                        🏷️ {{ catNome }}
+                      </span>
                       <button
-                        v-if="obterCategorizacaoDoUsuario(user)"
+                        v-if="podeGerenciarCategorizacao"
                         type="button"
                         @click="abrirModalCategorizacao(user)"
-                        class="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition cursor-pointer inline-flex items-center space-x-1 shadow-xs"
-                        title="Clique para gerenciar as categorias deste médico"
+                        class="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-100 rounded transition cursor-pointer"
+                        title="Gerenciar categorias deste médico"
                       >
-                        <span>🏷️ {{ obterCategorizacaoDoUsuario(user).categorias.length }} cat.</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
                       </button>
+                    </div>
+
+                    <!-- Usuário sem Categorização, mas quem visualiza pode criar (ADMIN ou GESTÃO LEC) -->
+                    <div v-else-if="podeGerenciarCategorizacao && user.funcao === 'Médico' && user.especialidade">
                       <button
-                        v-else
                         type="button"
                         @click="abrirModalCategorizacao(user)"
                         class="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 border border-dashed border-gray-300 hover:border-indigo-300 transition cursor-pointer inline-flex items-center space-x-1"
@@ -500,6 +516,8 @@
                         <span>+ Criar</span>
                       </button>
                     </div>
+
+                    <!-- Sem Categorização (Usuários de Especialidades ou Funções sem categorização) -->
                     <span v-else class="text-xs text-gray-400">—</span>
                   </td>
                   <td class="px-4 py-3 text-right text-sm font-medium whitespace-nowrap">
@@ -529,7 +547,7 @@
 
     <!-- Modal de Gerenciamento de Categorização do Profissional -->
     <div 
-      v-if="modalCategorizacao.aberto" 
+      v-if="modalCategorizacao.aberto && podeGerenciarCategorizacao" 
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
       @click.self="fecharModalCategorizacao"
     >
@@ -938,7 +956,7 @@ const podeEditarUsuario = (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
-  if (tipoAtivo === 'OBSERVADOR') {
+  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM' || tipoAtivo === 'EPO_GENERALISTA') {
     return false;
   }
   if (tipoAtivo === 'ADMIN') {
@@ -957,13 +975,13 @@ const podeExcluirUsuario = (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
-  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM') {
+  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM' || tipoAtivo === 'EPO_GENERALISTA') {
     return false;
   }
   if (tipoAtivo === 'ADMIN') {
     return true;
   }
-  if (tipoAtivo === 'GESTAO_LEC' || tipoAtivo === 'EPO_GENERALISTA') {
+  if (tipoAtivo === 'GESTAO_LEC') {
     return isUsuarioEspecialidade(user);
   }
   if (tipoAtivo === 'ESPECIALIDADE') {
@@ -1131,7 +1149,11 @@ const salvarUsuario = async () => {
 const excluirUsuario = async (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
 
-  if (tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'ESPECIALIDADE') {
+  if (tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'NENHUM' || tipoAtivo === 'OBSERVADOR') {
+    return;
+  }
+
+  if (tipoAtivo === 'ESPECIALIDADE') {
     if (!confirm(`Tem certeza que deseja solicitar a exclusão do usuário "${user.nome}"?`)) {
       return;
     }
@@ -1276,6 +1298,7 @@ const modalCategorizacao = ref({
 });
 
 const abrirModalCategorizacao = (user: any) => {
+  if (!podeGerenciarCategorizacao.value) return;
   const userNome = user.nome || user.username;
   const esp = user.especialidade || '';
   const existing = obterCategorizacaoDoUsuario(user);

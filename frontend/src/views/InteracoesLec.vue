@@ -2172,6 +2172,7 @@ const enviarSolicitacao = async () => {
         perfil_executor: perfisStore.perfilAtivo.tipo,
         usuario: authStore.user?.username || 'Usuário Sistema',
         procedimento_anterior: form.value.procedimento_anterior || undefined,
+        origem_menu: 'Solicitações LEC',
         categorizacao: form.value.categorizacao || ''
       });
       toast.success('Solicitação atualizada com sucesso!');
@@ -2191,6 +2192,7 @@ const enviarSolicitacao = async () => {
         perfil_executor: perfisStore.perfilAtivo.tipo,
         usuario: authStore.user?.username || 'Usuário Sistema',
         procedimento_anterior: form.value.procedimento_anterior || undefined,
+        origem_menu: 'Solicitações LEC',
         categorizacao: form.value.categorizacao || ''
       });
       toast.success('Solicitação registrada com sucesso!');

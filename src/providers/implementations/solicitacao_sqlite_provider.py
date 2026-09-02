@@ -31,7 +31,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=solicitacao.get('perfil_executor', ''),
             usuario=solicitacao.get('usuario', ''),
             procedimento_anterior=solicitacao.get('procedimento_anterior', ''),
-            origem_menu=solicitacao.get('origem_menu', 'Sistema LEC'),
+            origem_menu=solicitacao.get('origem_menu', 'Solicitações LEC'),
             categorizacao=solicitacao.get('categorizacao', '') or None
         )
         
@@ -83,7 +83,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'perfil_executor': s.perfil_executor,
                 'usuario': getattr(s, 'usuario', '') or '',
                 'procedimento_anterior': s.procedimento_anterior,
-                'origem_menu': getattr(s, 'origem_menu', 'Sistema LEC') or 'Sistema LEC',
+                'origem_menu': getattr(s, 'origem_menu', 'Solicitações LEC') or 'Solicitações LEC',
                 'evento_tipo': getattr(s, 'evento_tipo', 'SOLICITACAO') or 'SOLICITACAO',
                 'categorizacao': getattr(s, 'categorizacao', '') or ''
             }
@@ -127,7 +127,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=perfil_executor or "GESTAO_LEC",
             usuario=usuario_executor or "GESTAO_LEC",
             procedimento_anterior=solic.procedimento_anterior,
-            origem_menu=solic.origem_menu or "Sistema LEC",
+            origem_menu=solic.origem_menu or "Solicitações LEC",
             evento_tipo="RESPOSTA"
         )
         self.session.add(resposta_solic)
@@ -235,7 +235,7 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=perfil_executor or solic.perfil_executor,
             usuario=usuario_executor or solic.usuario,
             procedimento_anterior=solic.procedimento_anterior,
-            origem_menu=solic.origem_menu or "Sistema LEC",
+            origem_menu=solic.origem_menu or "Solicitações LEC",
             evento_tipo="ALTERACAO",
             categorizacao=solic.categorizacao
         )

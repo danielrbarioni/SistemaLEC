@@ -13,6 +13,7 @@ from ..resources.database import get_app_db_session
 from ..models.user import User
 from ..models.profile import Profile
 from ..models.user_creation_request import UserCreationRequest
+from ..helpers.historico_helper import registrar_evento_historico
 from .perfil import get_current_user_role
 
 router = APIRouter(prefix="/api/usuarios", tags=["Usuários"])
@@ -105,10 +106,10 @@ async def create_usuario(
             detail="Perfil especificado não existe."
         )
 
-    if creator_role in ["NENHUM", "OBSERVADOR"]:
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuários sem perfil associado (NENHUM) não possuem permissão para criar usuários."
+            detail="Usuários com este perfil não possuem permissão para criar usuários."
         )
 
     if target_profile.tipo in ["NENHUM", "OBSERVADOR"] or target_profile.id in ["NENHUM", "OBSERVADOR"]:
@@ -173,6 +174,21 @@ async def create_usuario(
     )
     
     db.add(new_user)
+
+    # Registra evento no Histórico
+    await registrar_evento_historico(
+        db=db,
+        tipo="CRIAR_USUARIO",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Usuário "{new_user.username}" ({new_user.nome}) criado',
+        status="CONCLUIDO",
+        especialidade=new_user.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or creator_role,
+        usuario=current_user.get("username", "")
+    )
+
     await db.commit()
     await db.refresh(new_user)
     return new_user
@@ -189,6 +205,12 @@ async def update_usuario(
     """
     creator_role = get_current_user_role(current_user)
     creator_specialty = current_user.get("especialidade")
+
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para editar usuários."
+        )
 
     # Busca o usuário existente
     stmt = select(User).where(User.id == user_id)
@@ -316,6 +338,12 @@ async def delete_usuario(
     creator_role = get_current_user_role(current_user)
     creator_specialty = current_user.get("especialidade")
 
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para excluir usuários."
+        )
+
     # Busca o usuário existente
     stmt = select(User).where(User.id == user_id)
     result = await db.execute(stmt)
@@ -354,6 +382,20 @@ async def delete_usuario(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Você não tem permissão para excluir usuários."
         )
+
+    # Registra evento no Histórico
+    await registrar_evento_historico(
+        db=db,
+        tipo="EXCLUIR_USUARIO",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=f'Usuário "{existing_user.username}" ({existing_user.nome}) excluído',
+        status="CONCLUIDO",
+        especialidade=existing_user.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or creator_role,
+        usuario=current_user.get("username", "")
+    )
 
     await db.delete(existing_user)
     await db.commit()
@@ -414,10 +456,10 @@ async def create_solicitacao(
             detail="Perfil especificado não existe."
         )
 
-    if creator_role in ["NENHUM", "OBSERVADOR"]:
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuários sem perfil associado (NENHUM) não possuem permissão para solicitar criação de usuários."
+            detail="Usuários com este perfil não possuem permissão para solicitar ações de usuários."
         )
 
     if target_profile.tipo in ["NENHUM", "OBSERVADOR"] or target_profile.id in ["NENHUM", "OBSERVADOR"]:
@@ -539,6 +581,26 @@ async def create_solicitacao(
     )
 
     db.add(new_request)
+
+    # Registra evento no Histórico
+    is_del = (req_in.tipo or "").upper() == "EXCLUSAO"
+    is_ed = (req_in.tipo or "").upper() == "EDICAO"
+    action_code = "EXCLUIR_USUARIO" if is_del else ("EDITAR_USUARIO" if is_ed else "CRIAR_USUARIO")
+    action_desc = "exclusão" if is_del else ("edição" if is_ed else "criação")
+
+    await registrar_evento_historico(
+        db=db,
+        tipo=action_code,
+        origem_menu="Perfis",
+        evento_tipo="SOLICITACAO",
+        detalhes=f'Solicitada {action_desc} do usuário "{req_in.username}" ({req_in.nome})',
+        status="PENDENTE",
+        especialidade=target_profile.especialidade if target_profile.tipo == "ESPECIALIDADE" else "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or creator_role,
+        usuario=current_user.get("username", "")
+    )
+
     await db.commit()
     await db.refresh(new_request)
     return new_request
@@ -607,6 +669,19 @@ async def aprovar_solicitacao(
             )
 
         request_obj.status = "APROVADO"
+        # Registra evento no Histórico
+        await registrar_evento_historico(
+            db=db,
+            tipo="EXCLUIR_USUARIO",
+            origem_menu="Perfis",
+            evento_tipo="RESPOSTA",
+            detalhes=f'Exclusão do usuário "{request_obj.username}" ({request_obj.nome}) aprovada',
+            status="APROVADO",
+            especialidade=request_obj.especialidade or "—",
+            procedimento="—",
+            perfil_executor=current_user.get("perfil_tipo") or creator_role,
+            usuario=current_user.get("username", "")
+        )
         await db.commit()
         return deleted_resp
 
@@ -629,6 +704,19 @@ async def aprovar_solicitacao(
         user_to_edit.funcao = request_obj.funcao
 
         request_obj.status = "APROVADO"
+        # Registra evento no Histórico
+        await registrar_evento_historico(
+            db=db,
+            tipo="EDITAR_USUARIO",
+            origem_menu="Perfis",
+            evento_tipo="RESPOSTA",
+            detalhes=f'Edição do usuário "{request_obj.username}" ({request_obj.nome}) aprovada',
+            status="APROVADO",
+            especialidade=request_obj.especialidade or "—",
+            procedimento="—",
+            perfil_executor=current_user.get("perfil_tipo") or creator_role,
+            usuario=current_user.get("username", "")
+        )
         await db.commit()
         await db.refresh(user_to_edit)
         return user_to_edit
@@ -660,6 +748,19 @@ async def aprovar_solicitacao(
     
     # Atualiza status da solicitação
     request_obj.status = "APROVADO"
+    # Registra evento no Histórico
+    await registrar_evento_historico(
+        db=db,
+        tipo="CRIAR_USUARIO",
+        origem_menu="Perfis",
+        evento_tipo="RESPOSTA",
+        detalhes=f'Criação do usuário "{request_obj.username}" ({request_obj.nome}) aprovada',
+        status="APROVADO",
+        especialidade=request_obj.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or creator_role,
+        usuario=current_user.get("username", "")
+    )
     await db.commit()
     await db.refresh(new_user)
     return new_user
@@ -701,6 +802,26 @@ async def rejeitar_solicitacao(
         )
 
     request_obj.status = "REJEITADO"
+    
+    is_del = request_obj.tipo == "EXCLUSAO"
+    is_ed = request_obj.tipo == "EDICAO"
+    action_code = "EXCLUIR_USUARIO" if is_del else ("EDITAR_USUARIO" if is_ed else "CRIAR_USUARIO")
+    action_desc = "Exclusão" if is_del else ("Edição" if is_ed else "Criação")
+
+    # Registra evento no Histórico
+    await registrar_evento_historico(
+        db=db,
+        tipo=action_code,
+        origem_menu="Perfis",
+        evento_tipo="RESPOSTA",
+        detalhes=f'{action_desc} do usuário "{request_obj.username}" ({request_obj.nome}) rejeitada',
+        status="REJEITADO",
+        especialidade=request_obj.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or creator_role,
+        usuario=current_user.get("username", "")
+    )
+
     await db.commit()
     await db.refresh(request_obj)
     return request_obj

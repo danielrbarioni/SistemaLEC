@@ -35,7 +35,7 @@ class SolicitacaoCreate(BaseModel):
     perfil_executor: str = ""
     usuario: str = ""
     procedimento_anterior: str = ""
-    origem_menu: str = "Sistema LEC"
+    origem_menu: str = "Solicitações LEC"
     categorizacao: str = ""
 
 class SolicitacaoUpdate(BaseModel):
@@ -52,7 +52,7 @@ class SolicitacaoUpdate(BaseModel):
     perfil_executor: str = ""
     usuario: str = ""
     procedimento_anterior: str = ""
-    origem_menu: str = "Sistema LEC"
+    origem_menu: str = "Solicitações LEC"
     categorizacao: str = ""
 
 class SolicitacaoStatusUpdate(BaseModel):
