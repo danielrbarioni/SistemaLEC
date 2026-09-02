@@ -91,9 +91,10 @@ Thumbs.db
 *.sqlite3
 *.db
 *.bak*
-data/*.bak*
+*.backup*
+data/
+data/*
 app.db
-data/*.db
 server.log
 
 # Scratch / Temp scripts
