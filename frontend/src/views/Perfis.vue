@@ -508,14 +508,14 @@
                       @click="iniciarEdicao(user)" 
                       class="text-indigo-600 hover:text-indigo-900 font-semibold cursor-pointer mr-3 inline-flex items-center"
                     >
-                      Editar
+                      Editar usuário
                     </button>
                     <button 
                       v-if="podeExcluirUsuario(user)"
                       @click="excluirUsuario(user)" 
                       class="text-red-600 hover:text-red-900 font-semibold cursor-pointer inline-flex items-center"
                     >
-                      Excluir
+                      Excluir usuário
                     </button>
                     <span v-if="!podeEditarUsuario(user) && !podeExcluirUsuario(user)" class="text-xs text-gray-400 italic">—</span>
                   </td>
