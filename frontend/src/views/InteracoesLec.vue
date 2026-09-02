@@ -644,7 +644,7 @@
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Swalis</th>
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Médico</th>
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
-                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Info Extra</th>
+                <th v-if="abaAcompanhamentoAtiva === 'STANDBY'" class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tempo Standby</th>
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Descrição</th>
                 <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">DATA/HORA AÇÃO</th>
                 <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Ações</th>
@@ -756,8 +756,8 @@
                   <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
                 </td>
 
-                <!-- Info Extra (Standby) -->
-                <td class="px-3 py-2.5 text-center text-xs text-gray-600 whitespace-nowrap">
+                <!-- Tempo Standby (Apenas na aba STANDBY) -->
+                <td v-if="abaAcompanhamentoAtiva === 'STANDBY'" class="px-3 py-2.5 text-center text-xs text-gray-600 whitespace-nowrap">
                   <div v-if="solic.tempo_standby" class="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block">
                     ⏱️ {{ solic.tempo_standby }}d
                   </div>
