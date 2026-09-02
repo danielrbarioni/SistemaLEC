@@ -22,3 +22,4 @@ class Solicitacao(Base):
     procedimento_anterior = Column(String, nullable=True)
     origem_menu = Column(String, nullable=True)
     evento_tipo = Column(String, nullable=True, default='SOLICITACAO')
+    categorizacao = Column(String, nullable=True)

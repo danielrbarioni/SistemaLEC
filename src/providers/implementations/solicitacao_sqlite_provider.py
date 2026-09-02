@@ -31,7 +31,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=solicitacao.get('perfil_executor', ''),
             usuario=solicitacao.get('usuario', ''),
             procedimento_anterior=solicitacao.get('procedimento_anterior', ''),
-            origem_menu=solicitacao.get('origem_menu', 'Sistema LEC')
+            origem_menu=solicitacao.get('origem_menu', 'Sistema LEC'),
+            categorizacao=solicitacao.get('categorizacao', '') or None
         )
         
         self.session.add(nova_solic)
@@ -55,7 +56,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'perfil_executor': nova_solic.perfil_executor,
             'usuario': nova_solic.usuario,
             'procedimento_anterior': nova_solic.procedimento_anterior,
-            'origem_menu': nova_solic.origem_menu
+            'origem_menu': nova_solic.origem_menu,
+            'categorizacao': nova_solic.categorizacao or ''
         }
 
     async def listar_solicitacoes(self) -> List[Dict[str, Any]]:
@@ -82,7 +84,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'usuario': getattr(s, 'usuario', '') or '',
                 'procedimento_anterior': s.procedimento_anterior,
                 'origem_menu': getattr(s, 'origem_menu', 'Sistema LEC') or 'Sistema LEC',
-                'evento_tipo': getattr(s, 'evento_tipo', 'SOLICITACAO') or 'SOLICITACAO'
+                'evento_tipo': getattr(s, 'evento_tipo', 'SOLICITACAO') or 'SOLICITACAO',
+                'categorizacao': getattr(s, 'categorizacao', '') or ''
             }
             for s in solicitacoes
         ]
@@ -182,9 +185,20 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             campos_alterados.append(f"Swalis: {solic.swallis} -> {dados_atualizados['swallis']}")
             solic.swallis = dados_atualizados['swallis']
             
+        medico_alterado = False
         if 'medico_responsavel' in dados_atualizados and dados_atualizados['medico_responsavel'] != solic.medico_responsavel:
             campos_alterados.append(f"Médico: {solic.medico_responsavel} -> {dados_atualizados['medico_responsavel']}")
             solic.medico_responsavel = dados_atualizados['medico_responsavel']
+            medico_alterado = True
+            
+        if 'categorizacao' in dados_atualizados:
+            nova_cat = dados_atualizados['categorizacao'] or None
+            if nova_cat != solic.categorizacao:
+                campos_alterados.append(f"Categorização: {solic.categorizacao or 'Sem categorização'} -> {nova_cat or 'Sem categorização'}")
+                solic.categorizacao = nova_cat
+        elif medico_alterado and solic.categorizacao:
+            campos_alterados.append("Categorização: Removida por alteração do médico responsável")
+            solic.categorizacao = None
             
         if 'tempo_standby' in dados_atualizados and dados_atualizados['tempo_standby'] != solic.tempo_standby:
             novo_tempo = int(dados_atualizados['tempo_standby']) if dados_atualizados['tempo_standby'] else None
@@ -222,7 +236,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             usuario=usuario_executor or solic.usuario,
             procedimento_anterior=solic.procedimento_anterior,
             origem_menu=solic.origem_menu or "Sistema LEC",
-            evento_tipo="ALTERACAO"
+            evento_tipo="ALTERACAO",
+            categorizacao=solic.categorizacao
         )
         self.session.add(evento_alteracao)
         await self.session.commit()
@@ -245,7 +260,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'usuario': solic.usuario,
             'procedimento_anterior': solic.procedimento_anterior,
             'origem_menu': solic.origem_menu,
-            'evento_tipo': 'SOLICITACAO'
+            'evento_tipo': 'SOLICITACAO',
+            'categorizacao': solic.categorizacao or ''
         }
 
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:

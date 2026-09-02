@@ -17,3 +17,4 @@ class Paciente(Base):
     especialidade = Column(String, nullable=True)
     procedimento = Column(String, nullable=True)
     ultima_consulta_epo = Column(String, nullable=True)
+    categorizacao = Column(String, nullable=True)

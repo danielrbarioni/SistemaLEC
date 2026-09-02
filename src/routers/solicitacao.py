@@ -36,6 +36,7 @@ class SolicitacaoCreate(BaseModel):
     usuario: str = ""
     procedimento_anterior: str = ""
     origem_menu: str = "Sistema LEC"
+    categorizacao: str = ""
 
 class SolicitacaoUpdate(BaseModel):
     especialidade: str = ""
@@ -52,6 +53,7 @@ class SolicitacaoUpdate(BaseModel):
     usuario: str = ""
     procedimento_anterior: str = ""
     origem_menu: str = "Sistema LEC"
+    categorizacao: str = ""
 
 class SolicitacaoStatusUpdate(BaseModel):
     status: str

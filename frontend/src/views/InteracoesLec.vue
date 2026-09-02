@@ -366,6 +366,25 @@
           </div>
         </div>
 
+        <!-- Categorização do Profissional (Exibida dinamicamente se o médico+especialidade tiver categorias cadastradas) -->
+        <div v-if="categoriasDoMedicoSelecionado.length > 0 && (abaAtiva === 'INSERIR' || abaAtiva === 'EDITAR')" class="form-group bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-200">
+          <label for="categorizacao" class="form-label font-bold text-indigo-950 flex items-center space-x-1.5">
+            <span>🏷️ Categorização do Profissional (Opcional)</span>
+            <span class="text-[11px] font-normal text-indigo-600">— Classificação clínica definida pelo médico</span>
+          </label>
+          <select
+            id="categorizacao"
+            v-model="form.categorizacao"
+            class="form-control bg-white"
+            :disabled="camposEdicaoBloqueados"
+          >
+            <option value="">Sem categorização (Não classificado)</option>
+            <option v-for="cat in categoriasDoMedicoSelecionado" :key="cat" :value="cat">
+              {{ cat }}
+            </option>
+          </select>
+        </div>
+
         <!-- Aba STANDBY: Opções e Gestão de Standby Vigente -->
         <div v-if="abaAtiva === 'STANDBY'" class="space-y-4 mb-4">
           <!-- Alerta de Standby Vigente Existente -->
@@ -959,6 +978,21 @@
                 </div>
                 <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.medico_responsavel || '—' }}</span>
               </div>
+
+              <!-- Categorização do Profissional -->
+              <div class="col-span-2">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Categorização do Profissional:</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'categorizacao')" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'categorizacao')?.anterior }}</div>
+                  <div class="font-bold text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-block text-xs">
+                    ➔ {{ modalDescricao.solic.categorizacao || 'Sem categorização' }}
+                  </div>
+                </div>
+                <span v-else-if="modalDescricao.solic.categorizacao" class="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 inline-block text-xs">
+                  🏷️ {{ modalDescricao.solic.categorizacao }}
+                </span>
+                <span v-else class="text-gray-400 italic">Sem categorização</span>
+              </div>
             </div>
 
             <div class="pt-2 border-t border-slate-200/80">
@@ -1234,7 +1268,8 @@ const form = ref({
   swallis: '',
   medico_responsavel: '',
   detalhes: '',
-  tempo_standby: undefined as number | undefined
+  tempo_standby: undefined as number | undefined,
+  categorizacao: ''
 });
 
 const pacienteValidadoNoAghu = ref(false);
@@ -1480,6 +1515,36 @@ const medicosDaEspecialidade = computed(() => {
   return Array.from(new Set(medicosEncontrados)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
+// Categorizações do Profissional
+const categorizacoes = ref<any[]>([]);
+
+const carregarCategorizacoes = async () => {
+  try {
+    const { data } = await api.get('/api/categorizacoes-profissionais');
+    categorizacoes.value = data;
+  } catch (error) {
+    console.error('Erro ao carregar categorizacoes:', error);
+  }
+};
+
+const categoriasDoMedicoSelecionado = computed(() => {
+  const med = (form.value.medico_responsavel || '').trim().toUpperCase();
+  const esp = (especialidadeForm.value || '').trim().toUpperCase();
+  if (!med || !esp) return [];
+
+  const found = categorizacoes.value.find(c =>
+    c.especialidade === esp && (c.medico === med || med.includes(c.medico) || c.medico.includes(med))
+  );
+  return found ? (found.categorias || []) : [];
+});
+
+// Quando troca o médico responsável na edição, limpa a categorização
+watch(() => form.value.medico_responsavel, (novoMedico, antigoMedico) => {
+  if (antigoMedico && novoMedico && antigoMedico.trim().toUpperCase() !== novoMedico.trim().toUpperCase()) {
+    form.value.categorizacao = '';
+  }
+});
+
 // Formulário
 // -------------------------------------------------------
 
@@ -1718,7 +1783,8 @@ const limparFormulario = (manterCodigo = false) => {
     swallis: '',
     medico_responsavel: '',
     detalhes: '',
-    tempo_standby: undefined
+    tempo_standby: undefined,
+    categorizacao: ''
   };
   pacienteValidadoNoAghu.value = false;
   formCarregadoDaSede.value = false;
@@ -1751,7 +1817,8 @@ const iniciarEdicaoSolicitacao = (solic: any) => {
     swallis: solic.swallis || solic.swalis || '',
     medico_responsavel: solic.medico_responsavel || '',
     detalhes: solic.detalhes || '',
-    tempo_standby: solic.tempo_standby || undefined
+    tempo_standby: solic.tempo_standby || undefined,
+    categorizacao: solic.categorizacao || ''
   };
 
   pacienteValidadoNoAghu.value = true;
@@ -1784,6 +1851,7 @@ const preencherCamposDoProc = (proc: any) => {
   form.value.especialidade = proc.especialidade;
   form.value.judicializado = proc.judicializado || 'Não';
   form.value.swallis = proc.swallis || '';
+  form.value.categorizacao = proc.categorizacao || '';
   
   const med = proc.medico_responsavel || '';
   const userMatch = usuariosLocais.value.find(u => u.username?.toLowerCase() === med.trim().toLowerCase() || u.nome?.toLowerCase() === med.trim().toLowerCase());
@@ -1916,6 +1984,7 @@ const buscarDados = async (isAutomatic = false) => {
           judicializado: s.judicializado || 'Não',
           swallis: s.swalis || s.swallis || s.Swalis || '—',
           medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+          categorizacao: s.categorizacao || '',
           status: 'ATIVO'
         });
       } else if (s.tipo === 'EDITAR') {
@@ -1929,6 +1998,7 @@ const buscarDados = async (isAutomatic = false) => {
             judicializado: s.judicializado || 'Não',
             swallis: s.swalis || s.swallis || s.Swalis || '—',
             medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+            categorizacao: s.categorizacao !== undefined ? (s.categorizacao || '') : (existing.categorizacao || '')
           });
         }
       } else if (s.tipo === 'EXCLUIR') {
@@ -1945,6 +2015,7 @@ const buscarDados = async (isAutomatic = false) => {
             judicializado: 'Não',
             swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
             medico_responsavel: 'Não informado',
+            categorizacao: pacData.categorizacao || '',
             status: 'ATIVO'
           }];
         }
@@ -2055,14 +2126,17 @@ const enviarSolicitacao = async () => {
       const formJud = form.value.judicializado || 'Não';
       const origProc = orig.procedimento || '';
       const formProc = form.value.procedimento || '';
+      const origCat = orig.categorizacao || '';
+      const formCat = form.value.categorizacao || '';
 
       const alterado = (origSw !== formSw) || 
                        (origMed !== formMed) || 
                        (origJud !== formJud) || 
-                       (origProc !== formProc);
+                       (origProc !== formProc) ||
+                       (origCat !== formCat);
 
       if (!alterado) {
-        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Procedimento, Judicialização, Swalis, Médico Responsável) antes de enviar.');
+        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Procedimento, Judicialização, Swalis, Médico Responsável, Categorização) antes de enviar.');
         return;
       }
     }
@@ -2097,7 +2171,8 @@ const enviarSolicitacao = async () => {
         tempo_standby: tempoStandbyFinal,
         perfil_executor: perfisStore.perfilAtivo.tipo,
         usuario: authStore.user?.username || 'Usuário Sistema',
-        procedimento_anterior: form.value.procedimento_anterior || undefined
+        procedimento_anterior: form.value.procedimento_anterior || undefined,
+        categorizacao: form.value.categorizacao || ''
       });
       toast.success('Solicitação atualizada com sucesso!');
     } else {
@@ -2115,7 +2190,8 @@ const enviarSolicitacao = async () => {
         tempo_standby: tempoStandbyFinal,
         perfil_executor: perfisStore.perfilAtivo.tipo,
         usuario: authStore.user?.username || 'Usuário Sistema',
-        procedimento_anterior: form.value.procedimento_anterior || undefined
+        procedimento_anterior: form.value.procedimento_anterior || undefined,
+        categorizacao: form.value.categorizacao || ''
       });
       toast.success('Solicitação registrada com sucesso!');
     }
@@ -2360,7 +2436,7 @@ const carregarPacientesBase = async () => {
 };
 
 const obterEstadoAnterior = (solic: any) => {
-  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '' };
+  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '' };
   const pacienteBase = pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
   
   let estado = {
@@ -2368,7 +2444,8 @@ const obterEstadoAnterior = (solic: any) => {
     procedimento: pacienteBase ? pacienteBase.procedimento : '',
     judicializado: pacienteBase ? (pacienteBase.judicializado || 'Não') : 'Não',
     swalis: pacienteBase ? (pacienteBase.swalis || pacienteBase.swallis || pacienteBase.Swalis || '') : '',
-    medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : ''
+    medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : '',
+    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : ''
   };
   
   const aprovadasAnteriores = solicitacoes.value
@@ -2386,6 +2463,7 @@ const obterEstadoAnterior = (solic: any) => {
       estado.judicializado = s.judicializado || 'Não';
       estado.swalis = s.swalis || s.swallis || s.Swalis || '';
       estado.medico_responsavel = s.medico_responsavel || '';
+      estado.categorizacao = s.categorizacao || '';
     } else if (s.tipo === 'EDITAR') {
       if (s.especialidade) estado.especialidade = s.especialidade;
       if (s.procedimento) estado.procedimento = s.procedimento;
@@ -2393,6 +2471,7 @@ const obterEstadoAnterior = (solic: any) => {
       const sw = s.swalis || s.swallis || s.Swalis;
       if (sw) estado.swalis = sw;
       if (s.medico_responsavel) estado.medico_responsavel = s.medico_responsavel;
+      if (s.categorizacao !== undefined) estado.categorizacao = s.categorizacao || '';
     }
   }
   
@@ -2437,6 +2516,12 @@ const obterMudancaCampo = (solic: any, campo: string) => {
     if (ant && novo && ant !== novo) {
       return { anterior: ant, novo };
     }
+  } else if (campo === 'categorizacao') {
+    const ant = (estAnt.categorizacao || '').trim();
+    const novo = (solic.categorizacao || '').trim();
+    if (ant !== novo) {
+      return { anterior: ant || 'Sem categorização', novo: novo || 'Sem categorização' };
+    }
   }
   return null;
 };
@@ -2468,6 +2553,11 @@ const obterListaMudancas = (solic: any) => {
   const mMed = obterMudancaCampo(solic, 'medico_responsavel');
   if (mMed) {
     mudancas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+  }
+
+  const mCat = obterMudancaCampo(solic, 'categorizacao');
+  if (mCat) {
+    mudancas.push({ campo: 'Categorização Profissional', anterior: mCat.anterior, novo: mCat.novo });
   }
   
   return mudancas;
@@ -2518,6 +2608,7 @@ onMounted(() => {
   carregarSolicitacoes();
   carregarPacientesBase();
   carregarUsuariosLocais();
+  carregarCategorizacoes();
   window.addEventListener('resize', atualizarDimensoesTabela);
   setTimeout(atualizarDimensoesTabela, 300);
 });

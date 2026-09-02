@@ -84,6 +84,24 @@
           </select>
         </div>
 
+        <!-- Filtro por Categorização do Profissional (Abre quando uma Especialidade + Médico com categorias forem selecionados) -->
+        <div v-if="categoriasDoMedicoFiltro.length > 0" class="form-group bg-indigo-50/60 p-2.5 rounded-xl border border-indigo-200">
+          <label for="filtroCategorizacao" class="form-label font-bold text-indigo-950 flex items-center space-x-1">
+            <span>🏷️ Categorização</span>
+          </label>
+          <select 
+            id="filtroCategorizacao" 
+            v-model="filtroCategorizacao" 
+            class="form-control bg-white"
+          >
+            <option value="">Todas as Categorias</option>
+            <option v-for="cat in categoriasDoMedicoFiltro" :key="cat" :value="cat">
+              {{ cat }}
+            </option>
+            <option value="SEM_CATEGORIZACAO">Sem categorização</option>
+          </select>
+        </div>
+
         <!-- Filtro por Judicialização -->
         <div class="form-group">
           <label for="filtroJudicializado" class="form-label font-semibold">
@@ -376,7 +394,7 @@
                 </div>
 
                 <!-- Detalhes Específicos do Procedimento -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-slate-50 p-3.5 rounded-lg border border-slate-100">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5 text-xs bg-slate-50 p-3.5 rounded-lg border border-slate-100">
                   <div>
                     <span class="text-gray-400 font-semibold block uppercase text-[10px]">Data de Inserção</span>
                     <span class="text-gray-900 font-mono font-medium mt-0.5 block">
@@ -402,6 +420,16 @@
                     <span class="text-gray-400 font-semibold block uppercase text-[10px]">Médico Responsável</span>
                     <span class="text-gray-900 font-semibold mt-0.5 block truncate" :title="proc.medico_responsavel">
                       {{ proc.medico_responsavel || 'Não informado' }}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Categorização</span>
+                    <span v-if="proc.categorizacao" class="text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-block mt-0.5">
+                      🏷️ {{ proc.categorizacao }}
+                    </span>
+                    <span v-else class="text-gray-400 italic mt-0.5 block">
+                      Sem categorização
                     </span>
                   </div>
                 </div>
@@ -467,6 +495,7 @@ const buscaProntuario = ref('');
 const filtroEspecialidade = ref('');
 const filtroProcedimento = ref('');
 const filtroMedico = ref('');
+const filtroCategorizacao = ref('');
 const filtroJudicializado = ref('');
 const filtroSwalis = ref('');
 const filtroApenasUmProcedimento = ref(false);
@@ -474,6 +503,7 @@ const filtroApenasMultiplos = ref(false);
 const filtroApenasUmaEspecialidade = ref(false);
 const filtroApenasMultiplasEspecialidades = ref(false);
 const usuarios = ref<any[]>([]);
+const categorizacoes = ref<any[]>([]);
 
 const espSelecionada = computed(() => {
   if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
@@ -544,6 +574,22 @@ const medicosOpcoes = computed(() => {
   }
 
   return Array.from(medicosSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+});
+
+// Categorias do médico selecionado no filtro
+const categoriasDoMedicoFiltro = computed(() => {
+  const med = (filtroMedico.value || '').trim().toUpperCase();
+  const esp = (espSelecionada.value || '').trim().toUpperCase();
+  if (!med || !esp) return [];
+
+  const found = categorizacoes.value.find(c =>
+    c.especialidade === esp && (c.medico === med || med.includes(c.medico) || c.medico.includes(med))
+  );
+  return found ? (found.categorias || []) : [];
+});
+
+watch([espSelecionada, filtroMedico], () => {
+  filtroCategorizacao.value = '';
 });
 
 const procedimentosAghuMap = ref<Record<string, string[]>>({});
@@ -627,10 +673,11 @@ watch(() => perfisStore.perfilAtivo, (newProfile) => {
 const carregarDados = async () => {
   loading.value = true;
   try {
-    const [pacRes, solRes, usrRes] = await Promise.all([
+    const [pacRes, solRes, usrRes, catRes] = await Promise.all([
       api.get('/api/pacientes'),
       api.get('/api/solicitacoes'),
       api.get('/api/usuarios'),
+      api.get('/api/categorizacoes-profissionais'),
       perfisStore.fetchPerfis()
     ]);
     basePacientes.value = pacRes.data;
@@ -644,6 +691,7 @@ const carregarDados = async () => {
       return true;
     });
     usuarios.value = usrRes.data;
+    categorizacoes.value = catRes.data || [];
   } catch (error) {
     toast.error('Erro ao obter os dados dos pacientes.');
   } finally {
@@ -897,7 +945,8 @@ const todosPacientesMap = computed(() => {
         data_insercao: s.data_criacao || '—',
         medico_responsavel: resolverMedicoNome(s.medico_responsavel),
         status: 'ATIVO',
-        tempo_standby: null
+        tempo_standby: null,
+        categorizacao: s.categorizacao || ''
       });
     } else if (s.tipo === 'EDITAR') {
       const targetProcName = s.procedimento_anterior || s.procedimento;
@@ -908,6 +957,7 @@ const todosPacientesMap = computed(() => {
         const novoSwalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '';
         proc.Swalis = novoSwalis || proc.Swalis || '—';
         proc.medico_responsavel = resolverMedicoNome(s.medico_responsavel);
+        proc.categorizacao = s.categorizacao !== undefined ? (s.categorizacao || '') : (proc.categorizacao || '');
         if (!proc.data_insercao || proc.data_insercao === '—') {
           proc.data_insercao = s.data_criacao || '—';
         }
@@ -942,7 +992,8 @@ const todosPacientesMap = computed(() => {
           data_insercao: baseMatch.data_hora_inicio || '—',
           medico_responsavel: resolverMedicoNome(baseMatch.medico_responsavel),
           status: 'ATIVO',
-          tempo_standby: null
+          tempo_standby: null,
+          categorizacao: baseMatch.categorizacao || ''
         });
       }
     }
@@ -999,6 +1050,14 @@ const pacientesProcessados = computed(() => {
           const mNorm = norm(mUpper);
           return mUpper === medicoSelecionado || mNorm === medicoNorm;
         });
+      }
+
+      if (filtroCategorizacao.value) {
+        if (filtroCategorizacao.value === 'SEM_CATEGORIZACAO') {
+          procs = procs.filter((p: any) => !p.categorizacao || p.categorizacao.trim() === '');
+        } else {
+          procs = procs.filter((p: any) => p.categorizacao && p.categorizacao.trim() === filtroCategorizacao.value.trim());
+        }
       }
 
       if (filtroJudicializado.value) {
@@ -1086,6 +1145,7 @@ const procedimentosFlat = computed(() => {
         medico_responsavel: proc.medico_responsavel || 'Não informado',
         status: proc.status,
         tempo_standby: proc.tempo_standby,
+        categorizacao: proc.categorizacao || '',
         pacienteCompleto: pacMestre
       });
     }
