@@ -636,9 +636,9 @@
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">ID</th>
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tipo</th>
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Especialidade</th>
-                <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Procedimento</th>
-                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider max-w-[200px]">Procedimento Anterior</th>
-                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider max-w-[220px]">Novo Procedimento</th>
+                <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[260px] max-w-sm">Procedimento</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[320px] max-w-md">Procedimento Anterior</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[320px] max-w-md">Novo Procedimento</th>
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Prontuário / Paciente</th>
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Judicial</th>
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Swalis</th>
@@ -671,21 +671,21 @@
                 </td>
                 
                 <!-- Procedimento (Não EDITAR) -->
-                <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-gray-800 font-medium max-w-xs break-words whitespace-normal leading-snug" :title="solic.procedimento">
+                <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-gray-800 font-medium min-w-[260px] max-w-sm break-words whitespace-normal leading-snug" :title="solic.procedimento">
                   {{ solic.procedimento || '—' }}
                 </td>
                 
                 <!-- Procedimento Anterior (EDITAR) -->
-                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-gray-500 italic max-w-[200px] break-words whitespace-normal leading-snug" :title="solic.procedimento_anterior">
+                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-gray-500 italic min-w-[320px] max-w-md break-words whitespace-normal leading-snug" :title="solic.procedimento_anterior">
                   {{ solic.procedimento_anterior || '—' }}
                 </td>
                 
                 <!-- Novo Procedimento (EDITAR) -->
-                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 max-w-[220px]">
+                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 min-w-[320px] max-w-md">
                   <div v-if="solic.procedimento === solic.procedimento_anterior || !solic.procedimento_anterior" class="text-gray-400 italic" title="Não houve mudança">
                     Não houve mudança
                   </div>
-                  <div v-else class="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200 block max-w-full break-words whitespace-normal leading-snug" :title="solic.procedimento">
+                  <div v-else class="font-bold text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded border border-blue-200 block max-w-full break-words whitespace-normal leading-snug" :title="solic.procedimento">
                     {{ solic.procedimento }}
                   </div>
                 </td>
