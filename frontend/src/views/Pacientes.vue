@@ -87,7 +87,7 @@
         <!-- Filtro por Categorização do Profissional (Abre quando uma Especialidade + Médico com categorias forem selecionados) -->
         <div v-if="categoriasDoMedicoFiltro.length > 0" class="form-group bg-indigo-50/60 p-2.5 rounded-xl border border-indigo-200">
           <label for="filtroCategorizacao" class="form-label font-bold text-indigo-950 flex items-center space-x-1">
-            <span>🏷️ Categorização</span>
+            <span>🏷️ Categorização do Profissional</span>
           </label>
           <select 
             id="filtroCategorizacao" 
