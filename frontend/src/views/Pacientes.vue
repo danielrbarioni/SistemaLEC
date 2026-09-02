@@ -217,19 +217,19 @@
         <p class="text-base font-semibold text-gray-700">Nenhum paciente ou procedimento encontrado.</p>
         <p class="text-xs text-gray-400 mt-1">Tente ajustar os filtros de busca acima para encontrar os registros desejados.</p>
       </div>
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 text-sm">
-          <thead class="bg-gray-50">
+      <div v-else class="overflow-x-auto max-h-[calc(100vh-260px)] overflow-y-auto border border-gray-100 rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200 text-sm border-separate border-spacing-0">
+          <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Prontuário</th>
-              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Nome Completo</th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Data de Nascimento</th>
-              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Especialidade</th>
-              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Procedimento</th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Judicialização</th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Swalis</th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Data de Inserção</th>
-              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Médico Responsável</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Prontuário</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Nome Completo</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Data de Nascimento</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Especialidade</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Procedimento</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Judicialização</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Swalis</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Data de Inserção</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Médico Responsável</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">

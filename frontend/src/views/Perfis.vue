@@ -450,16 +450,16 @@
           <div v-if="usuariosFiltrados.length === 0" class="text-center py-8 text-gray-500 text-sm">
             Nenhum usuário correspondente aos filtros.
           </div>
-          <div v-else class="w-full">
-            <table class="w-full table-auto divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+          <div v-else class="w-full overflow-x-auto max-h-[calc(100vh-320px)] overflow-y-auto border border-gray-100 rounded-lg">
+            <table class="w-full table-auto divide-y divide-gray-200 border-separate border-spacing-0">
+              <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/4">Nome / Usuário Ebserh</th>
-                  <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6">Perfil ID</th>
-                  <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6">Especialidade</th>
-                  <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6">Função</th>
-                  <th v-if="podeGerenciarCategorizacao" scope="col" class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6">Categorização</th>
-                  <th scope="col" class="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6">Ações</th>
+                  <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/4 border-b border-gray-200">Nome / Usuário Ebserh</th>
+                  <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Perfil ID</th>
+                  <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Especialidade</th>
+                  <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Função</th>
+                  <th v-if="podeGerenciarCategorizacao" scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Categorização</th>
+                  <th scope="col" class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider w-1/6 border-b border-gray-200">Ações</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200 text-sm">

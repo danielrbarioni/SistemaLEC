@@ -645,28 +645,28 @@
 
         <div 
           ref="tableContainerRef" 
-          class="overflow-x-auto" 
+          class="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto border border-gray-100 rounded-b-lg" 
           @scroll="onBottomScroll"
         >
-          <table ref="tableRef" class="min-w-full divide-y divide-gray-200 text-xs">
-            <thead class="bg-gray-50">
+          <table ref="tableRef" class="min-w-full divide-y divide-gray-200 text-xs border-separate border-spacing-0">
+            <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
               <tr>
-                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Data / Hora</th>
-                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">ID</th>
-                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tipo</th>
-                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Especialidade</th>
-                <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[260px] max-w-sm">Procedimento</th>
-                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[320px] max-w-md">Procedimento Anterior</th>
-                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[320px] max-w-md">Novo Procedimento</th>
-                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Prontuário / Paciente</th>
-                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Judicial</th>
-                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Swalis</th>
-                <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Médico</th>
-                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
-                <th v-if="abaAcompanhamentoAtiva === 'STANDBY'" class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tempo Standby</th>
-                <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Descrição</th>
-                <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">DATA/HORA AÇÃO</th>
-                <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Ações</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Data / Hora</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">ID</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Tipo</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Especialidade</th>
+                <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[260px] max-w-sm border-b border-gray-200">Procedimento</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[320px] max-w-md border-b border-gray-200">Procedimento Anterior</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider min-w-[320px] max-w-md border-b border-gray-200">Novo Procedimento</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Prontuário / Paciente</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Judicial</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Swalis</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Médico</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Status</th>
+                <th v-if="abaAcompanhamentoAtiva === 'STANDBY'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Tempo Standby</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Descrição</th>
+                <th v-if="subAbaAcompanhamento === 'CONCLUIDO'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">DATA/HORA AÇÃO</th>
+                <th v-if="subAbaAcompanhamento !== 'CONCLUIDO'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
