@@ -117,7 +117,7 @@
             <tr v-for="paciente in pacientesFiltrados" :key="paciente.codigo">
               <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-mono">{{ paciente.codigo }}</td>
               <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ paciente.nome }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-600">{{ formatarNomeProcedimento(paciente.procedimento) || 'Não informado' }}</td>
+              <td class="px-6 py-4 text-gray-600 max-w-sm break-words whitespace-normal leading-snug">{{ formatarNomeProcedimento(paciente.procedimento) || 'Não informado' }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-mono">
                 {{ formatarData(paciente.ultima_consulta_epo) }}
               </td>

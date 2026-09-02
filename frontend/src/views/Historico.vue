@@ -166,13 +166,18 @@
               </td>
 
               <!-- 4. Especialidade/Procedimento -->
-              <td class="px-4 py-4 text-xs text-gray-700">
+              <td class="px-4 py-4 text-xs text-gray-700 max-w-xs break-words whitespace-normal leading-snug">
                 <div class="font-semibold">{{ solic.especialidade || '—' }}</div>
-                <div class="text-gray-400">
-                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento">
-                    {{ solic.procedimento_anterior }} ➔ 
+                <div class="text-gray-600 mt-0.5">
+                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="text-gray-400 line-through mr-1">
+                    {{ solic.procedimento_anterior }}
                   </span>
-                  {{ solic.procedimento || '—' }}
+                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="font-bold text-blue-700 mr-1">
+                    ➔
+                  </span>
+                  <span :class="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento ? 'font-bold text-blue-800' : ''">
+                    {{ solic.procedimento || '—' }}
+                  </span>
                 </div>
               </td>
 

@@ -254,10 +254,10 @@
                 </span>
               </td>
 
-              <!-- Procedimento Padronizado (Máximo 2 Linhas com ajuste dinâmico de fonte) -->
+              <!-- Procedimento Padronizado (Exibição Completa com Quebra de Linha Automática) -->
               <td class="px-4 py-3 text-gray-800 font-medium max-w-sm" :title="formatarNomeProcedimento(row.procedimento)">
                 <div 
-                  class="line-clamp-2 leading-tight break-words"
+                  class="break-words whitespace-normal leading-snug"
                   :class="formatarNomeProcedimento(row.procedimento).length > 60 ? 'text-xs' : 'text-sm'"
                 >
                   {{ formatarNomeProcedimento(row.procedimento) || '—' }}

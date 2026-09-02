@@ -637,8 +637,8 @@
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tipo</th>
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Especialidade</th>
                 <th v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Procedimento</th>
-                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Procedimento Anterior</th>
-                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Novo Procedimento</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider max-w-[200px]">Procedimento Anterior</th>
+                <th v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider max-w-[220px]">Novo Procedimento</th>
                 <th class="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider">Prontuário / Paciente</th>
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Judicial</th>
                 <th class="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Swalis</th>
@@ -671,21 +671,21 @@
                 </td>
                 
                 <!-- Procedimento (Não EDITAR) -->
-                <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-gray-800 font-medium max-w-xs truncate" :title="solic.procedimento">
+                <td v-if="abaAcompanhamentoAtiva !== 'EDITAR'" class="px-3 py-2.5 text-gray-800 font-medium max-w-xs break-words whitespace-normal leading-snug" :title="solic.procedimento">
                   {{ solic.procedimento || '—' }}
                 </td>
                 
                 <!-- Procedimento Anterior (EDITAR) -->
-                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-gray-500 italic max-w-xs truncate" :title="solic.procedimento_anterior">
+                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 text-gray-500 italic max-w-[200px] break-words whitespace-normal leading-snug" :title="solic.procedimento_anterior">
                   {{ solic.procedimento_anterior || '—' }}
                 </td>
                 
                 <!-- Novo Procedimento (EDITAR) -->
-                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 max-w-xs">
-                  <div v-if="solic.procedimento === solic.procedimento_anterior || !solic.procedimento_anterior" class="text-gray-400 italic">
+                <td v-if="abaAcompanhamentoAtiva === 'EDITAR'" class="px-3 py-2.5 max-w-[220px]">
+                  <div v-if="solic.procedimento === solic.procedimento_anterior || !solic.procedimento_anterior" class="text-gray-400 italic" title="Não houve mudança">
                     Não houve mudança
                   </div>
-                  <div v-else class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block truncate" :title="solic.procedimento">
+                  <div v-else class="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200 block max-w-full break-words whitespace-normal leading-snug" :title="solic.procedimento">
                     {{ solic.procedimento }}
                   </div>
                 </td>
@@ -849,6 +849,34 @@
             <span class="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block border-b border-slate-200 pb-1">
               📌 Dados da Solicitação
             </span>
+
+            <!-- Resumo das Alterações Solicitadas (apenas para solicitações de EDITAR) -->
+            <div v-if="modalDescricao.solic.tipo === 'EDITAR'" class="p-3 bg-amber-50/90 border border-amber-200 rounded-lg space-y-2">
+              <div class="flex items-center space-x-1.5 text-amber-900 font-bold text-xs border-b border-amber-200/80 pb-1">
+                <span>✏️</span>
+                <span>Campos Alterados nesta Solicitação de Edição:</span>
+              </div>
+              <div v-if="obterListaMudancas(modalDescricao.solic).length > 0" class="space-y-1.5">
+                <div 
+                  v-for="mudanca in obterListaMudancas(modalDescricao.solic)" 
+                  :key="mudanca.campo"
+                  class="flex flex-col sm:flex-row sm:items-center text-xs text-amber-950 bg-white/80 p-2 rounded-md border border-amber-200/70"
+                >
+                  <span class="font-bold text-amber-900 sm:w-44 shrink-0">{{ mudanca.campo }}:</span>
+                  <div class="flex items-center space-x-1.5 flex-wrap">
+                    <span class="text-gray-500 line-through text-[11px]">{{ mudanca.anterior || '—' }}</span>
+                    <span class="font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
+                      ➔ {{ mudanca.novo }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-gray-500 italic text-[11px]">
+                Nenhum campo estrutural alterado (apenas justificativa clínica).
+              </div>
+            </div>
+
+            <!-- Grade de Campos da Solicitação -->
             <div class="grid grid-cols-2 gap-2.5 text-xs">
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Data/Hora Solicitação:</span>
@@ -871,23 +899,65 @@
               </div>
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Especialidade:</span>
-                <span class="font-semibold text-gray-800">{{ modalDescricao.solic.especialidade }}</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'especialidade')" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'especialidade')?.anterior }}</div>
+                  <div class="font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block text-xs">
+                    ➔ {{ modalDescricao.solic.especialidade }}
+                  </div>
+                </div>
+                <span v-else class="font-semibold text-gray-800">{{ modalDescricao.solic.especialidade }}</span>
               </div>
-              <div>
+
+              <!-- Procedimento -->
+              <div class="col-span-2">
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Procedimento:</span>
-                <span class="font-semibold text-gray-800">{{ modalDescricao.solic.procedimento }}</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && (modalDescricao.solic.procedimento_anterior && modalDescricao.solic.procedimento_anterior !== modalDescricao.solic.procedimento)" class="space-y-1 p-2 bg-blue-50/40 rounded border border-blue-100">
+                  <div class="text-[11px] text-gray-600 flex items-start space-x-1.5">
+                    <span class="font-bold text-gray-400 shrink-0">Anterior:</span>
+                    <span class="line-through text-gray-500">{{ modalDescricao.solic.procedimento_anterior }}</span>
+                  </div>
+                  <div class="text-xs text-blue-900 flex items-start space-x-1.5">
+                    <span class="font-bold text-blue-700 shrink-0">Novo:</span>
+                    <span class="font-bold text-blue-800 bg-blue-100/70 px-2 py-0.5 rounded border border-blue-300 inline-block">{{ modalDescricao.solic.procedimento }}</span>
+                  </div>
+                </div>
+                <span v-else class="font-semibold text-gray-800">{{ modalDescricao.solic.procedimento }}</span>
               </div>
+
+              <!-- Judicialização -->
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Judicialização:</span>
-                <span class="font-medium text-gray-800">{{ modalDescricao.solic.judicializado || 'Não' }}</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'judicializado')" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'judicializado')?.anterior }}</div>
+                  <div class="font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block text-xs">
+                    ➔ {{ modalDescricao.solic.judicializado }}
+                  </div>
+                </div>
+                <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.judicializado || 'Não' }}</span>
               </div>
+
+              <!-- Swalis -->
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Swalis:</span>
-                <span class="font-medium text-gray-800">{{ modalDescricao.solic.swalis || modalDescricao.solic.swallis || modalDescricao.solic.Swalis || '—' }}</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'swalis')" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'swalis')?.anterior }}</div>
+                  <div class="font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block text-xs">
+                    ➔ {{ modalDescricao.solic.swalis || modalDescricao.solic.swallis || modalDescricao.solic.Swalis }}
+                  </div>
+                </div>
+                <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.swalis || modalDescricao.solic.swallis || modalDescricao.solic.Swalis || '—' }}</span>
               </div>
+
+              <!-- Médico Responsável -->
               <div class="col-span-2">
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Médico Responsável:</span>
-                <span class="font-medium text-gray-800">{{ modalDescricao.solic.medico_responsavel || '—' }}</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'medico_responsavel')" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'medico_responsavel')?.anterior }}</div>
+                  <div class="font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block text-xs">
+                    ➔ {{ modalDescricao.solic.medico_responsavel }}
+                  </div>
+                </div>
+                <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.medico_responsavel || '—' }}</span>
               </div>
             </div>
 
@@ -978,7 +1048,14 @@
           <div class="bg-red-50 p-3 rounded-lg border border-red-100 text-red-900 space-y-1">
             <div><span class="font-bold">Paciente:</span> {{ modalRejeicao.solic.nome_paciente }} (#{{ modalRejeicao.solic.codigo_paciente }})</div>
             <div><span class="font-bold">Especialidade:</span> {{ modalRejeicao.solic.especialidade }}</div>
-            <div><span class="font-bold">Procedimento:</span> {{ modalRejeicao.solic.procedimento }}</div>
+            <div>
+              <span class="font-bold">Procedimento:</span> 
+              <span v-if="modalRejeicao.solic.tipo === 'EDITAR' && modalRejeicao.solic.procedimento_anterior && modalRejeicao.solic.procedimento_anterior !== modalRejeicao.solic.procedimento">
+                <span class="line-through text-red-700/80 mr-1">{{ modalRejeicao.solic.procedimento_anterior }}</span>
+                <span class="font-bold">➔ {{ modalRejeicao.solic.procedimento }}</span>
+              </span>
+              <span v-else>{{ modalRejeicao.solic.procedimento }}</span>
+            </div>
           </div>
 
           <div class="space-y-1">
@@ -1033,7 +1110,14 @@
           <div class="bg-red-50 p-3 rounded-lg border border-red-100 text-red-900 space-y-1">
             <div><span class="font-bold">Paciente:</span> {{ modalCancelar.solic.nome_paciente }}</div>
             <div><span class="font-bold">Prontuário:</span> #{{ modalCancelar.solic.codigo_paciente }}</div>
-            <div><span class="font-bold">Procedimento:</span> {{ modalCancelar.solic.procedimento }}</div>
+            <div>
+              <span class="font-bold">Procedimento:</span> 
+              <span v-if="modalCancelar.solic.tipo === 'EDITAR' && modalCancelar.solic.procedimento_anterior && modalCancelar.solic.procedimento_anterior !== modalCancelar.solic.procedimento">
+                <span class="line-through text-red-700/80 mr-1">{{ modalCancelar.solic.procedimento_anterior }}</span>
+                <span class="font-bold">➔ {{ modalCancelar.solic.procedimento }}</span>
+              </span>
+              <span v-else>{{ modalCancelar.solic.procedimento }}</span>
+            </div>
             <div><span class="font-bold">Especialidade:</span> {{ modalCancelar.solic.especialidade }}</div>
           </div>
           
@@ -2276,7 +2360,8 @@ const carregarPacientesBase = async () => {
 };
 
 const obterEstadoAnterior = (solic: any) => {
-  const pacienteBase = pacientesBase.value.find(p => String(p.prontuario) === String(solic.codigo_paciente));
+  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '' };
+  const pacienteBase = pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
   
   let estado = {
     especialidade: pacienteBase ? pacienteBase.especialidade : '',
@@ -2311,7 +2396,81 @@ const obterEstadoAnterior = (solic: any) => {
     }
   }
   
+  if (solic.procedimento_anterior) {
+    estado.procedimento = solic.procedimento_anterior;
+  }
+  
   return estado;
+};
+
+const obterMudancaCampo = (solic: any, campo: string) => {
+  if (!solic || solic.tipo !== 'EDITAR') return null;
+  const estAnt = obterEstadoAnterior(solic);
+  
+  if (campo === 'procedimento') {
+    const ant = (solic.procedimento_anterior || estAnt.procedimento || '').trim();
+    const novo = (solic.procedimento || '').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'judicializado') {
+    const ant = (estAnt.judicializado || 'Não').trim();
+    const novo = (solic.judicializado || 'Não').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'swalis') {
+    const ant = (estAnt.swalis || '').trim();
+    const novo = (solic.swalis || solic.swallis || solic.Swalis || '').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'medico_responsavel') {
+    const ant = (estAnt.medico_responsavel || '').trim();
+    const novo = (solic.medico_responsavel || '').trim();
+    if (ant && novo && ant.toLowerCase() !== novo.toLowerCase()) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'especialidade') {
+    const ant = (estAnt.especialidade || '').trim();
+    const novo = (solic.especialidade || '').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  }
+  return null;
+};
+
+const obterListaMudancas = (solic: any) => {
+  if (!solic || solic.tipo !== 'EDITAR') return [];
+  const mudancas: { campo: string; anterior: string; novo: string }[] = [];
+  
+  const mProc = obterMudancaCampo(solic, 'procedimento');
+  if (mProc) {
+    mudancas.push({ campo: 'Procedimento (Fila)', anterior: mProc.anterior, novo: mProc.novo });
+  }
+  
+  const mEsp = obterMudancaCampo(solic, 'especialidade');
+  if (mEsp) {
+    mudancas.push({ campo: 'Especialidade', anterior: mEsp.anterior, novo: mEsp.novo });
+  }
+  
+  const mJud = obterMudancaCampo(solic, 'judicializado');
+  if (mJud) {
+    mudancas.push({ campo: 'Judicialização', anterior: mJud.anterior, novo: mJud.novo });
+  }
+  
+  const mSwalis = obterMudancaCampo(solic, 'swalis');
+  if (mSwalis) {
+    mudancas.push({ campo: 'Swalis (Priorização)', anterior: mSwalis.anterior, novo: mSwalis.novo });
+  }
+  
+  const mMed = obterMudancaCampo(solic, 'medico_responsavel');
+  if (mMed) {
+    mudancas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+  }
+  
+  return mudancas;
 };
 
 // Sincronização da barra de rolagem horizontal superior
