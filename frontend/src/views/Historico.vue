@@ -103,9 +103,10 @@
             <select id="filtroEventoTipo" v-model="filtroEventoTipo" class="form-control text-xs py-1.5">
               <option value="">Todas</option>
               <option value="SOLICITACAO">Solicitação</option>
+              <option value="ALTERACAO">Alteração de Solicitação</option>
+              <option value="CANCELAMENTO">Cancelamento de Solicitação</option>
               <option value="RESPOSTA">Resposta</option>
               <option value="EXECUCAO">Execução</option>
-              <option value="ALTERACAO">Alteração (Edição)</option>
             </select>
           </div>
 
@@ -205,17 +206,20 @@
                 <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
               </td>
 
-              <!-- 6. Tipo de Evento (Solicitação, Execução, Alteração, Resposta) -->
+              <!-- 6. Tipo de Evento (Solicitação, Execução, Alteração de Solicitação, Cancelamento de Solicitação, Resposta) -->
               <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
                 <div class="inline-flex flex-col items-center justify-center">
-                  <span v-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span v-if="solic.evento_tipo === 'CANCELAMENTO' || (solic.status === 'CANCELADO' && (solic.detalhes?.toLowerCase().includes('cancelou') || solic.evento_tipo === 'CANCELAMENTO'))" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
+                    Cancelamento de Solicitação
+                  </span>
+                  <span v-else-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     Resposta
                   </span>
                   <span v-else-if="solic.evento_tipo === 'EXECUCAO' || solic.origem_menu === 'Pacientes' || solic.origem_menu === 'Importação Planilha'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
                     Execução
                   </span>
                   <span v-else-if="solic.evento_tipo === 'ALTERACAO' || solic.evento_tipo === 'EDICAO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                    ✏️ Alteração
+                    Alteração de Solicitação
                   </span>
                   <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
                     Solicitação
@@ -316,14 +320,17 @@
 
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Tipo de Evento:</span>
-                <span v-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                <span v-if="modalDetalhes.solic.evento_tipo === 'CANCELAMENTO' || (modalDetalhes.solic.status === 'CANCELADO' && (modalDetalhes.solic.detalhes?.toLowerCase().includes('cancelou') || modalDetalhes.solic.evento_tipo === 'CANCELAMENTO'))" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
+                  Cancelamento de Solicitação
+                </span>
+                <span v-else-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                   Resposta
                 </span>
                 <span v-else-if="modalDetalhes.solic.evento_tipo === 'EXECUCAO' || modalDetalhes.solic.origem_menu === 'Pacientes'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
                   Execução
                 </span>
                 <span v-else-if="modalDetalhes.solic.evento_tipo === 'ALTERACAO' || modalDetalhes.solic.evento_tipo === 'EDICAO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  ✏️ Alteração
+                  Alteração de Solicitação
                 </span>
                 <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
                   Solicitação
@@ -637,6 +644,14 @@ const carregarHistorico = async () => {
       }
     }
 
+    // Mapa com o status da solicitação principal para manter sincronizado com suas alterações
+    const statusMap = new Map<string, string>();
+    for (const s of solicitacoesData) {
+      if (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) {
+        statusMap.set(String(s.id), s.status);
+      }
+    }
+
     solicitacoes.value = solicitacoesData.map((s: any) => {
       const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
       let nomeReal = s.nome_paciente || s.nome;
@@ -645,8 +660,19 @@ const carregarHistorico = async () => {
           nomeReal = pacMap.get(codStr);
         }
       }
+
+      // Se for alteração de solicitação, sincroniza o status com a solicitação original
+      let statusFinal = s.status;
+      if (s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO') {
+        const matchId = (s.detalhes || '').match(/solicitação\s+#([a-zA-Z0-9_-]+)/i);
+        if (matchId && matchId[1] && statusMap.has(matchId[1])) {
+          statusFinal = statusMap.get(matchId[1]);
+        }
+      }
+
       return {
         ...s,
+        status: statusFinal,
         nome_paciente: nomeReal || (codStr && codStr !== '0' ? `Paciente #${codStr}` : '—')
       };
     });
@@ -1073,13 +1099,15 @@ const solicitacoesFiltradas = computed(() => {
         else if (filtroAcaoTipo.value !== 'INSERIR' && filtroAcaoTipo.value !== 'EDITAR' && filtroAcaoTipo.value !== 'EXCLUIR' && s.tipo !== filtroAcaoTipo.value) return false;
       }
 
-      // 6. Solicitação, Execução, Alteração ou Resposta
+      // 6. Solicitação, Execução, Alteração de Solicitação, Cancelamento de Solicitação ou Resposta
       if (filtroEventoTipo.value) {
-        const isResp = s.evento_tipo === 'RESPOSTA' || s.is_resposta;
+        const isCanc = s.evento_tipo === 'CANCELAMENTO' || (s.status === 'CANCELADO' && (s.detalhes?.toLowerCase().includes('cancelou') || s.evento_tipo === 'CANCELAMENTO'));
+        const isResp = (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && !isCanc;
         const isAlt = s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO';
         const isExec = s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha';
-        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec;
+        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec && !isCanc;
 
+        if (filtroEventoTipo.value === 'CANCELAMENTO' && !isCanc) return false;
         if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
         if (filtroEventoTipo.value === 'EXECUCAO' && !isExec) return false;
         if (filtroEventoTipo.value === 'ALTERACAO' && !isAlt) return false;

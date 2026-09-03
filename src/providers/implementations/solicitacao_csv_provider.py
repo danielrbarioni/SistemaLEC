@@ -104,15 +104,72 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
                 solic['status'] = novo_status.upper()
                 solic_original = solic
                 encontrado = True
+                solic_original = solic
+                encontrado = True
                 break
                 
         if not encontrado or not solic_original:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
 
-        # Registra a nova linha de RESPOSTA
         status_upper = novo_status.upper()
-        acao_verb = "Aprovou" if status_upper == "APROVADO" else ("Cancelou" if status_upper == "CANCELADO" else "Rejeitou")
-        
+        solic_original['status'] = status_upper
+
+        # Atualiza o status de quaisquer eventos de ALTERAÇÃO vinculados a esta solicitação
+        for s in solicitacoes:
+            if s.get('evento_tipo') == 'ALTERACAO' and f'#{id_solicitacao}' in (s.get('detalhes') or ''):
+                s['status'] = status_upper
+
+        # Se for CANCELAMENTO: as ações relativas a essa solicitação passam para CANCELADO
+        if status_upper == "CANCELADO":
+            solic_original['status'] = 'CANCELADO'
+            for s in solicitacoes:
+                if s.get('evento_tipo') == 'ALTERACAO' and f'#{id_solicitacao}' in (s.get('detalhes') or ''):
+                    s['status'] = 'CANCELADO'
+
+            data_cancelamento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            detalhes_cancelamento = f"Cancelou a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')})"
+            if justificativa and justificativa.strip():
+                detalhes_cancelamento += f" - Justificativa: {justificativa.strip()}"
+
+            evento_cancelamento = {
+                'id': str(uuid.uuid4())[:8],
+                'tipo': solic_original.get('tipo', 'INSERIR'),
+                'especialidade': solic_original.get('especialidade', ''),
+                'procedimento': solic_original.get('procedimento', ''),
+                'codigo_paciente': solic_original.get('codigo_paciente', ''),
+                'nome_paciente': solic_original.get('nome_paciente', ''),
+                'judicializado': solic_original.get('judicializado', 'Não'),
+                'swalis': solic_original.get('swalis', ''),
+                'medico_responsavel': solic_original.get('medico_responsavel', ''),
+                'detalhes': detalhes_cancelamento,
+                'tempo_standby': solic_original.get('tempo_standby', ''),
+                'status': 'CANCELADO',
+                'data_criacao': data_cancelamento,
+                'perfil_executor': perfil_executor or solic_original.get('especialidade', '') or "ESPECIALIDADE",
+                'usuario': usuario_executor or solic_original.get('usuario', '') or "ESPECIALIDADE",
+                'procedimento_anterior': solic_original.get('procedimento_anterior', ''),
+                'origem_menu': solic_original.get('origem_menu', 'Solicitações LEC'),
+                'evento_tipo': 'CANCELAMENTO',
+                'data_acao': data_cancelamento
+            }
+            solicitacoes.append(evento_cancelamento)
+
+            with open(self.solicitacoes_path, mode='w', encoding='utf-8', newline='') as f:
+                if solicitacoes:
+                    fieldnames = list(solicitacoes[0].keys())
+                    if 'evento_tipo' not in fieldnames:
+                        fieldnames.append('evento_tipo')
+                    if 'origem_menu' not in fieldnames:
+                        fieldnames.append('origem_menu')
+                    writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+                    writer.writeheader()
+                    writer.writerows(solicitacoes)
+
+            return solic_original
+
+        # Para Aprovação ou Rejeição: RESPOSTA
+        data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
         if justificativa and justificativa.strip():
             detalhes_resposta = f"{acao_verb} a solicitação #{solic_original['id']} ({solic_original.get('tipo', '')}) - Justificativa: {justificativa.strip()}"
         else:
@@ -131,13 +188,13 @@ class SolicitacaoCsvProvider(SolicitacaoProviderInterface):
             'detalhes': detalhes_resposta,
             'tempo_standby': solic_original.get('tempo_standby', ''),
             'status': status_upper,
-            'data_criacao': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'data_criacao': data_resposta,
             'perfil_executor': perfil_executor or "GESTAO_LEC",
             'usuario': usuario_executor or "GESTAO_LEC",
             'procedimento_anterior': solic_original.get('procedimento_anterior', ''),
-            'origem_menu': solic_original.get('origem_menu', 'Sistema LEC'),
+            'origem_menu': solic_original.get('origem_menu', 'Solicitações LEC'),
             'evento_tipo': 'RESPOSTA',
-            'data_acao': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'data_acao': data_resposta
         }
 
         solicitacoes.append(resposta_solic)

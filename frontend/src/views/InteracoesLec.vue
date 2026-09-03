@@ -1648,7 +1648,7 @@ const solicitacoesFiltradas = computed(() => {
   const respostasPorChave = new Map<string, any>();
 
   for (const s of solicitacoes.value) {
-    if (s.evento_tipo === 'RESPOSTA' || s.is_resposta) {
+    if (s.evento_tipo === 'RESPOSTA' || s.is_resposta || s.evento_tipo === 'CANCELAMENTO') {
       if (s.detalhes && s.detalhes.includes('#')) {
         const match = s.detalhes.match(/#([a-zA-Z0-9_-]+)/);
         if (match && match[1]) {
@@ -1660,8 +1660,8 @@ const solicitacoesFiltradas = computed(() => {
     }
   }
 
-  // Apenas solicitações originais (desconsidera linhas avulsas de RESPOSTA ou ALTERAÇÃO na listagem)
-  let list = solicitacoes.value.filter(s => s.evento_tipo !== 'RESPOSTA' && !s.is_resposta && s.evento_tipo !== 'ALTERACAO' && s.evento_tipo !== 'EDICAO');
+  // Apenas solicitações originais (desconsidera linhas avulsas de RESPOSTA, ALTERAÇÃO ou CANCELAMENTO na listagem)
+  let list = solicitacoes.value.filter(s => s.evento_tipo !== 'RESPOSTA' && !s.is_resposta && s.evento_tipo !== 'ALTERACAO' && s.evento_tipo !== 'EDICAO' && s.evento_tipo !== 'CANCELAMENTO');
   
   // 1. Filtra pelo tipo correspondente à aba de acompanhamento (Inclusão, Edição, Standby, Exclusão)
   list = list.filter(s => s.tipo === abaAcompanhamentoAtiva.value);

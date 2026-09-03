@@ -128,9 +128,77 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                     if solic.lateralidade:
                         pac_obj.lateralidade = solic.lateralidade
         
-        # Cria uma nova entrada no histórico representando especificamente a RESPOSTA
+        # Atualiza o status de quaisquer eventos de ALTERAÇÃO vinculados a esta solicitação
+        stmt_alteracoes = select(Solicitacao).where(
+            Solicitacao.evento_tipo == "ALTERACAO",
+            Solicitacao.detalhes.like(f"%#{solic.id}%")
+        )
+        res_alt = await self.session.execute(stmt_alteracoes)
+        alteracoes = res_alt.scalars().all()
+        for alt in alteracoes:
+            alt.status = status_upper
+
+        # Se for CANCELAMENTO: as ações relativas a essa solicitação que tiverem ocorrido antes também passam para CANCELADO
+        if status_upper == "CANCELADO":
+            solic.status = "CANCELADO"
+            for alt in alteracoes:
+                alt.status = "CANCELADO"
+
+            data_cancelamento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            detalhes_cancelamento = f"Cancelou a solicitação #{solic.id} ({solic.tipo})"
+            if justificativa and justificativa.strip():
+                detalhes_cancelamento += f" - Justificativa: {justificativa.strip()}"
+
+            evento_cancelamento = Solicitacao(
+                id=str(uuid.uuid4())[:8],
+                tipo=solic.tipo,
+                especialidade=solic.especialidade,
+                procedimento=solic.procedimento,
+                codigo_paciente=solic.codigo_paciente,
+                nome_paciente=solic.nome_paciente,
+                judicializado=solic.judicializado,
+                swallis=solic.swallis,
+                medico_responsavel=solic.medico_responsavel,
+                detalhes=detalhes_cancelamento,
+                tempo_standby=solic.tempo_standby,
+                status="CANCELADO",
+                data_criacao=data_cancelamento,
+                perfil_executor=perfil_executor or solic.especialidade or "ESPECIALIDADE",
+                usuario=usuario_executor or solic.usuario or "ESPECIALIDADE",
+                procedimento_anterior=solic.procedimento_anterior,
+                origem_menu=solic.origem_menu or "Solicitações LEC",
+                evento_tipo="CANCELAMENTO",
+                categorizacao=solic.categorizacao,
+                lateralidade=solic.lateralidade or 'Indefinida'
+            )
+            self.session.add(evento_cancelamento)
+            await self.session.commit()
+
+            return {
+                'id': solic.id,
+                'tipo': solic.tipo,
+                'especialidade': solic.especialidade,
+                'procedimento': solic.procedimento,
+                'codigo_paciente': solic.codigo_paciente,
+                'nome_paciente': solic.nome_paciente,
+                'judicializado': solic.judicializado,
+                'swallis': solic.swallis,
+                'medico_responsavel': solic.medico_responsavel,
+                'detalhes': solic.detalhes,
+                'tempo_standby': solic.tempo_standby,
+                'status': 'CANCELADO',
+                'data_criacao': solic.data_criacao,
+                'perfil_executor': solic.perfil_executor,
+                'procedimento_anterior': solic.procedimento_anterior,
+                'evento_tipo': 'SOLICITACAO',
+                'categorizacao': solic.categorizacao or '',
+                'lateralidade': solic.lateralidade or 'Indefinida',
+                'detalhes_resposta': detalhes_cancelamento
+            }
+        
+        # Cria uma nova entrada no histórico representando especificamente a RESPOSTA (Aprovação ou Rejeição)
         data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        acao_verb = "Aprovou" if status_upper == "APROVADO" else ("Cancelou" if status_upper == "CANCELADO" else "Rejeitou")
+        acao_verb = "Aprovou" if status_upper == "APROVADO" else "Rejeitou"
         
         if justificativa and justificativa.strip():
             detalhes_resposta = f"{acao_verb} a solicitação #{solic.id} ({solic.tipo}) - Justificativa: {justificativa.strip()}"
