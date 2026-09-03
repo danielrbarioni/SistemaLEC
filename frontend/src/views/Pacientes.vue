@@ -284,9 +284,6 @@
                   <span class="text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                     Lat: {{ row.lateralidade || 'Indefinida' }}
                   </span>
-                  <span v-if="row.categorizacao" class="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
-                    🏷️ {{ row.categorizacao }}
-                  </span>
                 </div>
               </td>
 
@@ -313,7 +310,12 @@
 
               <!-- Médico Responsável -->
               <td class="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
-                {{ row.medico_responsavel || 'Não informado' }}
+                <div>{{ row.medico_responsavel || 'Não informado' }}</div>
+                <div v-if="row.categorizacao" class="mt-1">
+                  <span class="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-flex items-center gap-1">
+                    🏷️ {{ row.categorizacao }}
+                  </span>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -331,7 +333,7 @@
         <!-- Cabeçalho do Modal (Fundo Claro com Destaque no Nome) -->
         <div class="px-6 py-4 bg-slate-50 border-b border-gray-200 flex justify-between items-center shrink-0">
           <div>
-            <span class="text-xs font-mono text-indigo-600 font-bold uppercase tracking-wider block">Detalhes do Paciente Cadastrado</span>
+            <span class="text-xs font-mono text-indigo-600 font-bold uppercase tracking-wider block mb-1">Detalhes do Paciente Cadastrado</span>
             <h2 class="text-2xl font-black text-slate-900 mt-0.5 flex items-center space-x-2">
               <span class="text-indigo-950">{{ pacienteSelecionadoModal.nome }}</span>
               <span class="text-sm font-mono text-slate-500 font-semibold bg-slate-200/80 px-2 py-0.5 rounded">({{ pacienteSelecionadoModal.codigo }})</span>
@@ -425,13 +427,6 @@
                   </div>
 
                   <div>
-                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Médico Responsável</span>
-                    <span class="text-gray-900 font-semibold mt-0.5 block truncate" :title="proc.medico_responsavel">
-                      {{ proc.medico_responsavel || 'Não informado' }}
-                    </span>
-                  </div>
-
-                  <div>
                     <span class="text-gray-400 font-semibold block uppercase text-[10px]">Lateralidade</span>
                     <span class="text-slate-800 font-semibold mt-0.5 block">
                       {{ proc.lateralidade || 'Indefinida' }}
@@ -439,13 +434,15 @@
                   </div>
 
                   <div>
-                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Categorização</span>
-                    <span v-if="proc.categorizacao" class="text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-block mt-0.5">
-                      🏷️ {{ proc.categorizacao }}
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Médico Responsável</span>
+                    <span class="text-gray-900 font-semibold mt-0.5 block truncate" :title="proc.medico_responsavel">
+                      {{ proc.medico_responsavel || 'Não informado' }}
                     </span>
-                    <span v-else class="text-gray-400 italic mt-0.5 block">
-                      Sem categorização
-                    </span>
+                    <div v-if="proc.categorizacao" class="mt-1">
+                      <span class="text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 text-[11px] inline-flex items-center gap-1">
+                        🏷️ {{ proc.categorizacao }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
