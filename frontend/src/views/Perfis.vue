@@ -483,25 +483,28 @@
                     <!-- Usuário com Categorização Cadastrada -->
                     <div 
                       v-if="obterCategorizacaoDoUsuario(user) && obterCategorizacaoDoUsuario(user).categorias?.length" 
-                      class="flex items-center justify-center gap-1.5 flex-wrap"
+                      class="flex items-center justify-center"
                     >
-                      <span 
-                        v-for="catNome in obterCategorizacaoDoUsuario(user).categorias" 
-                        :key="catNome"
-                        class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs"
-                      >
-                        🏷️ {{ catNome }}
-                      </span>
+                      <!-- Perfil com permissão de gestão (ADMIN ou GESTÃO LEC): 'Editar categorização' -->
                       <button
                         v-if="podeGerenciarCategorizacao"
                         type="button"
-                        @click="abrirModalCategorizacao(user)"
-                        class="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-100 rounded transition cursor-pointer"
-                        title="Gerenciar categorias deste médico"
+                        @click="abrirModalCategorizacao(user, false)"
+                        class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200 transition cursor-pointer inline-flex items-center space-x-1"
+                        title="Clique para editar a categorização deste médico"
                       >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                        <span>Editar categorização</span>
+                      </button>
+
+                      <!-- Demais perfis (sem permissão de gestão): 'Visualizar categorização' -->
+                      <button
+                        v-else
+                        type="button"
+                        @click="abrirModalCategorizacao(user, true)"
+                        class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-300 transition cursor-pointer inline-flex items-center space-x-1"
+                        title="Clique para visualizar a categorização deste médico"
+                      >
+                        <span>Visualizar categorização</span>
                       </button>
                     </div>
 
@@ -509,7 +512,7 @@
                     <div v-else-if="podeGerenciarCategorizacao && user.funcao === 'Médico' && user.especialidade">
                       <button
                         type="button"
-                        @click="abrirModalCategorizacao(user)"
+                        @click="abrirModalCategorizacao(user, false)"
                         class="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 border border-dashed border-gray-300 hover:border-indigo-300 transition cursor-pointer inline-flex items-center space-x-1"
                         title="Clique para criar categorização para este médico"
                       >
@@ -545,9 +548,9 @@
       </Card>
     </div>
 
-    <!-- Modal de Gerenciamento de Categorização do Profissional -->
+    <!-- Modal de Gerenciamento / Visualização de Categorização do Profissional -->
     <div 
-      v-if="modalCategorizacao.aberto && podeGerenciarCategorizacao" 
+      v-if="modalCategorizacao.aberto" 
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
       @click.self="fecharModalCategorizacao"
     >
@@ -555,7 +558,9 @@
         <!-- Cabeçalho do Modal -->
         <div class="px-6 py-4 bg-slate-50 border-b border-gray-200 flex justify-between items-center shrink-0">
           <div>
-            <span class="text-xs font-mono text-indigo-600 font-bold uppercase tracking-wider block">Gestão de Categorização do Profissional</span>
+            <span class="text-xs font-mono text-indigo-600 font-bold uppercase tracking-wider block">
+              {{ modalCategorizacao.somenteLeitura ? 'Visualização de Categorização do Profissional' : 'Gestão de Categorização do Profissional' }}
+            </span>
             <h2 class="text-xl font-black text-slate-900 mt-0.5 flex items-center space-x-2">
               <span class="text-indigo-950">{{ modalCategorizacao.medico }}</span>
               <span class="text-xs font-semibold bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full border border-indigo-200">
@@ -577,7 +582,7 @@
         <div class="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50">
           
           <!-- Diálogo de Confirmação: Exclusão de Item Individual -->
-          <div v-if="modalCategorizacao.confirmandoExclusaoItem" class="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
+          <div v-if="!modalCategorizacao.somenteLeitura && modalCategorizacao.confirmandoExclusaoItem" class="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
             <div class="flex items-start space-x-2.5 text-red-800">
               <span class="text-lg">⚠️</span>
               <div class="text-xs leading-relaxed">
@@ -606,7 +611,7 @@
           </div>
 
           <!-- Diálogo de Confirmação: Exclusão Total da Categorização -->
-          <div v-if="modalCategorizacao.confirmandoExclusaoTotal" class="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
+          <div v-if="!modalCategorizacao.somenteLeitura && modalCategorizacao.confirmandoExclusaoTotal" class="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
             <div class="flex items-start space-x-2.5 text-red-800">
               <span class="text-lg">⚠️</span>
               <div class="text-xs leading-relaxed">
@@ -634,8 +639,8 @@
             </div>
           </div>
 
-          <!-- Formulário para Adicionar Nova Categoria -->
-          <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm space-y-3">
+          <!-- Formulário para Adicionar Nova Categoria (Apenas no Modo Edição) -->
+          <div v-if="!modalCategorizacao.somenteLeitura" class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm space-y-3">
             <h3 class="text-xs font-bold uppercase tracking-wider text-gray-600">Adicionar Nova Categoria</h3>
             <div class="flex space-x-2">
               <input 
@@ -663,13 +668,26 @@
               <h3 class="text-xs font-bold uppercase tracking-wider text-gray-600">
                 Categorias Configuradas ({{ modalCategorizacao.categorias.length }})
               </h3>
-              <span class="text-[11px] text-gray-400">Você pode renomear os nomes diretamente nos campos abaixo</span>
+              <span v-if="!modalCategorizacao.somenteLeitura" class="text-[11px] text-gray-400">Você pode renomear os nomes diretamente nos campos abaixo</span>
             </div>
 
             <div v-if="modalCategorizacao.categorias.length === 0" class="text-center py-6 text-gray-400 text-xs italic">
-              Nenhuma categoria adicionada ainda. Utilize o campo acima para adicionar categorias.
+              Nenhuma categoria adicionada ainda.
             </div>
 
+            <!-- Visualização Apenas Leitura -->
+            <div v-else-if="modalCategorizacao.somenteLeitura" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              <div 
+                v-for="(cat, idx) in modalCategorizacao.categorias" 
+                :key="cat.id" 
+                class="flex items-center space-x-2.5 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100"
+              >
+                <span class="text-xs font-bold text-indigo-400 w-5 text-center">{{ idx + 1 }}.</span>
+                <span class="text-xs font-bold text-indigo-950">🏷️ {{ cat.nomeAtual }}</span>
+              </div>
+            </div>
+
+            <!-- Edição / Gerenciamento -->
             <div v-else class="space-y-2.5 max-h-[250px] overflow-y-auto pr-1">
               <div 
                 v-for="(cat, idx) in modalCategorizacao.categorias" 
@@ -711,7 +729,7 @@
         <div class="px-6 py-4 bg-gray-100 border-t border-gray-200 flex justify-between items-center shrink-0">
           <div>
             <button 
-              v-if="modalCategorizacao.categorizacaoId"
+              v-if="!modalCategorizacao.somenteLeitura && modalCategorizacao.categorizacaoId"
               type="button" 
               @click="modalCategorizacao.confirmandoExclusaoTotal = true" 
               class="text-xs font-bold text-red-600 hover:text-red-800 hover:underline cursor-pointer"
@@ -721,9 +739,10 @@
           </div>
           <div class="flex space-x-2">
             <Button @click="fecharModalCategorizacao" variant="secondary">
-              Cancelar
+              {{ modalCategorizacao.somenteLeitura ? 'Fechar' : 'Cancelar' }}
             </Button>
             <Button 
+              v-if="!modalCategorizacao.somenteLeitura"
               @click="salvarModalCategorizacao" 
               variant="primary"
               :disabled="modalCategorizacao.salvando"
@@ -1287,6 +1306,7 @@ const obterCategorizacaoDoUsuario = (user: any) => {
 const modalCategorizacao = ref({
   aberto: false,
   salvando: false,
+  somenteLeitura: false,
   usuario: null as any,
   categorizacaoId: null as number | null,
   medico: '',
@@ -1297,12 +1317,17 @@ const modalCategorizacao = ref({
   confirmandoExclusaoTotal: false
 });
 
-const abrirModalCategorizacao = (user: any) => {
-  if (!podeGerenciarCategorizacao.value) return;
+const abrirModalCategorizacao = (user: any, somenteLeitura: boolean = false) => {
+  // Se o perfil ativo não pode gerenciar categorização, força o modo somente leitura
+  if (!podeGerenciarCategorizacao.value) {
+    somenteLeitura = true;
+  }
+
   const userNome = user.nome || user.username;
   const esp = user.especialidade || '';
   const existing = obterCategorizacaoDoUsuario(user);
 
+  modalCategorizacao.value.somenteLeitura = somenteLeitura;
   modalCategorizacao.value.usuario = user;
   modalCategorizacao.value.medico = userNome;
   modalCategorizacao.value.especialidade = esp;
