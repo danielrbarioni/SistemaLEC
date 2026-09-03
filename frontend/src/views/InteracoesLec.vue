@@ -560,7 +560,7 @@
       </div>
 
       <!-- Filtros da Tabela -->
-      <div class="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="p-4 bg-gray-50 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <!-- Especialidade -->
         <div class="form-group">
           <label for="filtroEsp" class="text-xs font-semibold text-gray-600 block mb-1">Especialidade</label>
@@ -611,6 +611,19 @@
             <option value="B">B - Prioridade média</option>
             <option value="C">C - Prioridade baixa</option>
             <option value="D">D - Prioridade mínima</option>
+          </select>
+        </div>
+
+        <!-- Lateralidade -->
+        <div class="form-group">
+          <label for="filtroLateralidade" class="text-xs font-semibold text-gray-600 block mb-1">Lateralidade</label>
+          <select id="filtroLateralidade" v-model="filtroLateralidade" class="form-control text-xs">
+            <option value="">Todas</option>
+            <option value="Direita">Direita</option>
+            <option value="Esquerda">Esquerda</option>
+            <option value="Bilateral">Bilateral</option>
+            <option value="Não se Aplica">Não se Aplica</option>
+            <option value="Indefinida">Indefinida</option>
           </select>
         </div>
 
@@ -692,6 +705,7 @@
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Prontuário / Paciente</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Judicial</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Swalis</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Lateralidade</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Médico</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Status</th>
                 <th v-if="abaAcompanhamentoAtiva === 'STANDBY'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Tempo Standby</th>
@@ -788,6 +802,20 @@
                     ]"
                   >
                     —
+                  </span>
+                </td>
+
+                <!-- Lateralidade -->
+                <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                  <span 
+                    :class="[
+                      'px-2 py-0.5 rounded text-[11px] font-semibold inline-block',
+                      abaAcompanhamentoAtiva === 'EDITAR' && (solic.lateralidade || 'Indefinida').toLowerCase() !== (obterEstadoAnterior(solic).lateralidade || 'Indefinida').toLowerCase() 
+                        ? 'bg-yellow-100 text-yellow-900 border border-yellow-300 ring-2 ring-yellow-400 font-bold' 
+                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                    ]"
+                  >
+                    {{ solic.lateralidade || 'Indefinida' }}
                   </span>
                 </td>
 
@@ -1456,6 +1484,7 @@ const filtroProc = ref('');
 const filtroPac = ref('');
 const filtroJud = ref('');
 const filtroSwalis = ref('');
+const filtroLateralidade = ref('');
 const filtroMed = ref('');
 const subAbaAcompanhamento = ref('PENDENTE');
 
@@ -1699,13 +1728,19 @@ const solicitacoesFiltradas = computed(() => {
     });
   }
 
-  // 9. Filtro de Médico Responsável
+  // 9. Filtro de Lateralidade
+  if (filtroLateralidade.value) {
+    const latTarget = filtroLateralidade.value.toLowerCase().trim();
+    list = list.filter(s => (s.lateralidade || 'Indefinida').toLowerCase().trim() === latTarget);
+  }
+
+  // 10. Filtro de Médico Responsável
   if (filtroMed.value) {
     const query = filtroMed.value.toLowerCase().trim();
     list = list.filter(s => s.medico_responsavel && s.medico_responsavel.toLowerCase().includes(query));
   }
 
-  // 10. Ordenação padrão
+  // 11. Ordenação padrão
   if (subAbaAcompanhamento.value === 'PENDENTE') {
     // Da mais antiga para a mais nova (data_criacao ascendente)
     return list.sort((a, b) => {
