@@ -315,12 +315,43 @@ async def update_usuario(
                 detail="Já existe um cadastro deste usuário com este perfil."
             )
 
+    # Rastreia campos modificados
+    diffs = []
+    if existing_user.nome != user_in.nome:
+        diffs.append(f"Nome: {existing_user.nome} -> {user_in.nome}")
+    if existing_user.perfil_id != user_in.perfil_id:
+        diffs.append(f"Perfil: {existing_user.perfil_id} -> {user_in.perfil_id}")
+    new_spec = target_profile.especialidade if target_profile.tipo == "ESPECIALIDADE" else None
+    if existing_user.especialidade != new_spec:
+        diffs.append(f"Especialidade: {existing_user.especialidade or '—'} -> {new_spec or '—'}")
+    new_func = user_in.funcao if target_profile.tipo == "ESPECIALIDADE" else None
+    if existing_user.funcao != new_func:
+        diffs.append(f"Função: {existing_user.funcao or '—'} -> {new_func or '—'}")
+
     # Atualiza
     existing_user.username = user_in.username
     existing_user.nome = user_in.nome
     existing_user.perfil_id = user_in.perfil_id
-    existing_user.especialidade = target_profile.especialidade if target_profile.tipo == "ESPECIALIDADE" else None
-    existing_user.funcao = user_in.funcao if target_profile.tipo == "ESPECIALIDADE" else None
+    existing_user.especialidade = new_spec
+    existing_user.funcao = new_func
+
+    # Registra evento no Histórico
+    detalhes_historico = f'Usuário "{existing_user.username}" ({existing_user.nome}) editado'
+    if diffs:
+        detalhes_historico += f' - {"; ".join(diffs)}'
+
+    await registrar_evento_historico(
+        db=db,
+        tipo="EDITAR_USUARIO",
+        origem_menu="Perfis",
+        evento_tipo="EXECUCAO",
+        detalhes=detalhes_historico,
+        status="CONCLUIDO",
+        especialidade=existing_user.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or creator_role,
+        usuario=current_user.get("username", "")
+    )
 
     await db.commit()
     await db.refresh(existing_user)
@@ -588,12 +619,16 @@ async def create_solicitacao(
     action_code = "EXCLUIR_USUARIO" if is_del else ("EDITAR_USUARIO" if is_ed else "CRIAR_USUARIO")
     action_desc = "exclusão" if is_del else ("edição" if is_ed else "criação")
 
+    detalhes_solic = f'Solicitada {action_desc} do usuário "{req_in.username}" ({req_in.nome})'
+    if is_ed and req_in.campos_modificados:
+        detalhes_solic += f' - Alterações: {req_in.campos_modificados}'
+
     await registrar_evento_historico(
         db=db,
         tipo=action_code,
         origem_menu="Perfis",
         evento_tipo="SOLICITACAO",
-        detalhes=f'Solicitada {action_desc} do usuário "{req_in.username}" ({req_in.nome})',
+        detalhes=detalhes_solic,
         status="PENDENTE",
         especialidade=target_profile.especialidade if target_profile.tipo == "ESPECIALIDADE" else "—",
         procedimento="—",
@@ -705,12 +740,15 @@ async def aprovar_solicitacao(
 
         request_obj.status = "APROVADO"
         # Registra evento no Histórico
+        detalhes_aprov = f'Edição do usuário "{request_obj.username}" ({request_obj.nome}) aprovada'
+        if request_obj.campos_modificados:
+            detalhes_aprov += f' - Alterações: {request_obj.campos_modificados}'
         await registrar_evento_historico(
             db=db,
             tipo="EDITAR_USUARIO",
             origem_menu="Perfis",
             evento_tipo="RESPOSTA",
-            detalhes=f'Edição do usuário "{request_obj.username}" ({request_obj.nome}) aprovada',
+            detalhes=detalhes_aprov,
             status="APROVADO",
             especialidade=request_obj.especialidade or "—",
             procedimento="—",

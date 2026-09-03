@@ -157,10 +157,11 @@
               <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Tipo de Evento</th>
               <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Status</th>
               <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Perfil Executor / Usuário Executor</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Descrição da Ação</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200 text-sm">
-            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id">
+            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id" class="hover:bg-slate-50/70 transition-colors">
               <!-- 1. Data/Hora -->
               <td class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
                 {{ formatarDataHora(solic.data_criacao) }}
@@ -220,7 +221,7 @@
                     Solicitação
                   </span>
                 </div>
-                <div class="truncate">{{ solic.detalhes || '—' }}</div>
+                <div class="truncate font-mono text-[11px]">{{ solic.detalhes || '—' }}</div>
               </td>
 
               <!-- 7. Status -->
@@ -239,11 +240,282 @@
                   {{ solic.username || solic.usuario || solic.user || '—' }}
                 </div>
               </td>
+
+              <!-- 9. Descrição da Ação (Clicável) -->
+              <td class="px-4 py-4 whitespace-nowrap text-center text-xs">
+                <button 
+                  @click="abrirModalDetalhes(solic)"
+                  class="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 font-semibold border border-indigo-200 transition-colors shadow-xs cursor-pointer"
+                  title="Ver todos os detalhes desta ação"
+                >
+                  <span>🔍</span>
+                  <span>Ver Detalhes</span>
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
     </Card>
+
+    <!-- Modal de Descrição e Detalhes Completos da Ação -->
+    <div v-if="modalDetalhes.aberto && modalDetalhes.solic" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-4 border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+        
+        <!-- Cabeçalho do Modal -->
+        <div class="flex justify-between items-start border-b border-gray-150 pb-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span :class="getTipoBadgeClass(modalDetalhes.solic.tipo)">
+                {{ formatarTipo(modalDetalhes.solic.tipo) }}
+              </span>
+              <span class="text-xs font-mono text-gray-500 font-semibold">
+                #{{ modalDetalhes.solic.id }}
+              </span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mt-1">
+              Detalhes da Ação
+            </h3>
+          </div>
+          <button 
+            @click="fecharModalDetalhes" 
+            class="text-gray-400 hover:text-gray-600 text-xl font-bold p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+            title="Fechar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Conteúdo do Modal (Scrollável) -->
+        <div class="space-y-4 text-xs text-gray-700 max-h-[72vh] overflow-y-auto pr-1">
+          
+          <!-- Bloco 1: Visão Geral / Dados do Evento -->
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <span class="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block border-b border-slate-200 pb-1">
+              📌 Dados Gerais do Registro
+            </span>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Data / Hora:</span>
+                <span class="font-mono font-semibold text-gray-900">{{ formatarDataHora(modalDetalhes.solic.data_criacao) }}</span>
+              </div>
+
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Origem / Menu:</span>
+                <span class="font-semibold text-indigo-700">{{ formatarOrigemMenu(modalDetalhes.solic.origem_menu) }}</span>
+              </div>
+
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Tipo de Evento:</span>
+                <span v-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                  Resposta
+                </span>
+                <span v-else-if="modalDetalhes.solic.evento_tipo === 'EXECUCAO' || modalDetalhes.solic.origem_menu === 'Pacientes'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                  Execução
+                </span>
+                <span v-else-if="modalDetalhes.solic.evento_tipo === 'ALTERACAO' || modalDetalhes.solic.evento_tipo === 'EDICAO'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  ✏️ Alteração
+                </span>
+                <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                  Solicitação
+                </span>
+              </div>
+
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Status:</span>
+                <span :class="getStatusBadgeClass(modalDetalhes.solic.status)">{{ modalDetalhes.solic.status }}</span>
+              </div>
+
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Perfil Executor:</span>
+                <span class="font-semibold text-gray-900">{{ modalDetalhes.solic.perfil_executor || '—' }}</span>
+              </div>
+
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Usuário Executor:</span>
+                <span class="font-mono font-medium text-indigo-900">{{ modalDetalhes.solic.usuario || modalDetalhes.solic.username || '—' }}</span>
+              </div>
+            </div>
+
+            <!-- Dados do Paciente (quando houver) -->
+            <div 
+              v-if="modalDetalhes.solic.codigo_paciente && String(modalDetalhes.solic.codigo_paciente) !== '0' && modalDetalhes.solic.nome_paciente && modalDetalhes.solic.nome_paciente !== '—'" 
+              class="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-xs"
+            >
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Nº Prontuário:</span>
+                <span class="font-mono font-bold text-gray-900">#{{ modalDetalhes.solic.codigo_paciente }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Nome do Paciente:</span>
+                <span class="font-bold text-gray-900">{{ modalDetalhes.solic.nome_paciente }}</span>
+              </div>
+            </div>
+
+            <!-- Especialidade e Procedimento -->
+            <div 
+              v-if="(modalDetalhes.solic.especialidade && modalDetalhes.solic.especialidade !== '—') || (modalDetalhes.solic.procedimento && modalDetalhes.solic.procedimento !== '—')" 
+              class="pt-2 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"
+            >
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Especialidade:</span>
+                <span class="font-semibold text-gray-800">{{ modalDetalhes.solic.especialidade || '—' }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Procedimento:</span>
+                <div v-if="modalDetalhes.solic.procedimento_anterior && modalDetalhes.solic.procedimento_anterior !== modalDetalhes.solic.procedimento" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-400 line-through">{{ modalDetalhes.solic.procedimento_anterior }}</div>
+                  <div class="font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block text-xs">
+                    ➔ {{ modalDetalhes.solic.procedimento }}
+                  </div>
+                </div>
+                <span v-else class="font-semibold text-gray-800">{{ modalDetalhes.solic.procedimento || '—' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco 2: Detalhes Específicos por Tipo de Ação -->
+
+          <!-- CASO A: Edição de Procedimento (com lista de campos alterados estruturada) -->
+          <div 
+            v-if="isAcaoEdicaoProcedimento(modalDetalhes.solic)" 
+            class="p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl space-y-2.5"
+          >
+            <div class="flex items-center space-x-1.5 text-amber-900 font-bold text-xs border-b border-amber-200/80 pb-1">
+              <span>✏️</span>
+              <span>Campos Alterados nesta Ação de Edição:</span>
+            </div>
+
+            <div v-if="obterMudancasCompletas(modalDetalhes.solic).length > 0" class="space-y-1.5">
+              <div 
+                v-for="mudanca in obterMudancasCompletas(modalDetalhes.solic)" 
+                :key="mudanca.campo"
+                class="flex flex-col sm:flex-row sm:items-center text-xs text-amber-950 bg-white/90 p-2 rounded-lg border border-amber-200/70"
+              >
+                <span class="font-bold text-amber-900 sm:w-44 shrink-0">{{ mudanca.campo }}:</span>
+                <div class="flex items-center space-x-1.5 flex-wrap">
+                  <span class="text-gray-500 line-through text-[11px]">{{ mudanca.anterior || '—' }}</span>
+                  <span class="font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
+                    ➔ {{ mudanca.novo }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-gray-600 italic text-[11px] bg-white/80 p-2 rounded-lg border border-amber-200/50">
+              Atualização de justificativa clínica / indicação.
+            </div>
+          </div>
+
+          <!-- CASO B: Parâmetros Clínicos de Procedimento (Inclusão, Standby, Exclusão, Solicitação APA) -->
+          <div 
+            v-if="isAcaoProcedimento(modalDetalhes.solic) && !isAcaoEdicaoProcedimento(modalDetalhes.solic)" 
+            class="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2.5"
+          >
+            <span class="text-[11px] font-bold text-blue-900 uppercase tracking-wider block border-b border-blue-200 pb-1">
+              🩺 Parâmetros Cirúrgicos da Solicitação
+            </span>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Prioridade Swalis:</span>
+                <span v-if="modalDetalhes.solic.swallis || modalDetalhes.solic.swalis" :class="getSwalisClass(modalDetalhes.solic.swallis || modalDetalhes.solic.swalis)">
+                  {{ modalDetalhes.solic.swallis || modalDetalhes.solic.swalis }}
+                </span>
+                <span v-else class="text-gray-400 italic">—</span>
+              </div>
+
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Judicialização:</span>
+                <span class="font-medium text-gray-900">{{ modalDetalhes.solic.judicializado || 'Não' }}</span>
+              </div>
+
+              <div v-if="modalDetalhes.solic.tempo_standby">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Tempo de Standby:</span>
+                <span class="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                  {{ modalDetalhes.solic.tempo_standby }} dias
+                </span>
+              </div>
+
+              <div class="col-span-2">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Médico Responsável:</span>
+                <span class="font-semibold text-gray-900">{{ modalDetalhes.solic.medico_responsavel || 'Não informado' }}</span>
+              </div>
+
+              <div v-if="modalDetalhes.solic.categorizacao" class="col-span-2">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Categorização Profissional:</span>
+                <span class="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 inline-block">
+                  🏷️ {{ modalDetalhes.solic.categorizacao }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CASO C: Ações do Menu Perfis (Usuários, Perfis, Categorizações) -->
+          <div 
+            v-if="modalDetalhes.solic.origem_menu === 'Perfis' || modalDetalhes.solic.tipo.startsWith('CRIAR_') || modalDetalhes.solic.tipo.startsWith('EDITAR_') || modalDetalhes.solic.tipo.startsWith('EXCLUIR_')" 
+            class="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2.5"
+          >
+            <span class="text-[11px] font-bold text-purple-900 uppercase tracking-wider block border-b border-purple-200 pb-1">
+              ⚙️ Detalhes Administrativos
+            </span>
+
+            <div class="space-y-2 text-xs">
+              <div class="bg-white p-2.5 rounded-lg border border-purple-100 text-purple-950 font-medium">
+                {{ modalDetalhes.solic.detalhes }}
+              </div>
+            </div>
+          </div>
+
+          <!-- CASO D: Resposta da Gestão LEC (quando for evento RESPOSTA ou concluído com justificativa) -->
+          <div 
+            v-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta || modalDetalhes.solic.status === 'REJEITADO' || modalDetalhes.solic.status === 'CANCELADO'" 
+            class="p-3.5 rounded-xl border space-y-2"
+            :class="modalDetalhes.solic.status === 'REJEITADO' ? 'bg-red-50/70 border-red-200' : modalDetalhes.solic.status === 'APROVADO' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-gray-50 border-gray-200'"
+          >
+            <div 
+              class="flex justify-between items-center border-b pb-1"
+              :class="modalDetalhes.solic.status === 'REJEITADO' ? 'border-red-200 text-red-900' : modalDetalhes.solic.status === 'APROVADO' ? 'border-emerald-200 text-emerald-900' : 'border-gray-200 text-gray-800'"
+            >
+              <span class="text-[11px] font-bold uppercase tracking-wider">
+                💬 Decisão / Resposta
+              </span>
+              <span :class="getStatusBadgeClass(modalDetalhes.solic.status)">{{ modalDetalhes.solic.status }}</span>
+            </div>
+
+            <div>
+              <label class="block font-bold text-[11px] mb-1 text-gray-700">
+                {{ modalDetalhes.solic.status === 'REJEITADO' ? 'Motivo / Justificativa da Rejeição:' : 'Desfecho / Justificativa:' }}
+              </label>
+              <div class="p-2.5 bg-white border rounded-lg text-xs leading-relaxed whitespace-pre-wrap font-medium text-slate-800">
+                {{ extrairJustificativaResposta(modalDetalhes.solic) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco 3: Justificativa Clínica / Descrição Completa Original -->
+          <div v-if="modalDetalhes.solic.evento_tipo !== 'RESPOSTA' && modalDetalhes.solic.detalhes" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+            <label class="block font-bold text-gray-700 text-[11px]">Descrição Original / Justificativa Clínica:</label>
+            <div class="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs leading-relaxed whitespace-pre-wrap font-medium">
+              {{ modalDetalhes.solic.detalhes }}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Rodapé do Modal -->
+        <div class="flex justify-end pt-3 border-t border-gray-150">
+          <button 
+            @click="fecharModalDetalhes" 
+            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs hover:shadow transition-colors cursor-pointer"
+          >
+            Fechar
+          </button>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -259,7 +531,29 @@ const toast = useToast();
 const perfisStore = usePerfisStore();
 
 const solicitacoes = ref<any[]>([]);
+const pacientesBase = ref<any[]>([]);
+const usuariosLocais = ref<any[]>([]);
 const loading = ref(false);
+
+// Estado do Modal de Detalhes da Ação
+const modalDetalhes = ref<{ aberto: boolean; solic: any }>({
+  aberto: false,
+  solic: null
+});
+
+const abrirModalDetalhes = (solic: any) => {
+  modalDetalhes.value = {
+    aberto: true,
+    solic: solic
+  };
+};
+
+const fecharModalDetalhes = () => {
+  modalDetalhes.value = {
+    aberto: false,
+    solic: null
+  };
+};
 
 // Filtros
 const filtroEspecialidade = ref('');
@@ -310,13 +604,16 @@ const limparFiltros = () => {
 const carregarHistorico = async () => {
   loading.value = true;
   try {
-    const [solicRes, pacRes] = await Promise.allSettled([
+    const [solicRes, pacRes, userRes] = await Promise.allSettled([
       api.get('/api/solicitacoes'),
-      api.get('/api/pacientes')
+      api.get('/api/pacientes'),
+      api.get('/api/usuarios')
     ]);
 
     const solicitacoesData = solicRes.status === 'fulfilled' ? solicRes.value.data : [];
     const pacientesData = pacRes.status === 'fulfilled' ? pacRes.value.data : [];
+    usuariosLocais.value = userRes.status === 'fulfilled' ? userRes.value.data : [];
+    pacientesBase.value = pacientesData;
 
     const pacMap = new Map<string, string>();
     for (const p of pacientesData) {
@@ -401,6 +698,7 @@ const formatarTipo = (tipo: string) => {
     case 'EXCLUIR':
     case 'EXCLUSAO': return 'Exclusão de Procedimento';
     case 'STANDBY': return 'Standby de Procedimento';
+    case 'CANCELAR_STANDBY': return 'Cancelamento de Standby';
     case 'SOLICITAR_APA':
     case 'APA': return 'Solicitação APA';
     
@@ -428,6 +726,7 @@ const getTipoBadgeClass = (tipo: string) => {
     case 'EXCLUIR':
     case 'EXCLUSAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200';
     case 'STANDBY': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200';
+    case 'CANCELAR_STANDBY': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
     case 'SOLICITAR_APA':
     case 'APA': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
     
@@ -458,6 +757,195 @@ const getStatusBadgeClass = (status: string) => {
     case 'CANCELADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800 border border-gray-300';
     default: return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800';
   }
+};
+
+const getSwalisClass = (swallis?: string) => {
+  const base = 'px-2 py-0.5 rounded font-bold text-xs inline-block';
+  switch (swallis) {
+    case 'A1': return `${base} bg-red-100 text-red-800 border border-red-200`;
+    case 'A2': return `${base} bg-orange-100 text-orange-800 border border-orange-200`;
+    case 'B':  return `${base} bg-yellow-100 text-yellow-800 border border-yellow-200`;
+    case 'C':  return `${base} bg-blue-100 text-blue-800 border border-blue-200`;
+    case 'D':  return `${base} bg-gray-100 text-gray-700 border border-gray-200`;
+    default:   return `${base} bg-gray-100 text-gray-700 border border-gray-200`;
+  }
+};
+
+const isAcaoProcedimento = (solic: any) => {
+  if (!solic) return false;
+  const t = (solic.tipo || '').toUpperCase();
+  return t === 'INSERIR' || t === 'INCLUSAO' || t === 'EDITAR' || t === 'EDICAO' || t === 'EXCLUIR' || t === 'EXCLUSAO' || t === 'STANDBY' || t === 'CANCELAR_STANDBY' || t === 'SOLICITAR_APA' || t === 'APA';
+};
+
+const isAcaoEdicaoProcedimento = (solic: any) => {
+  if (!solic) return false;
+  const t = (solic.tipo || '').toUpperCase();
+  const ev = (solic.evento_tipo || '').toUpperCase();
+  return t === 'EDITAR' || t === 'EDICAO' || ev === 'ALTERACAO' || ev === 'EDICAO' || (solic.detalhes && (solic.detalhes.includes('->') || solic.detalhes.includes('➔')));
+};
+
+// Reconstrói estado anterior do paciente para apurar mudanças
+const obterEstadoAnterior = (solic: any) => {
+  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '' };
+  const pacienteBase = pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
+  
+  let estado = {
+    especialidade: pacienteBase ? pacienteBase.especialidade : '',
+    procedimento: pacienteBase ? pacienteBase.procedimento : '',
+    judicializado: pacienteBase ? (pacienteBase.judicializado || 'Não') : 'Não',
+    swalis: pacienteBase ? (pacienteBase.swalis || pacienteBase.swallis || pacienteBase.Swalis || '') : '',
+    medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : '',
+    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : ''
+  };
+  
+  const aprovadasAnteriores = solicitacoes.value
+    .filter(s => 
+      String(s.codigo_paciente) === String(solic.codigo_paciente) && 
+      s.status === 'APROVADO' && 
+      (s.data_criacao || '') < (solic.data_criacao || '')
+    )
+    .sort((a, b) => (a.data_criacao || '').localeCompare(b.data_criacao || ''));
+    
+  for (const s of aprovadasAnteriores) {
+    if (s.tipo === 'INSERIR' || s.tipo === 'INCLUSAO') {
+      estado.especialidade = s.especialidade;
+      estado.procedimento = s.procedimento;
+      estado.judicializado = s.judicializado || 'Não';
+      estado.swalis = s.swalis || s.swallis || s.Swalis || '';
+      estado.medico_responsavel = s.medico_responsavel || '';
+      estado.categorizacao = s.categorizacao || '';
+    } else if (s.tipo === 'EDITAR' || s.tipo === 'EDICAO') {
+      if (s.especialidade) estado.especialidade = s.especialidade;
+      if (s.procedimento) estado.procedimento = s.procedimento;
+      if (s.judicializado) estado.judicializado = s.judicializado;
+      const sw = s.swalis || s.swallis || s.Swalis;
+      if (sw) estado.swalis = sw;
+      if (s.medico_responsavel) estado.medico_responsavel = s.medico_responsavel;
+      if (s.categorizacao !== undefined) estado.categorizacao = s.categorizacao || '';
+    }
+  }
+  
+  if (solic.procedimento_anterior) {
+    estado.procedimento = solic.procedimento_anterior;
+  }
+  
+  return estado;
+};
+
+const obterMudancaCampo = (solic: any, campo: string) => {
+  if (!solic) return null;
+  const estAnt = obterEstadoAnterior(solic);
+  
+  if (campo === 'procedimento') {
+    const ant = (solic.procedimento_anterior || estAnt.procedimento || '').trim();
+    const novo = (solic.procedimento || '').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'judicializado') {
+    const ant = (estAnt.judicializado || 'Não').trim();
+    const novo = (solic.judicializado || 'Não').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'swalis') {
+    const ant = (estAnt.swalis || '').trim();
+    const novo = (solic.swalis || solic.swallis || solic.Swalis || '').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'medico_responsavel') {
+    const ant = (estAnt.medico_responsavel || '').trim();
+    const novo = (solic.medico_responsavel || '').trim();
+    if (ant && novo && ant.toLowerCase() !== novo.toLowerCase()) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'especialidade') {
+    const ant = (estAnt.especialidade || '').trim();
+    const novo = (solic.especialidade || '').trim();
+    if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'categorizacao') {
+    const ant = (estAnt.categorizacao || '').trim();
+    const novo = (solic.categorizacao || '').trim();
+    if (ant !== novo) {
+      return { anterior: ant || 'Sem categorização', novo: novo || 'Sem categorização' };
+    }
+  }
+  return null;
+};
+
+// Parser textual para extrair quaisquer alterações gravadas no padrão "Campo: val1 -> val2"
+const parsearMudancasDeTexto = (detalhes?: string) => {
+  if (!detalhes) return [];
+  const mudancas: { campo: string; anterior: string; novo: string }[] = [];
+  
+  const regex = /([A-Za-zÀ-ÿ\s/()_-]+):\s*([^->\n;]+?)\s*(?:->|➔)\s*([^;\n.]+)/g;
+  let match;
+  while ((match = regex.exec(detalhes)) !== null) {
+    const campo = match[1].trim();
+    const ant = match[2].trim();
+    const novo = match[3].trim();
+    if (campo && (ant || novo)) {
+      mudancas.push({ campo, anterior: ant || '—', novo: novo || '—' });
+    }
+  }
+  return mudancas;
+};
+
+const obterMudancasCompletas = (solic: any) => {
+  if (!solic) return [];
+  const mudancasCalculadas: { campo: string; anterior: string; novo: string }[] = [];
+
+  const mProc = obterMudancaCampo(solic, 'procedimento');
+  if (mProc) mudancasCalculadas.push({ campo: 'Procedimento', anterior: mProc.anterior, novo: mProc.novo });
+
+  const mEsp = obterMudancaCampo(solic, 'especialidade');
+  if (mEsp) mudancasCalculadas.push({ campo: 'Especialidade', anterior: mEsp.anterior, novo: mEsp.novo });
+
+  const mJud = obterMudancaCampo(solic, 'judicializado');
+  if (mJud) mudancasCalculadas.push({ campo: 'Judicialização', anterior: mJud.anterior, novo: mJud.novo });
+
+  const mSwalis = obterMudancaCampo(solic, 'swalis');
+  if (mSwalis) mudancasCalculadas.push({ campo: 'Swalis (Priorização)', anterior: mSwalis.anterior, novo: mSwalis.novo });
+
+  const mMed = obterMudancaCampo(solic, 'medico_responsavel');
+  if (mMed) mudancasCalculadas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+
+  const mCat = obterMudancaCampo(solic, 'categorizacao');
+  if (mCat) mudancasCalculadas.push({ campo: 'Categorização Profissional', anterior: mCat.anterior, novo: mCat.novo });
+
+  // Combina com mudanças extraídas do texto de detalhes
+  const mudancasTexto = parsearMudancasDeTexto(solic.detalhes);
+  
+  const mapaCampos = new Map<string, { campo: string; anterior: string; novo: string }>();
+  for (const m of mudancasCalculadas) {
+    mapaCampos.set(m.campo.toLowerCase().trim(), m);
+  }
+  for (const m of mudancasTexto) {
+    const key = m.campo.toLowerCase().trim();
+    if (!mapaCampos.has(key)) {
+      mapaCampos.set(key, m);
+    }
+  }
+
+  return Array.from(mapaCampos.values());
+};
+
+const extrairJustificativaResposta = (solic: any) => {
+  if (!solic) return '—';
+  const detalhes = solic.detalhes || '';
+  if (detalhes.includes('Justificativa:')) {
+    return detalhes.split('Justificativa:')[1].trim();
+  }
+  if (detalhes.includes('Motivo:')) {
+    return detalhes.split('Motivo:')[1].trim();
+  }
+  if (solic.evento_tipo === 'RESPOSTA' || solic.is_resposta) {
+    return detalhes;
+  }
+  return detalhes || 'Nenhuma justificativa detalhada registrada.';
 };
 
 const solicitacoesFiltradas = computed(() => {
