@@ -38,8 +38,8 @@
             <select id="filtroOrigemMenu" v-model="filtroOrigemMenu" class="form-control text-xs py-1.5">
               <option value="">Todas</option>
               <option value="Solicitações LEC">Solicitações LEC</option>
-              <option value="Perfis">Perfis</option>
               <option value="Pacientes">Pacientes</option>
+              <option value="Usuários">Usuários</option>
             </select>
           </div>
 
@@ -84,7 +84,7 @@
                 <option value="EXCLUIR">Exclusão de Procedimento</option>
                 <option value="SOLICITAR_APA">Solicitação APA</option>
               </optgroup>
-              <optgroup label="Menu Perfis">
+              <optgroup label="Menu Usuários">
                 <option value="CRIAR_PERFIL">Criação de Perfil</option>
                 <option value="EXCLUIR_PERFIL">Exclusão de Perfil</option>
                 <option value="CRIAR_USUARIO">Criação de Usuário</option>
@@ -655,6 +655,7 @@ const carregarHistorico = async () => {
 const formatarOrigemMenu = (origem?: string) => {
   if (!origem || origem === 'Sistema LEC') return 'Solicitações LEC';
   if (origem === 'Importação Planilha' || origem === 'Pacientes') return 'Pacientes';
+  if (origem === 'Perfis' || origem === 'Usuários') return 'Usuários';
   return origem;
 };
 
@@ -779,13 +780,13 @@ const getSwalisClass = (swallis?: string) => {
   }
 };
 
-// Extrai o alvo da ação do menu Perfis (Nome do Médico da Categorização, Nome/Username do Usuário, ou Nome do Perfil)
+// Extrai o alvo da ação do menu Usuários (Nome do Médico da Categorização, Nome/Username do Usuário, ou Nome do Perfil)
 const obterAlvoAcaoPerfis = (solic: any) => {
   if (!solic) return '';
   const tipo = (solic.tipo || '').toUpperCase();
-  const origem = (solic.origem_menu || '').trim();
+  const origem = formatarOrigemMenu(solic.origem_menu);
   
-  const isMenuPerfis = origem === 'Perfis' || tipo.startsWith('CRIAR_') || tipo.startsWith('EDITAR_') || tipo.startsWith('EXCLUIR_');
+  const isMenuPerfis = origem === 'Usuários' || tipo.startsWith('CRIAR_') || tipo.startsWith('EDITAR_') || tipo.startsWith('EXCLUIR_');
   if (!isMenuPerfis) return '';
   
   const det = solic.detalhes || '';
@@ -1022,9 +1023,7 @@ const solicitacoesFiltradas = computed(() => {
 
       // 3. Origem / Menu
       if (filtroOrigemMenu.value) {
-        let origem = (s.origem_menu || 'Solicitações LEC').trim();
-        if (origem === 'Sistema LEC') origem = 'Solicitações LEC';
-        if (origem === 'Importação Planilha') origem = 'Pacientes';
+        const origem = formatarOrigemMenu(s.origem_menu);
         if (origem.toLowerCase() !== filtroOrigemMenu.value.toLowerCase()) return false;
       }
 

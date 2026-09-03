@@ -252,7 +252,7 @@ async def create_perfil(
     await registrar_evento_historico(
         db=db,
         tipo="CRIAR_PERFIL",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Perfil "{new_profile.nome}" criado',
         status="CONCLUIDO",
@@ -390,7 +390,7 @@ async def delete_perfil(
     await registrar_evento_historico(
         db=db,
         tipo="EXCLUIR_PERFIL",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Perfil "{existing.nome}" excluído',
         status="CONCLUIDO",

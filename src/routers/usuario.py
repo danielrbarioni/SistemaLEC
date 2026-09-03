@@ -179,7 +179,7 @@ async def create_usuario(
     await registrar_evento_historico(
         db=db,
         tipo="CRIAR_USUARIO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Usuário "{new_user.username}" ({new_user.nome}) criado',
         status="CONCLUIDO",
@@ -343,7 +343,7 @@ async def update_usuario(
     await registrar_evento_historico(
         db=db,
         tipo="EDITAR_USUARIO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=detalhes_historico,
         status="CONCLUIDO",
@@ -418,7 +418,7 @@ async def delete_usuario(
     await registrar_evento_historico(
         db=db,
         tipo="EXCLUIR_USUARIO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Usuário "{existing_user.username}" ({existing_user.nome}) excluído',
         status="CONCLUIDO",
@@ -626,7 +626,7 @@ async def create_solicitacao(
     await registrar_evento_historico(
         db=db,
         tipo=action_code,
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="SOLICITACAO",
         detalhes=detalhes_solic,
         status="PENDENTE",
@@ -708,7 +708,7 @@ async def aprovar_solicitacao(
         await registrar_evento_historico(
             db=db,
             tipo="EXCLUIR_USUARIO",
-            origem_menu="Perfis",
+            origem_menu="Usuários",
             evento_tipo="RESPOSTA",
             detalhes=f'Exclusão do usuário "{request_obj.username}" ({request_obj.nome}) aprovada',
             status="APROVADO",
@@ -746,7 +746,7 @@ async def aprovar_solicitacao(
         await registrar_evento_historico(
             db=db,
             tipo="EDITAR_USUARIO",
-            origem_menu="Perfis",
+            origem_menu="Usuários",
             evento_tipo="RESPOSTA",
             detalhes=detalhes_aprov,
             status="APROVADO",
@@ -790,7 +790,7 @@ async def aprovar_solicitacao(
     await registrar_evento_historico(
         db=db,
         tipo="CRIAR_USUARIO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="RESPOSTA",
         detalhes=f'Criação do usuário "{request_obj.username}" ({request_obj.nome}) aprovada',
         status="APROVADO",
@@ -850,7 +850,7 @@ async def rejeitar_solicitacao(
     await registrar_evento_historico(
         db=db,
         tipo=action_code,
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="RESPOSTA",
         detalhes=f'{action_desc} do usuário "{request_obj.username}" ({request_obj.nome}) rejeitada',
         status="REJEITADO",

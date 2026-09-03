@@ -132,7 +132,7 @@ async def criar_categorizacao(
     await registrar_evento_historico(
         db=db,
         tipo="CRIAR_CATEGORIZACAO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Categorização criada para o profissional {medico_norm} na especialidade {esp_norm}: {", ".join(clean_cats)}',
         status="CONCLUIDO",
@@ -240,7 +240,7 @@ async def atualizar_categorizacao(
     await registrar_evento_historico(
         db=db,
         tipo="EDITAR_CATEGORIZACAO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Categorização do profissional {record.medico} na especialidade {record.especialidade} editada: {", ".join(clean_new_cats)}',
         status="CONCLUIDO",
@@ -301,7 +301,7 @@ async def excluir_categorizacao(
     await registrar_evento_historico(
         db=db,
         tipo="EXCLUIR_CATEGORIZACAO",
-        origem_menu="Perfis",
+        origem_menu="Usuários",
         evento_tipo="EXECUCAO",
         detalhes=f'Categorização excluída do profissional {record.medico} na especialidade {record.especialidade}',
         status="CONCLUIDO",

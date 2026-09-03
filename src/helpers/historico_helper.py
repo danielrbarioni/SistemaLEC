@@ -6,7 +6,7 @@ from ..models.solicitacao import Solicitacao
 async def registrar_evento_historico(
     db: AsyncSession,
     tipo: str,
-    origem_menu: str = "Perfis",
+    origem_menu: str = "Usuários",
     evento_tipo: str = "EXECUCAO",
     detalhes: str = "",
     status: str = "CONCLUIDO",
