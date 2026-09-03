@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-800">Histórico de Solicitações/Respostas</h1>
+      <h1 class="text-2xl font-bold text-gray-800">Histórico de Ações Realizadas</h1>
       <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full border border-gray-200">
         Acompanhamento de Ações
       </span>
@@ -19,23 +19,23 @@
             🔄 Limpar Filtros
           </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <!-- 1. Data De -->
           <div class="form-group">
-            <label for="dataInicio" class="form-label font-semibold">Data De</label>
-            <input id="dataInicio" v-model="dataInicio" type="date" class="form-control text-xs" />
+            <label for="dataInicio" class="form-label font-semibold text-xs">Data De</label>
+            <input id="dataInicio" v-model="dataInicio" type="date" class="form-control text-xs py-1.5" />
           </div>
 
           <!-- 2. Data Até -->
           <div class="form-group">
-            <label for="dataFim" class="form-label font-semibold">Data Até</label>
-            <input id="dataFim" v-model="dataFim" type="date" class="form-control text-xs" />
+            <label for="dataFim" class="form-label font-semibold text-xs">Data Até</label>
+            <input id="dataFim" v-model="dataFim" type="date" class="form-control text-xs py-1.5" />
           </div>
 
           <!-- 3. Origem / Menu -->
           <div class="form-group">
-            <label for="filtroOrigemMenu" class="form-label font-semibold">Origem / Menu</label>
-            <select id="filtroOrigemMenu" v-model="filtroOrigemMenu" class="form-control text-xs">
+            <label for="filtroOrigemMenu" class="form-label font-semibold text-xs">Origem / Menu</label>
+            <select id="filtroOrigemMenu" v-model="filtroOrigemMenu" class="form-control text-xs py-1.5">
               <option value="">Todas</option>
               <option value="Solicitações LEC">Solicitações LEC</option>
               <option value="Perfis">Perfis</option>
@@ -45,23 +45,23 @@
 
           <!-- 4. Prontuário / Paciente -->
           <div class="form-group">
-            <label for="filtroPaciente" class="form-label font-semibold">Prontuário / Paciente</label>
+            <label for="filtroPaciente" class="form-label font-semibold text-xs">Prontuário / Paciente</label>
             <input 
               id="filtroPaciente" 
               v-model="filtroPaciente" 
               type="text" 
               placeholder="Digite o prontuário ou nome..." 
-              class="form-control text-xs" 
+              class="form-control text-xs py-1.5" 
             />
           </div>
 
           <!-- 5. Especialidade -->
           <div class="form-group">
-            <label for="filtroEspecialidade" class="form-label font-semibold">Especialidade</label>
+            <label for="filtroEspecialidade" class="form-label font-semibold text-xs">Especialidade</label>
             <select 
               id="filtroEspecialidade" 
               v-model="filtroEspecialidade" 
-              class="form-control text-xs"
+              class="form-control text-xs py-1.5"
               :disabled="perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'"
               :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' }"
             >
@@ -74,8 +74,8 @@
 
           <!-- 6. Ação -->
           <div class="form-group">
-            <label for="filtroAcaoTipo" class="form-label font-semibold">Ação</label>
-            <select id="filtroAcaoTipo" v-model="filtroAcaoTipo" class="form-control text-xs">
+            <label for="filtroAcaoTipo" class="form-label font-semibold text-xs">Ação</label>
+            <select id="filtroAcaoTipo" v-model="filtroAcaoTipo" class="form-control text-xs py-1.5">
               <option value="">Todas</option>
               <optgroup label="Menu Solicitações LEC ou Pacientes">
                 <option value="INSERIR">Inclusão de Procedimento (Menu Solicitações LEC ou Pacientes)</option>
@@ -99,8 +99,8 @@
 
           <!-- 7. Tipo de Evento -->
           <div class="form-group">
-            <label for="filtroEventoTipo" class="form-label font-semibold">Tipo de Evento</label>
-            <select id="filtroEventoTipo" v-model="filtroEventoTipo" class="form-control text-xs">
+            <label for="filtroEventoTipo" class="form-label font-semibold text-xs">Tipo de Evento</label>
+            <select id="filtroEventoTipo" v-model="filtroEventoTipo" class="form-control text-xs py-1.5">
               <option value="">Todas</option>
               <option value="SOLICITACAO">Solicitação</option>
               <option value="RESPOSTA">Resposta</option>
@@ -111,8 +111,8 @@
 
           <!-- 8. Status -->
           <div class="form-group">
-            <label for="filtroStatus" class="form-label font-semibold">Status</label>
-            <select id="filtroStatus" v-model="filtroStatus" class="form-control text-xs">
+            <label for="filtroStatus" class="form-label font-semibold text-xs">Status</label>
+            <select id="filtroStatus" v-model="filtroStatus" class="form-control text-xs py-1.5">
               <option value="">Todos</option>
               <option value="PENDENTE">PENDENTE</option>
               <option value="APROVADO">APROVADO</option>
@@ -123,14 +123,14 @@
           </div>
 
           <!-- 9. Usuário Executor -->
-          <div class="form-group md:col-span-4">
-            <label for="filtroUsuario" class="form-label font-semibold">Usuário Executor</label>
+          <div class="form-group sm:col-span-2 md:col-span-4">
+            <label for="filtroUsuario" class="form-label font-semibold text-xs">Usuário Executor</label>
             <input 
               id="filtroUsuario" 
               v-model="filtroUsuario" 
               type="text" 
               placeholder="Digite o nome de usuário (ex.: nome.sobrenome)..." 
-              class="form-control text-xs" 
+              class="form-control text-xs py-1.5" 
             />
           </div>
         </div>
@@ -145,53 +145,53 @@
       <div v-else-if="solicitacoesFiltradas.length === 0" class="text-center py-10 text-gray-500">
         Nenhuma solicitação ou resposta encontrada para os filtros selecionados.
       </div>
-      <div v-else class="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto border border-gray-100 rounded-lg">
-        <table class="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
-          <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+      <div v-else class="w-full overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto border border-gray-100 rounded-lg">
+        <table class="w-full table-auto divide-y divide-gray-200 border-separate border-spacing-0 text-xs">
+          <thead class="bg-gray-50 sticky top-0 z-10 shadow-xs">
             <tr>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Data / Hora</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Origem / Menu</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Prontuário / Paciente</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Especialidade / Procedimento</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Ação</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Tipo de Evento</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Status</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Perfil Executor / Usuário Executor</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Descrição da Ação</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">Data / Hora</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">Origem / Menu</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Prontuário / Paciente</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Especialidade / Procedimento</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">Ação</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">Tipo de Evento</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">Status</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Perfil / Usuário Executor</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-2.5 py-2.5 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">Descrição da Ação</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200 text-sm">
-            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id" class="hover:bg-slate-50/70 transition-colors">
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id" class="hover:bg-slate-50/80 transition-colors">
               <!-- 1. Data/Hora -->
-              <td class="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
+              <td class="px-2.5 py-2.5 whitespace-nowrap text-[11px] font-mono text-gray-600">
                 {{ formatarDataHora(solic.data_criacao) }}
               </td>
 
               <!-- 2. Origem/Menu -->
-              <td class="px-4 py-4 whitespace-nowrap text-xs font-semibold text-indigo-700">
-                <span class="px-2 py-1 rounded bg-indigo-50 border border-indigo-100">
+              <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 inline-block">
                   {{ formatarOrigemMenu(solic.origem_menu) }}
                 </span>
               </td>
 
               <!-- 3. Prontuário/Paciente -->
-              <td class="px-4 py-4 text-xs">
-                <div v-if="solic.codigo_paciente && String(solic.codigo_paciente) !== '0'" class="font-mono font-semibold text-gray-800">
+              <td class="px-2.5 py-2.5 text-[11px] max-w-[180px]">
+                <div v-if="solic.codigo_paciente && String(solic.codigo_paciente) !== '0'" class="font-mono font-bold text-gray-800">
                   #{{ solic.codigo_paciente }}
                 </div>
-                <div class="text-gray-900 font-medium">
+                <div class="text-gray-900 font-medium truncate" :title="solic.nome_paciente">
                   {{ solic.nome_paciente && solic.nome_paciente !== '—' && !String(solic.nome_paciente).startsWith('Paciente #0') ? solic.nome_paciente : '—' }}
                 </div>
               </td>
 
               <!-- 4. Especialidade/Procedimento -->
-              <td class="px-4 py-4 text-xs text-gray-700 max-w-xs break-words whitespace-normal leading-snug">
-                <div class="font-semibold">{{ solic.especialidade || '—' }}</div>
+              <td class="px-2.5 py-2.5 text-[11px] text-gray-700 max-w-[210px] break-words leading-tight">
+                <div class="font-bold text-gray-800">{{ solic.especialidade || '—' }}</div>
                 <div v-if="solic.procedimento && solic.procedimento !== '—'" class="text-gray-600 mt-0.5">
-                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="text-gray-400 line-through mr-1">
+                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="text-gray-400 line-through mr-1 text-[10px]">
                     {{ solic.procedimento_anterior }}
                   </span>
-                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="font-bold text-blue-700 mr-1">
+                  <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="font-bold text-blue-700 mr-1 text-[10px]">
                     ➔
                   </span>
                   <span :class="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento ? 'font-bold text-blue-800' : ''">
@@ -201,13 +201,13 @@
               </td>
 
               <!-- 5. Ação/Tipo -->
-              <td class="px-4 py-4 whitespace-nowrap">
+              <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
                 <span :class="getTipoBadgeClass(solic.tipo)">{{ formatarTipo(solic.tipo) }}</span>
               </td>
 
-              <!-- 6. Solicitação, Alteração, Execução ou Resposta -->
-              <td class="px-4 py-4 text-xs text-gray-600 max-w-xs" :title="solic.detalhes">
-                <div class="flex items-center space-x-1.5 mb-1">
+              <!-- 6. Tipo de Evento (Solicitação, Execução, Alteração, Resposta) -->
+              <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
+                <div class="inline-flex flex-col items-center justify-center">
                   <span v-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     Resposta
                   </span>
@@ -220,32 +220,40 @@
                   <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
                     Solicitação
                   </span>
+
+                  <!-- Apenas para ações do menu Perfis: exibe o alvo (perfil/usuário/profissional) embaixo do badge -->
+                  <div 
+                    v-if="obterAlvoAcaoPerfis(solic)" 
+                    class="mt-1 text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[140px]" 
+                    :title="obterAlvoAcaoPerfis(solic)"
+                  >
+                    {{ obterAlvoAcaoPerfis(solic) }}
+                  </div>
                 </div>
-                <div class="truncate font-mono text-[11px]">{{ solic.detalhes || '—' }}</div>
               </td>
 
               <!-- 7. Status -->
-              <td class="px-4 py-4 whitespace-nowrap">
+              <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
                 <span :class="getStatusBadgeClass(solic.status)">{{ solic.status }}</span>
               </td>
 
               <!-- 8. Perfil executor/Usuário Executor (Usuário Ebserh) -->
-              <td class="px-4 py-4 text-xs">
+              <td class="px-2.5 py-2.5 text-[11px] max-w-[150px]">
                 <div v-if="solic.perfil_executor" class="mb-0.5">
-                  <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200 text-[10px]">
                     {{ solic.perfil_executor }}
                   </span>
                 </div>
-                <div class="text-indigo-900 font-mono font-medium">
+                <div class="text-indigo-900 font-mono font-medium truncate" :title="solic.username || solic.usuario || solic.user">
                   {{ solic.username || solic.usuario || solic.user || '—' }}
                 </div>
               </td>
 
               <!-- 9. Descrição da Ação (Clicável) -->
-              <td class="px-4 py-4 whitespace-nowrap text-center text-xs">
+              <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
                 <button 
                   @click="abrirModalDetalhes(solic)"
-                  class="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 font-semibold border border-indigo-200 transition-colors shadow-xs cursor-pointer"
+                  class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 font-semibold border border-indigo-200 transition-colors shadow-2xs cursor-pointer text-[11px]"
                   title="Ver todos os detalhes desta ação"
                 >
                   <span>🔍</span>
@@ -720,42 +728,42 @@ const getTipoBadgeClass = (tipo: string) => {
   switch (tipo) {
     // Procedimentos
     case 'INSERIR':
-    case 'INCLUSAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200';
+    case 'INCLUSAO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200';
     case 'EDITAR':
-    case 'EDICAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200';
+    case 'EDICAO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200';
     case 'EXCLUIR':
-    case 'EXCLUSAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200';
-    case 'STANDBY': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200';
-    case 'CANCELAR_STANDBY': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
+    case 'EXCLUSAO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200';
+    case 'STANDBY': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200';
+    case 'CANCELAR_STANDBY': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
     case 'SOLICITAR_APA':
-    case 'APA': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
+    case 'APA': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
     
     // Perfis (Lilás)
-    case 'CRIAR_PERFIL': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300';
-    case 'EXCLUIR_PERFIL': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-red-700 border border-purple-300';
+    case 'CRIAR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300';
+    case 'EXCLUIR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-red-700 border border-purple-300';
     
     // Usuários (Laranja Claro)
-    case 'CRIAR_USUARIO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-300';
-    case 'EDITAR_USUARIO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-blue-800 border border-orange-300';
-    case 'EXCLUIR_USUARIO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-red-700 border border-orange-300';
+    case 'CRIAR_USUARIO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-300';
+    case 'EDITAR_USUARIO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-blue-800 border border-orange-300';
+    case 'EXCLUIR_USUARIO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-red-700 border border-orange-300';
     
     // Categorização (Marrom Claro)
-    case 'CRIAR_CATEGORIZACAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300';
-    case 'EDITAR_CATEGORIZACAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-blue-800 border border-amber-300';
-    case 'EXCLUIR_CATEGORIZACAO': return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-red-700 border border-amber-300';
+    case 'CRIAR_CATEGORIZACAO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300';
+    case 'EDITAR_CATEGORIZACAO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-blue-800 border border-amber-300';
+    case 'EXCLUIR_CATEGORIZACAO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-red-700 border border-amber-300';
     
-    default: return 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800';
+    default: return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800';
   }
 };
 
 const getStatusBadgeClass = (status: string) => {
   switch (status) {
-    case 'PENDENTE': return 'px-2 py-0.5 text-xs font-semibold rounded bg-yellow-100 text-yellow-800 border border-yellow-200';
-    case 'APROVADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800 border border-green-200';
-    case 'CONCLUIDO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-emerald-100 text-emerald-800 border border-emerald-200';
-    case 'REJEITADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-red-100 text-red-800 border border-red-200';
-    case 'CANCELADO': return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800 border border-gray-300';
-    default: return 'px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-800';
+    case 'PENDENTE': return 'px-2 py-0.5 text-[10px] font-bold rounded bg-yellow-100 text-yellow-800 border border-yellow-200';
+    case 'APROVADO': return 'px-2 py-0.5 text-[10px] font-bold rounded bg-green-100 text-green-800 border border-green-200';
+    case 'CONCLUIDO': return 'px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200';
+    case 'REJEITADO': return 'px-2 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800 border border-red-200';
+    case 'CANCELADO': return 'px-2 py-0.5 text-[10px] font-bold rounded bg-gray-100 text-gray-800 border border-gray-300';
+    default: return 'px-2 py-0.5 text-[10px] font-bold rounded bg-gray-100 text-gray-800';
   }
 };
 
@@ -769,6 +777,50 @@ const getSwalisClass = (swallis?: string) => {
     case 'D':  return `${base} bg-gray-100 text-gray-700 border border-gray-200`;
     default:   return `${base} bg-gray-100 text-gray-700 border border-gray-200`;
   }
+};
+
+// Extrai o alvo da ação do menu Perfis (Nome do Médico da Categorização, Nome/Username do Usuário, ou Nome do Perfil)
+const obterAlvoAcaoPerfis = (solic: any) => {
+  if (!solic) return '';
+  const tipo = (solic.tipo || '').toUpperCase();
+  const origem = (solic.origem_menu || '').trim();
+  
+  const isMenuPerfis = origem === 'Perfis' || tipo.startsWith('CRIAR_') || tipo.startsWith('EDITAR_') || tipo.startsWith('EXCLUIR_');
+  if (!isMenuPerfis) return '';
+  
+  const det = solic.detalhes || '';
+  
+  // 1. Categorização
+  if (tipo.includes('CATEGORIZACAO')) {
+    const matchCat = det.match(/profissional\s+([A-Za-zÀ-ÿ\s.'-]+?)(?:\s+na especialidade|\s+editad|\s+excluíd|:|$)/i);
+    if (matchCat && matchCat[1]) {
+      return matchCat[1].trim();
+    }
+  }
+  
+  // 2. Usuário
+  if (tipo.includes('USUARIO')) {
+    const matchUserComNome = det.match(/usuário\s+"?([^"(]+?)"?\s*\(([^)]+)\)/i);
+    if (matchUserComNome) {
+      const uName = matchUserComNome[2].trim();
+      const uLogin = matchUserComNome[1].trim();
+      return uName || uLogin;
+    }
+    const matchUser = det.match(/usuário\s+"([^"]+)"/i);
+    if (matchUser && matchUser[1]) {
+      return matchUser[1].trim();
+    }
+  }
+  
+  // 3. Perfil
+  if (tipo.includes('PERFIL')) {
+    const matchPerfil = det.match(/perfil\s+"([^"]+)"/i);
+    if (matchPerfil && matchPerfil[1]) {
+      return matchPerfil[1].trim();
+    }
+  }
+  
+  return '';
 };
 
 const isAcaoProcedimento = (solic: any) => {
