@@ -6,7 +6,10 @@
           <div class="w-24 h-24 mb-3 flex items-center justify-center">
             <HospitalIcon />
           </div>
-          <h2 class="text-2xl font-black text-gray-800 text-center tracking-tight">COMUNICAÇÃO CIRÚRGICA HC-UFPE</h2>
+          <h2 class="text-2xl font-black text-gray-800 text-center tracking-tight leading-snug flex flex-col items-center">
+            <span>COMUNICAÇÃO CIRÚRGICA</span>
+            <span>HC-UFPE</span>
+          </h2>
         </div>
       </template>
       <form @submit.prevent="handleLogin">
