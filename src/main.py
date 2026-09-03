@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
 
+from sqlalchemy import text
 from .resources.database import DatabaseManager, Base
 from .models.paciente import Paciente
 from .models.solicitacao import Solicitacao
@@ -39,13 +40,22 @@ async def lifespan(app: FastAPI):
 
     async with app.state.app_db.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        from sqlalchemy import text
         try:
             await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN usuario TEXT;"))
         except Exception:
             pass
         try:
             await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN origem_menu TEXT;"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE pacientes ADD COLUMN lateralidade TEXT DEFAULT 'Indefinida';"))
+            await conn.execute(text("UPDATE pacientes SET lateralidade = 'Indefinida' WHERE lateralidade IS NULL;"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN lateralidade TEXT DEFAULT 'Indefinida';"))
+            await conn.execute(text("UPDATE solicitacoes SET lateralidade = 'Indefinida' WHERE lateralidade IS NULL;"))
         except Exception:
             pass
     print("App SQLite tables checked/created.")

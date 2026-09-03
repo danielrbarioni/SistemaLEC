@@ -11,6 +11,13 @@ async def criar_solicitacao(
 ) -> Dict[str, Any]:
     tipo = solicitacao.get("tipo", "INSERIR")
     
+    # Tratamento de Lateralidade
+    if "lateralidade" in solicitacao and solicitacao["lateralidade"]:
+        lat_clean = str(solicitacao["lateralidade"]).strip()
+        solicitacao["lateralidade"] = lat_clean
+    else:
+        solicitacao["lateralidade"] = "Indefinida"
+    
     if tipo == "INSERIR":
         codigo = str(solicitacao.get("codigo_paciente", "")).strip()
         nome_paciente = str(solicitacao.get("nome_paciente", "")).strip()

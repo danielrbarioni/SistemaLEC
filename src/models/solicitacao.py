@@ -23,3 +23,4 @@ class Solicitacao(Base):
     origem_menu = Column(String, nullable=True)
     evento_tipo = Column(String, nullable=True, default='SOLICITACAO')
     categorizacao = Column(String, nullable=True)
+    lateralidade = Column(String, nullable=True, default="Indefinida")

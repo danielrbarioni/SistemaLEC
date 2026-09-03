@@ -29,7 +29,9 @@ class PacienteSqliteProvider(PacienteProviderInterface):
                 "status_consulta": p.status_consulta,
                 "especialidade": p.especialidade,
                 "procedimento": p.procedimento,
-                "ultima_consulta_epo": p.ultima_consulta_epo
+                "ultima_consulta_epo": p.ultima_consulta_epo,
+                "categorizacao": getattr(p, "categorizacao", "") or "",
+                "lateralidade": getattr(p, "lateralidade", "Indefinida") or "Indefinida"
             }
             for p in pacientes
         ]
@@ -37,7 +39,7 @@ class PacienteSqliteProvider(PacienteProviderInterface):
     async def obter_paciente_por_codigo(self, codigo: int) -> Dict[str, Any]:
         stmt = select(Paciente).where(Paciente.codigo == codigo)
         result = await self.session.execute(stmt)
-        p = result.scalar_one_or_none()
+        p = result.scalars().first()
         
         if not p:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paciente não encontrado")
@@ -55,7 +57,9 @@ class PacienteSqliteProvider(PacienteProviderInterface):
             "status_consulta": p.status_consulta,
             "especialidade": p.especialidade,
             "procedimento": p.procedimento,
-            "ultima_consulta_epo": p.ultima_consulta_epo
+            "ultima_consulta_epo": p.ultima_consulta_epo,
+            "categorizacao": getattr(p, "categorizacao", "") or "",
+            "lateralidade": getattr(p, "lateralidade", "Indefinida") or "Indefinida"
         }
 
     async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:

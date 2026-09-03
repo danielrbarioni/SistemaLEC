@@ -438,6 +438,11 @@
                 <span class="font-medium text-gray-900">{{ modalDetalhes.solic.judicializado || 'Não' }}</span>
               </div>
 
+              <div>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Lateralidade:</span>
+                <span class="font-medium text-gray-900">{{ modalDetalhes.solic.lateralidade || 'Indefinida' }}</span>
+              </div>
+
               <div v-if="modalDetalhes.solic.tempo_standby">
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Tempo de Standby:</span>
                 <span class="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
@@ -839,8 +844,16 @@ const isAcaoEdicaoProcedimento = (solic: any) => {
 
 // Reconstrói estado anterior do paciente para apurar mudanças
 const obterEstadoAnterior = (solic: any) => {
-  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '' };
-  const pacienteBase = pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
+  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '', lateralidade: 'Indefinida' };
+
+  const targetProc = (solic.procedimento_anterior || solic.procedimento || '').trim().toLowerCase();
+  const espTarget = (solic.especialidade || '').trim().toLowerCase();
+
+  const pacienteBase = pacientesBase.value.find(p => 
+    String(p.prontuario || p.codigo) === String(solic.codigo_paciente) &&
+    (espTarget ? (p.especialidade || '').toLowerCase().includes(espTarget) : true) &&
+    (targetProc ? (p.procedimento || '').toLowerCase().trim() === targetProc : true)
+  ) || pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
   
   let estado = {
     especialidade: pacienteBase ? pacienteBase.especialidade : '',
@@ -848,14 +861,20 @@ const obterEstadoAnterior = (solic: any) => {
     judicializado: pacienteBase ? (pacienteBase.judicializado || 'Não') : 'Não',
     swalis: pacienteBase ? (pacienteBase.swalis || pacienteBase.swallis || pacienteBase.Swalis || '') : '',
     medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : '',
-    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : ''
+    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : '',
+    lateralidade: pacienteBase ? (pacienteBase.lateralidade || 'Indefinida') : 'Indefinida'
   };
   
   const aprovadasAnteriores = solicitacoes.value
     .filter(s => 
       String(s.codigo_paciente) === String(solic.codigo_paciente) && 
       s.status === 'APROVADO' && 
-      (s.data_criacao || '') < (solic.data_criacao || '')
+      (s.data_criacao || '') < (solic.data_criacao || '') &&
+      (espTarget ? (s.especialidade || '').toLowerCase().includes(espTarget) : true) &&
+      (targetProc ? (
+        (s.procedimento || '').toLowerCase().trim() === targetProc || 
+        (s.procedimento_anterior || '').toLowerCase().trim() === targetProc
+      ) : true)
     )
     .sort((a, b) => (a.data_criacao || '').localeCompare(b.data_criacao || ''));
     
@@ -867,6 +886,7 @@ const obterEstadoAnterior = (solic: any) => {
       estado.swalis = s.swalis || s.swallis || s.Swalis || '';
       estado.medico_responsavel = s.medico_responsavel || '';
       estado.categorizacao = s.categorizacao || '';
+      estado.lateralidade = s.lateralidade || 'Indefinida';
     } else if (s.tipo === 'EDITAR' || s.tipo === 'EDICAO') {
       if (s.especialidade) estado.especialidade = s.especialidade;
       if (s.procedimento) estado.procedimento = s.procedimento;
@@ -875,6 +895,7 @@ const obterEstadoAnterior = (solic: any) => {
       if (sw) estado.swalis = sw;
       if (s.medico_responsavel) estado.medico_responsavel = s.medico_responsavel;
       if (s.categorizacao !== undefined) estado.categorizacao = s.categorizacao || '';
+      if (s.lateralidade !== undefined) estado.lateralidade = s.lateralidade || 'Indefinida';
     }
   }
   
@@ -917,6 +938,12 @@ const obterMudancaCampo = (solic: any, campo: string) => {
     const ant = (estAnt.especialidade || '').trim();
     const novo = (solic.especialidade || '').trim();
     if (ant && novo && ant !== novo) {
+      return { anterior: ant, novo };
+    }
+  } else if (campo === 'lateralidade') {
+    const ant = (estAnt.lateralidade || 'Indefinida').trim();
+    const novo = (solic.lateralidade || 'Indefinida').trim();
+    if (ant.toLowerCase() !== novo.toLowerCase()) {
       return { anterior: ant, novo };
     }
   } else if (campo === 'categorizacao') {
@@ -965,6 +992,9 @@ const obterMudancasCompletas = (solic: any) => {
 
   const mMed = obterMudancaCampo(solic, 'medico_responsavel');
   if (mMed) mudancasCalculadas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+
+  const mLat = obterMudancaCampo(solic, 'lateralidade');
+  if (mLat) mudancasCalculadas.push({ campo: 'Lateralidade', anterior: mLat.anterior, novo: mLat.novo });
 
   const mCat = obterMudancaCampo(solic, 'categorizacao');
   if (mCat) mudancasCalculadas.push({ campo: 'Categorização Profissional', anterior: mCat.anterior, novo: mCat.novo });

@@ -167,7 +167,17 @@
               />
               <div class="text-sm">
                 <div class="font-semibold text-gray-800">{{ proc.procedimento }}</div>
-                <div class="text-xs text-gray-500">{{ proc.especialidade }} · Swalis: {{ proc.swallis || '—' }}</div>
+                <div class="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                  <span>{{ proc.especialidade }}</span>
+                  <span>· Swalis: {{ proc.swallis || '—' }}</span>
+                  <span v-if="proc.medico_responsavel && proc.medico_responsavel !== 'Não informado'">· Dr(a). {{ proc.medico_responsavel }}</span>
+                  <span class="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    Lat: {{ proc.lateralidade || 'Indefinida' }}
+                  </span>
+                  <span v-if="proc.categorizacao" class="text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                    🏷️ {{ proc.categorizacao }}
+                  </span>
+                </div>
               </div>
             </label>
           </div>
@@ -285,8 +295,8 @@
           </div>
         </div>
 
-        <!-- Linha 3: Judicializado + Swalis + Médico Responsável -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+        <!-- Linha 3: Judicializado + Swalis + Médico Responsável + Lateralidade -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-start">
 
           <!-- Judicializado -->
           <div class="form-group">
@@ -363,6 +373,27 @@
             <datalist id="medicos-lista">
               <option v-for="med in medicosDaEspecialidade" :key="med" :value="med" />
             </datalist>
+          </div>
+
+          <!-- Lateralidade -->
+          <div class="form-group">
+            <label for="lateralidade" class="form-label font-semibold">
+              Lateralidade <span class="text-red-500">*</span>
+            </label>
+            <select
+              id="lateralidade"
+              v-model="form.lateralidade"
+              class="form-control"
+              :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados }"
+              required
+              :disabled="camposEdicaoBloqueados"
+            >
+              <option value="" disabled>Selecione a lateralidade...</option>
+              <option value="lado esquerdo">Lado Esquerdo</option>
+              <option value="lado direito">Lado Direito</option>
+              <option value="bilateral">Bilateral</option>
+              <option value="não se aplica">Não se aplica</option>
+            </select>
           </div>
         </div>
 
@@ -979,6 +1010,18 @@
                 <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.medico_responsavel || '—' }}</span>
               </div>
 
+              <!-- Lateralidade -->
+              <div class="col-span-2">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Lateralidade:</span>
+                <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'lateralidade')" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'lateralidade')?.anterior }}</div>
+                  <div class="font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block text-xs">
+                    ➔ {{ modalDescricao.solic.lateralidade || 'Indefinida' }}
+                  </div>
+                </div>
+                <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.lateralidade || 'Indefinida' }}</span>
+              </div>
+
               <!-- Categorização do Profissional -->
               <div class="col-span-2">
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Categorização do Profissional:</span>
@@ -1269,7 +1312,8 @@ const form = ref({
   medico_responsavel: '',
   detalhes: '',
   tempo_standby: undefined as number | undefined,
-  categorizacao: ''
+  categorizacao: '',
+  lateralidade: ''
 });
 
 const pacienteValidadoNoAghu = ref(false);
@@ -1784,7 +1828,8 @@ const limparFormulario = (manterCodigo = false) => {
     medico_responsavel: '',
     detalhes: '',
     tempo_standby: undefined,
-    categorizacao: ''
+    categorizacao: '',
+    lateralidade: ''
   };
   pacienteValidadoNoAghu.value = false;
   formCarregadoDaSede.value = false;
@@ -1818,7 +1863,8 @@ const iniciarEdicaoSolicitacao = (solic: any) => {
     medico_responsavel: solic.medico_responsavel || '',
     detalhes: solic.detalhes || '',
     tempo_standby: solic.tempo_standby || undefined,
-    categorizacao: solic.categorizacao || ''
+    categorizacao: solic.categorizacao || '',
+    lateralidade: solic.lateralidade || 'Indefinida'
   };
 
   pacienteValidadoNoAghu.value = true;
@@ -1852,6 +1898,7 @@ const preencherCamposDoProc = (proc: any) => {
   form.value.judicializado = proc.judicializado || 'Não';
   form.value.swallis = proc.swallis || '';
   form.value.categorizacao = proc.categorizacao || '';
+  form.value.lateralidade = proc.lateralidade || 'Indefinida';
   
   const med = proc.medico_responsavel || '';
   const userMatch = usuariosLocais.value.find(u => u.username?.toLowerCase() === med.trim().toLowerCase() || u.nome?.toLowerCase() === med.trim().toLowerCase());
@@ -1948,64 +1995,79 @@ const buscarDados = async (isAutomatic = false) => {
             judicializado: 'Não',
             swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
             medico_responsavel: 'Não informado',
+            categorizacao: pacData.categorizacao || '',
+            lateralidade: pacData.lateralidade || 'Indefinida',
             status: 'ATIVO'
           });
         }
 
-    const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-    const resolverMedicoNome = (med: string) => {
-      if (!med || med === 'Não informado' || med === '—') return med || '';
-      const clean = med.trim();
-      if (!clean) return '';
+        const resolverMedicoNome = (med: string) => {
+          if (!med || med === 'Não informado' || med === '—') return med || '';
+          const clean = med.trim();
+          if (!clean) return '';
 
-      const cleanNorm = norm(clean);
-      const userMatch = usuariosLocais.value.find(u => {
-        if (!u) return false;
-        const uNameNorm = u.nome ? norm(u.nome) : '';
-        const uUserNorm = u.username ? norm(u.username) : '';
-        return uUserNorm === cleanNorm || uNameNorm === cleanNorm || (cleanNorm.length > 5 && uNameNorm.includes(cleanNorm)) || (uNameNorm.length > 5 && cleanNorm.includes(uNameNorm));
-      });
-
-      const finalName = userMatch?.nome?.trim() || clean;
-      return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
-    };
-
-    const approvedSolics = solicsDosPac
-      .filter(s => s.status === 'APROVADO')
-      .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
-
-    for (const s of approvedSolics) {
-      const key = `${s.especialidade}||${s.procedimento}`;
-      if (s.tipo === 'INSERIR') {
-        procMap.set(key, {
-          especialidade: s.especialidade,
-          procedimento: s.procedimento,
-          judicializado: s.judicializado || 'Não',
-          swallis: s.swalis || s.swallis || s.Swalis || '—',
-          medico_responsavel: resolverMedicoNome(s.medico_responsavel),
-          categorizacao: s.categorizacao || '',
-          status: 'ATIVO'
-        });
-      } else if (s.tipo === 'EDITAR') {
-        const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
-        const existing = procMap.get(oldKey);
-        if (existing) {
-          procMap.delete(oldKey);
-          procMap.set(key, {
-            ...existing,
-            procedimento: s.procedimento,
-            judicializado: s.judicializado || 'Não',
-            swallis: s.swalis || s.swallis || s.Swalis || '—',
-            medico_responsavel: resolverMedicoNome(s.medico_responsavel),
-            categorizacao: s.categorizacao !== undefined ? (s.categorizacao || '') : (existing.categorizacao || '')
+          const cleanNorm = norm(clean);
+          const userMatch = usuariosLocais.value.find(u => {
+            if (!u) return false;
+            const uNameNorm = u.nome ? norm(u.nome) : '';
+            const uUserNorm = u.username ? norm(u.username) : '';
+            return uUserNorm === cleanNorm || uNameNorm === cleanNorm || (cleanNorm.length > 5 && uNameNorm.includes(cleanNorm)) || (uNameNorm.length > 5 && cleanNorm.includes(uNameNorm));
           });
+
+          const finalName = userMatch?.nome?.trim() || clean;
+          return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
+        };
+
+        const approvedSolics = solicsDosPac
+          .filter(s => s.status === 'APROVADO')
+          .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
+
+        for (const s of approvedSolics) {
+          const key = `${s.especialidade}||${s.procedimento}`;
+          if (s.tipo === 'INSERIR') {
+            procMap.set(key, {
+              especialidade: s.especialidade,
+              procedimento: s.procedimento,
+              judicializado: s.judicializado || 'Não',
+              swallis: s.swalis || s.swallis || s.Swalis || '—',
+              medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+              categorizacao: s.categorizacao || '',
+              lateralidade: s.lateralidade || 'Indefinida',
+              status: 'ATIVO'
+            });
+          } else if (s.tipo === 'EDITAR') {
+            const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
+            const existing = procMap.get(oldKey);
+            if (existing) {
+              procMap.delete(oldKey);
+              procMap.set(key, {
+                ...existing,
+                procedimento: s.procedimento,
+                judicializado: s.judicializado || 'Não',
+                swallis: s.swalis || s.swallis || s.Swalis || '—',
+                medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+                categorizacao: s.categorizacao !== undefined ? (s.categorizacao || '') : (existing.categorizacao || ''),
+                lateralidade: s.lateralidade !== undefined ? (s.lateralidade || 'Indefinida') : (existing.lateralidade || 'Indefinida')
+              });
+            } else {
+              procMap.set(key, {
+                especialidade: s.especialidade,
+                procedimento: s.procedimento,
+                judicializado: s.judicializado || 'Não',
+                swallis: s.swalis || s.swallis || s.Swalis || '—',
+                medico_responsavel: resolverMedicoNome(s.medico_responsavel),
+                categorizacao: s.categorizacao || '',
+                lateralidade: s.lateralidade || 'Indefinida',
+                status: 'ATIVO'
+              });
+            }
+          } else if (s.tipo === 'EXCLUIR') {
+            procMap.delete(key);
+          }
         }
-      } else if (s.tipo === 'EXCLUIR') {
-        procMap.delete(key);
-      }
-    }
-    procs = Array.from(procMap.values());
+        procs = Array.from(procMap.values());
       } else {
         // Fallback: Usa o procedimento do cadastro inicial do paciente
         if (pacData && pacData.procedimento) {
@@ -2016,6 +2078,7 @@ const buscarDados = async (isAutomatic = false) => {
             swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
             medico_responsavel: 'Não informado',
             categorizacao: pacData.categorizacao || '',
+            lateralidade: pacData.lateralidade || 'Indefinida',
             status: 'ATIVO'
           }];
         }
@@ -2099,6 +2162,14 @@ const enviarSolicitacao = async () => {
       }
       return;
     }
+
+    // Validação de Lateralidade obrigatória
+    const lat = (form.value.lateralidade || '').trim().toLowerCase();
+    const opcoesValidas = ['lado esquerdo', 'lado direito', 'bilateral', 'não se aplica'];
+    if (!lat || !opcoesValidas.includes(lat)) {
+      toast.error('O campo Lateralidade é obrigatório. Selecione: Lado Esquerdo, Lado Direito, Bilateral ou Não se aplica.');
+      return;
+    }
   }
 
   // Validação do limite de tempo do standby
@@ -2128,15 +2199,18 @@ const enviarSolicitacao = async () => {
       const formProc = form.value.procedimento || '';
       const origCat = orig.categorizacao || '';
       const formCat = form.value.categorizacao || '';
+      const origLat = (orig.lateralidade || 'Indefinida').trim().toLowerCase();
+      const formLat = (form.value.lateralidade || '').trim().toLowerCase();
 
       const alterado = (origSw !== formSw) || 
                        (origMed !== formMed) || 
                        (origJud !== formJud) || 
                        (origProc !== formProc) ||
-                       (origCat !== formCat);
+                       (origCat !== formCat) ||
+                       (origLat !== formLat);
 
       if (!alterado) {
-        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Procedimento, Judicialização, Swalis, Médico Responsável, Categorização) antes de enviar.');
+        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Procedimento, Judicialização, Swalis, Médico Responsável, Categorização, Lateralidade) antes de enviar.');
         return;
       }
     }
@@ -2173,7 +2247,8 @@ const enviarSolicitacao = async () => {
         usuario: authStore.user?.username || 'Usuário Sistema',
         procedimento_anterior: form.value.procedimento_anterior || undefined,
         origem_menu: 'Solicitações LEC',
-        categorizacao: form.value.categorizacao || ''
+        categorizacao: form.value.categorizacao || '',
+        lateralidade: form.value.lateralidade || 'Indefinida'
       });
       toast.success('Solicitação atualizada com sucesso!');
     } else {
@@ -2193,7 +2268,8 @@ const enviarSolicitacao = async () => {
         usuario: authStore.user?.username || 'Usuário Sistema',
         procedimento_anterior: form.value.procedimento_anterior || undefined,
         origem_menu: 'Solicitações LEC',
-        categorizacao: form.value.categorizacao || ''
+        categorizacao: form.value.categorizacao || '',
+        lateralidade: form.value.lateralidade || 'Indefinida'
       });
       toast.success('Solicitação registrada com sucesso!');
     }
@@ -2438,8 +2514,16 @@ const carregarPacientesBase = async () => {
 };
 
 const obterEstadoAnterior = (solic: any) => {
-  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '' };
-  const pacienteBase = pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
+  if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '', lateralidade: 'Indefinida' };
+  
+  const targetProc = (solic.procedimento_anterior || solic.procedimento || '').trim().toLowerCase();
+  const espTarget = (solic.especialidade || '').trim().toLowerCase();
+
+  const pacienteBase = pacientesBase.value.find(p => 
+    String(p.prontuario || p.codigo) === String(solic.codigo_paciente) &&
+    (espTarget ? (p.especialidade || '').toLowerCase().includes(espTarget) : true) &&
+    (targetProc ? (p.procedimento || '').toLowerCase().trim() === targetProc : true)
+  ) || pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
   
   let estado = {
     especialidade: pacienteBase ? pacienteBase.especialidade : '',
@@ -2447,14 +2531,20 @@ const obterEstadoAnterior = (solic: any) => {
     judicializado: pacienteBase ? (pacienteBase.judicializado || 'Não') : 'Não',
     swalis: pacienteBase ? (pacienteBase.swalis || pacienteBase.swallis || pacienteBase.Swalis || '') : '',
     medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : '',
-    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : ''
+    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : '',
+    lateralidade: pacienteBase ? (pacienteBase.lateralidade || 'Indefinida') : 'Indefinida'
   };
   
   const aprovadasAnteriores = solicitacoes.value
     .filter(s => 
       String(s.codigo_paciente) === String(solic.codigo_paciente) && 
       s.status === 'APROVADO' && 
-      s.data_criacao < solic.data_criacao
+      s.data_criacao < solic.data_criacao &&
+      (espTarget ? (s.especialidade || '').toLowerCase().includes(espTarget) : true) &&
+      (targetProc ? (
+        (s.procedimento || '').toLowerCase().trim() === targetProc || 
+        (s.procedimento_anterior || '').toLowerCase().trim() === targetProc
+      ) : true)
     )
     .sort((a, b) => a.data_criacao.localeCompare(b.data_criacao));
     
@@ -2466,6 +2556,7 @@ const obterEstadoAnterior = (solic: any) => {
       estado.swalis = s.swalis || s.swallis || s.Swalis || '';
       estado.medico_responsavel = s.medico_responsavel || '';
       estado.categorizacao = s.categorizacao || '';
+      estado.lateralidade = s.lateralidade || 'Indefinida';
     } else if (s.tipo === 'EDITAR') {
       if (s.especialidade) estado.especialidade = s.especialidade;
       if (s.procedimento) estado.procedimento = s.procedimento;
@@ -2474,6 +2565,7 @@ const obterEstadoAnterior = (solic: any) => {
       if (sw) estado.swalis = sw;
       if (s.medico_responsavel) estado.medico_responsavel = s.medico_responsavel;
       if (s.categorizacao !== undefined) estado.categorizacao = s.categorizacao || '';
+      if (s.lateralidade !== undefined) estado.lateralidade = s.lateralidade || 'Indefinida';
     }
   }
   
@@ -2518,6 +2610,12 @@ const obterMudancaCampo = (solic: any, campo: string) => {
     if (ant && novo && ant !== novo) {
       return { anterior: ant, novo };
     }
+  } else if (campo === 'lateralidade') {
+    const ant = (estAnt.lateralidade || 'Indefinida').trim();
+    const novo = (solic.lateralidade || 'Indefinida').trim();
+    if (ant.toLowerCase() !== novo.toLowerCase()) {
+      return { anterior: ant, novo };
+    }
   } else if (campo === 'categorizacao') {
     const ant = (estAnt.categorizacao || '').trim();
     const novo = (solic.categorizacao || '').trim();
@@ -2555,6 +2653,11 @@ const obterListaMudancas = (solic: any) => {
   const mMed = obterMudancaCampo(solic, 'medico_responsavel');
   if (mMed) {
     mudancas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+  }
+
+  const mLat = obterMudancaCampo(solic, 'lateralidade');
+  if (mLat) {
+    mudancas.push({ campo: 'Lateralidade', anterior: mLat.anterior, novo: mLat.novo });
   }
 
   const mCat = obterMudancaCampo(solic, 'categorizacao');

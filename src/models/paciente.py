@@ -18,3 +18,4 @@ class Paciente(Base):
     procedimento = Column(String, nullable=True)
     ultima_consulta_epo = Column(String, nullable=True)
     categorizacao = Column(String, nullable=True)
+    lateralidade = Column(String, nullable=True, default="Indefinida")

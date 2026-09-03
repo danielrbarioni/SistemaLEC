@@ -37,6 +37,7 @@ class SolicitacaoCreate(BaseModel):
     procedimento_anterior: str = ""
     origem_menu: str = "Solicitações LEC"
     categorizacao: str = ""
+    lateralidade: str = "Indefinida"
 
 class SolicitacaoUpdate(BaseModel):
     especialidade: str = ""
@@ -54,6 +55,7 @@ class SolicitacaoUpdate(BaseModel):
     procedimento_anterior: str = ""
     origem_menu: str = "Solicitações LEC"
     categorizacao: str = ""
+    lateralidade: str = "Indefinida"
 
 class SolicitacaoStatusUpdate(BaseModel):
     status: str

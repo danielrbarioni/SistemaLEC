@@ -71,24 +71,64 @@ class HybridPacienteProvider(PacienteProviderInterface):
                         "status_consulta": p.status_consulta,
                         "especialidade": p.especialidade,
                         "procedimento": p.procedimento,
-                        "ultima_consulta_epo": p.ultima_consulta_epo
+                        "ultima_consulta_epo": p.ultima_consulta_epo,
+                        "categorizacao": getattr(p, "categorizacao", "") or "",
+                        "lateralidade": getattr(p, "lateralidade", "Indefinida") or "Indefinida"
                     }
             except Exception as e:
                 print(f"Erro ao obter dados dos pacientes do SQLite: {e}")
 
+        # Garante que todos os pacientes retornados contenham categorizacao e lateralidade atualizadas do SQLite local
+        try:
+            from ...models.paciente import Paciente
+            stmt_all = select(Paciente).where(Paciente.codigo.in_(list(found_map.keys())))
+            res_all = await self.sqlite.session.execute(stmt_all)
+            pacientes_db = {p.codigo: p for p in res_all.scalars().all()}
+            
+            for cod, p_dict in found_map.items():
+                p_db = pacientes_db.get(cod)
+                p_dict["categorizacao"] = (getattr(p_db, "categorizacao", "") or "") if p_db else (p_dict.get("categorizacao") or "")
+                p_dict["lateralidade"] = (getattr(p_db, "lateralidade", "Indefinida") or "Indefinida") if p_db else (p_dict.get("lateralidade") or "Indefinida")
+        except Exception as e:
+            print(f"Erro ao enriquecer dados do SQLite local: {e}")
+            for p_dict in found_map.values():
+                p_dict.setdefault("categorizacao", "")
+                p_dict.setdefault("lateralidade", "Indefinida")
+
         return list(found_map.values())
 
     async def obter_paciente_por_codigo(self, codigo: int) -> Dict[str, Any]:
+        pac_data = None
         if self.postgres:
             try:
-                return await self.postgres.obter_paciente_por_codigo(codigo)
+                pac_data = await self.postgres.obter_paciente_por_codigo(codigo)
             except HTTPException as e:
                 # Se não encontrado no AGHU (404), verifica no SQLite local antes de falhar
                 if e.status_code != status.HTTP_404_NOT_FOUND:
                     raise e
             except Exception as e:
                 print(f"Erro ao obter paciente {codigo} do AGHU: {e}. Executando fallback para SQLite local.")
-        return await self.sqlite.obter_paciente_por_codigo(codigo)
+        
+        if not pac_data:
+            pac_data = await self.sqlite.obter_paciente_por_codigo(codigo)
+
+        # Enriquece com dados do SQLite local
+        try:
+            from ...models.paciente import Paciente
+            stmt = select(Paciente).where(Paciente.codigo == codigo)
+            res = await self.sqlite.session.execute(stmt)
+            p_db = res.scalars().first()
+            if p_db:
+                pac_data["categorizacao"] = getattr(p_db, "categorizacao", "") or ""
+                pac_data["lateralidade"] = getattr(p_db, "lateralidade", "Indefinida") or "Indefinida"
+            else:
+                pac_data.setdefault("categorizacao", "")
+                pac_data.setdefault("lateralidade", "Indefinida")
+        except Exception:
+            pac_data.setdefault("categorizacao", "")
+            pac_data.setdefault("lateralidade", "Indefinida")
+
+        return pac_data
 
     async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:
         if self.postgres:

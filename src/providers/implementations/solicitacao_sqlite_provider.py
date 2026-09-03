@@ -32,7 +32,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             usuario=solicitacao.get('usuario', ''),
             procedimento_anterior=solicitacao.get('procedimento_anterior', ''),
             origem_menu=solicitacao.get('origem_menu', 'Solicitações LEC'),
-            categorizacao=solicitacao.get('categorizacao', '') or None
+            categorizacao=solicitacao.get('categorizacao', '') or None,
+            lateralidade=solicitacao.get('lateralidade', 'Indefinida') or 'Indefinida'
         )
         
         self.session.add(nova_solic)
@@ -57,7 +58,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'usuario': nova_solic.usuario,
             'procedimento_anterior': nova_solic.procedimento_anterior,
             'origem_menu': nova_solic.origem_menu,
-            'categorizacao': nova_solic.categorizacao or ''
+            'categorizacao': nova_solic.categorizacao or '',
+            'lateralidade': nova_solic.lateralidade or 'Indefinida'
         }
 
     async def listar_solicitacoes(self) -> List[Dict[str, Any]]:
@@ -85,7 +87,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'procedimento_anterior': s.procedimento_anterior,
                 'origem_menu': getattr(s, 'origem_menu', 'Solicitações LEC') or 'Solicitações LEC',
                 'evento_tipo': getattr(s, 'evento_tipo', 'SOLICITACAO') or 'SOLICITACAO',
-                'categorizacao': getattr(s, 'categorizacao', '') or ''
+                'categorizacao': getattr(s, 'categorizacao', '') or '',
+                'lateralidade': getattr(s, 'lateralidade', 'Indefinida') or 'Indefinida'
             }
             for s in solicitacoes
         ]
@@ -100,6 +103,30 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             
         status_upper = novo_status.upper()
         solic.status = status_upper
+        
+        # Sincroniza alteração diretamente na tabela de pacientes se aprovado
+        if status_upper == "APROVADO":
+            from ...models.paciente import Paciente
+            target_proc = solic.procedimento_anterior or solic.procedimento
+            stmt_pac = select(Paciente).where(
+                Paciente.codigo == solic.codigo_paciente,
+                Paciente.especialidade == solic.especialidade,
+                Paciente.procedimento == target_proc
+            )
+            res_pac = await self.session.execute(stmt_pac)
+            pac_obj = res_pac.scalars().first()
+            if not pac_obj:
+                stmt_pac_fallback = select(Paciente).where(Paciente.codigo == solic.codigo_paciente)
+                res_pac_fallback = await self.session.execute(stmt_pac_fallback)
+                pac_obj = res_pac_fallback.scalars().first()
+
+            if pac_obj:
+                if solic.tipo in ["EDITAR", "EDICAO"]:
+                    pac_obj.procedimento = solic.procedimento
+                    if solic.categorizacao is not None:
+                        pac_obj.categorizacao = solic.categorizacao or None
+                    if solic.lateralidade:
+                        pac_obj.lateralidade = solic.lateralidade
         
         # Cria uma nova entrada no histórico representando especificamente a RESPOSTA
         data_resposta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -128,7 +155,9 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             usuario=usuario_executor or "GESTAO_LEC",
             procedimento_anterior=solic.procedimento_anterior,
             origem_menu=solic.origem_menu or "Solicitações LEC",
-            evento_tipo="RESPOSTA"
+            evento_tipo="RESPOSTA",
+            categorizacao=solic.categorizacao,
+            lateralidade=solic.lateralidade or 'Indefinida'
         )
         self.session.add(resposta_solic)
         await self.session.commit()
@@ -150,6 +179,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'perfil_executor': solic.perfil_executor,
             'procedimento_anterior': solic.procedimento_anterior,
             'evento_tipo': 'SOLICITACAO',
+            'categorizacao': solic.categorizacao or '',
+            'lateralidade': solic.lateralidade or 'Indefinida',
             'detalhes_resposta': detalhes_resposta
         }
 
@@ -199,6 +230,12 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         elif medico_alterado and solic.categorizacao:
             campos_alterados.append("Categorização: Removida por alteração do médico responsável")
             solic.categorizacao = None
+
+        if 'lateralidade' in dados_atualizados:
+            nova_lat = dados_atualizados['lateralidade'] or 'Indefinida'
+            if nova_lat != solic.lateralidade:
+                campos_alterados.append(f"Lateralidade: {solic.lateralidade or 'Indefinida'} -> {nova_lat}")
+                solic.lateralidade = nova_lat
             
         if 'tempo_standby' in dados_atualizados and dados_atualizados['tempo_standby'] != solic.tempo_standby:
             novo_tempo = int(dados_atualizados['tempo_standby']) if dados_atualizados['tempo_standby'] else None
@@ -237,7 +274,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             procedimento_anterior=solic.procedimento_anterior,
             origem_menu=solic.origem_menu or "Solicitações LEC",
             evento_tipo="ALTERACAO",
-            categorizacao=solic.categorizacao
+            categorizacao=solic.categorizacao,
+            lateralidade=solic.lateralidade or 'Indefinida'
         )
         self.session.add(evento_alteracao)
         await self.session.commit()
@@ -261,7 +299,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'procedimento_anterior': solic.procedimento_anterior,
             'origem_menu': solic.origem_menu,
             'evento_tipo': 'SOLICITACAO',
-            'categorizacao': solic.categorizacao or ''
+            'categorizacao': solic.categorizacao or '',
+            'lateralidade': solic.lateralidade or 'Indefinida'
         }
 
     async def salvar_status_local_paciente(self, codigo_paciente: str, status_local: str) -> Dict[str, Any]:

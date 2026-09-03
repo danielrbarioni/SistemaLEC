@@ -280,6 +280,14 @@
                 >
                   {{ formatarNomeProcedimento(row.procedimento) || '—' }}
                 </div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    Lat: {{ row.lateralidade || 'Indefinida' }}
+                  </span>
+                  <span v-if="row.categorizacao" class="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                    🏷️ {{ row.categorizacao }}
+                  </span>
+                </div>
               </td>
 
               <!-- Judicialização -->
@@ -420,6 +428,13 @@
                     <span class="text-gray-400 font-semibold block uppercase text-[10px]">Médico Responsável</span>
                     <span class="text-gray-900 font-semibold mt-0.5 block truncate" :title="proc.medico_responsavel">
                       {{ proc.medico_responsavel || 'Não informado' }}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Lateralidade</span>
+                    <span class="text-slate-800 font-semibold mt-0.5 block">
+                      {{ proc.lateralidade || 'Indefinida' }}
                     </span>
                   </div>
 
@@ -946,7 +961,8 @@ const todosPacientesMap = computed(() => {
         medico_responsavel: resolverMedicoNome(s.medico_responsavel),
         status: 'ATIVO',
         tempo_standby: null,
-        categorizacao: s.categorizacao || ''
+        categorizacao: s.categorizacao || '',
+        lateralidade: s.lateralidade || 'Indefinida'
       });
     } else if (s.tipo === 'EDITAR') {
       const targetProcName = s.procedimento_anterior || s.procedimento;
@@ -958,6 +974,7 @@ const todosPacientesMap = computed(() => {
         proc.Swalis = novoSwalis || proc.Swalis || '—';
         proc.medico_responsavel = resolverMedicoNome(s.medico_responsavel);
         proc.categorizacao = s.categorizacao !== undefined ? (s.categorizacao || '') : (proc.categorizacao || '');
+        proc.lateralidade = s.lateralidade !== undefined ? (s.lateralidade || 'Indefinida') : (proc.lateralidade || 'Indefinida');
         if (!proc.data_insercao || proc.data_insercao === '—') {
           proc.data_insercao = s.data_criacao || '—';
         }
@@ -993,7 +1010,8 @@ const todosPacientesMap = computed(() => {
           medico_responsavel: resolverMedicoNome(baseMatch.medico_responsavel),
           status: 'ATIVO',
           tempo_standby: null,
-          categorizacao: baseMatch.categorizacao || ''
+          categorizacao: baseMatch.categorizacao || '',
+          lateralidade: baseMatch.lateralidade || 'Indefinida'
         });
       }
     }
@@ -1146,6 +1164,7 @@ const procedimentosFlat = computed(() => {
         status: proc.status,
         tempo_standby: proc.tempo_standby,
         categorizacao: proc.categorizacao || '',
+        lateralidade: proc.lateralidade || 'Indefinida',
         pacienteCompleto: pacMestre
       });
     }
