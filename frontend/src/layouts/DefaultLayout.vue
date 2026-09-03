@@ -14,9 +14,9 @@
         <div class="h-14 w-14 shrink-0 flex items-center justify-center">
           <HospitalIcon />
         </div>
-        <div class="flex flex-col items-center justify-center text-center leading-snug">
-          <span class="text-xl font-extrabold text-white">Comunicação Cirúrgica</span>
-          <span class="text-xl font-extrabold text-blue-200">HC-UFPE</span>
+        <div class="flex flex-col items-center justify-center text-center leading-tight">
+          <span class="text-2xl font-extrabold text-white">Comunicação Cirúrgica</span>
+          <span class="text-2xl font-extrabold text-blue-200">HC-UFPE</span>
         </div>
       </div>
       <div class="px-4 my-6">
