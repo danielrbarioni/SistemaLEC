@@ -48,7 +48,7 @@ const routes = [
   },
   {
     path: '/perfis',
-    name: 'Perfis',
+    name: 'Usuários',
     component: Perfis,
     meta: { requiresAuth: true },
   },
@@ -71,14 +71,14 @@ router.beforeEach((to, _from, next: NavigationGuardNext) => {
     const perfilTipo = perfisStore.perfilAtivo?.tipo;
 
     if (perfilTipo === 'NENHUM' || perfilTipo === 'OBSERVADOR') {
-      if (to.path !== '/perfis' && to.name !== 'Login' && to.name !== 'Perfis') {
+      if (to.path !== '/perfis' && to.name !== 'Login' && to.name !== 'Usuários' && to.name !== 'Perfis') {
         try {
           const toast = useToast();
-          toast.error('Solicite criação de usuário e associação a um perfil, no menu Perfis');
+          toast.error('Solicite criação de usuário e associação a um perfil, no menu Usuários');
         } catch {
           // Fallback silencioso ou alert se toast falhar
         }
-        next({ name: 'Perfis' });
+        next({ path: '/perfis' });
         return;
       }
     }

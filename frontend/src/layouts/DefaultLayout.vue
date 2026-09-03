@@ -10,11 +10,14 @@
 
     <!-- Sidebar -->
     <aside :class="{ '-translate-x-full': !sidebarOpen }" class="bg-paper-sidebar text-gray-100 w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform md:relative md:translate-x-0 transition duration-200 ease-in-out z-20 h-full shrink-0">
-      <div @click="() => router.push('/')" class="cursor-pointer text-white flex items-center space-x-2 px-4">
-        <div class="h-12 w-12 shrink-0">
+      <div @click="() => router.push('/')" class="cursor-pointer text-white flex flex-col items-center justify-center text-center px-2 space-y-2">
+        <div class="h-14 w-14 shrink-0 flex items-center justify-center">
           <HospitalIcon />
         </div>
-        <span class="text-2xl font-extrabold">Comunicação Cirúrgica HC-UFPE</span>
+        <div class="flex flex-col items-center justify-center text-center leading-tight">
+          <span class="text-lg font-black tracking-tight uppercase">Comunicação Cirúrgica</span>
+          <span class="text-base font-extrabold tracking-wide text-blue-200">HC-UFPE</span>
+        </div>
       </div>
       <div class="px-4 my-6">
         <div class="border-t border-white border-opacity-20"></div>
@@ -47,7 +50,7 @@
 
         <router-link v-if="authStore.isAuthenticated" to="/perfis" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
           <UserGroupIcon class="h-6 w-6" />
-          <span>Perfis</span>
+          <span>Usuários</span>
           <span v-if="mostrarBadgePerfis" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
             {{ countUsuarioSolicitacoesPendentes }}
           </span>
