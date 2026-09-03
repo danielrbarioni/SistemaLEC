@@ -3,7 +3,7 @@
     <Card>
       <template #header>
         <div class="flex flex-col items-center justify-center pt-3 pb-1">
-          <div class="w-80 h-20 mb-2">
+          <div class="w-24 h-24 mb-3 flex items-center justify-center">
             <HospitalIcon />
           </div>
           <h2 class="text-2xl font-black text-gray-800 text-center tracking-tight">COMUNICAÇÃO CIRÚRGICA HC-UFPE</h2>
