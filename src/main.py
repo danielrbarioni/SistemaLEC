@@ -58,7 +58,12 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("UPDATE solicitacoes SET lateralidade = 'Indefinida' WHERE lateralidade IS NULL;"))
         except Exception:
             pass
-    print("App SQLite tables checked/created.")
+
+        # Migração segura e unificação de CIRURGIA GERAL -> GERAL
+        from .helpers.database_migration_helper import migrate_cirurgia_geral_to_geral
+        await migrate_cirurgia_geral_to_geral(conn)
+
+    print("App SQLite tables checked/created/migrated.")
 
     yield
 

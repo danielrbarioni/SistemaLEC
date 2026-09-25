@@ -517,18 +517,30 @@ const filtroApenasMultiplasEspecialidades = ref(false);
 const usuarios = ref<any[]>([]);
 const categorizacoes = ref<any[]>([]);
 
+const normalizeEsp = (e?: string) => {
+  if (!e) return '';
+  const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  return n;
+};
+
+const isSameSpecialty = (e1?: string, e2?: string) => {
+  if (!e1 || !e2) return false;
+  return normalizeEsp(e1) === normalizeEsp(e2);
+};
+
 const espSelecionada = computed(() => {
   if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
-    return perfisStore.perfilAtivo.especialidade;
+    return normalizeEsp(perfisStore.perfilAtivo.especialidade);
   }
-  return filtroEspecialidade.value;
+  return normalizeEsp(filtroEspecialidade.value);
 });
 
 const especialidades = computed(() => {
   const perfis = perfisStore.perfis;
   const lista = perfis
     .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
-    .map(p => (p.especialidade || p.nome).trim())
+    .map(p => normalizeEsp(p.especialidade || p.nome))
     .filter((nome, index, self) => nome && self.indexOf(nome) === index)
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
@@ -539,13 +551,12 @@ const medicosOpcoes = computed(() => {
   const esp = espSelecionada.value;
   if (!esp) return [];
 
-  const espLower = esp.toLowerCase().trim();
   const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
   // Encontra perfis da especialidade cirúrgica selecionada
   const perfisEspIds = new Set(
     perfisStore.perfis
-      .filter(p => p.tipo === 'ESPECIALIDADE' && (p.especialidade || p.nome).toLowerCase().trim() === espLower)
+      .filter(p => p.tipo === 'ESPECIALIDADE' && isSameSpecialty(p.especialidade || p.nome, esp))
       .map(p => p.id)
   );
 
@@ -554,7 +565,7 @@ const medicosOpcoes = computed(() => {
   // 1. Médicos da tabela de usuários associados ao perfil da especialidade com a função Médico
   for (const u of usuarios.value) {
     const perfMatch = perfisEspIds.has(u.perfil_id);
-    const espMatch = u.especialidade && u.especialidade.toLowerCase().trim() === espLower;
+    const espMatch = isSameSpecialty(u.especialidade, esp);
     const isMedico = u.funcao === 'Médico' || (u.funcao && u.funcao.toLowerCase().includes('médico'));
 
     if ((perfMatch || espMatch) && isMedico && u.nome) {
@@ -564,7 +575,7 @@ const medicosOpcoes = computed(() => {
 
   // 2. Médicos presentes em solicitações/pacientes para essa especialidade (resolvendo username para nome completo se necessário)
   for (const s of solicitacoes.value) {
-    if (s.especialidade && s.especialidade.toLowerCase().trim() === espLower && s.medico_responsavel) {
+    if (isSameSpecialty(s.especialidade, esp) && s.medico_responsavel) {
       const val = s.medico_responsavel.trim();
       if (val !== 'Não informado' && val !== '—') {
         const valNorm = norm(val);
@@ -595,7 +606,7 @@ const categoriasDoMedicoFiltro = computed(() => {
   if (!med || !esp) return [];
 
   const found = categorizacoes.value.find(c =>
-    c.especialidade === esp && (c.medico === med || med.includes(c.medico) || c.medico.includes(med))
+    isSameSpecialty(c.especialidade, esp) && (c.medico === med || med.includes(c.medico) || c.medico.includes(med))
   );
   return found ? (found.categorias || []) : [];
 });
@@ -648,12 +659,9 @@ const procedimentosOpcoes = computed(() => {
   const esp = espSelecionada.value;
   if (!esp) return [];
 
-  const espLower = esp.toLowerCase().trim();
-
   let listFromAghu: string[] = [];
   for (const [key, list] of Object.entries(procedimentosAghuMap.value)) {
-    const keyNorm = key.toLowerCase().trim();
-    if (keyNorm === espLower || keyNorm.includes(espLower) || espLower.includes(keyNorm)) {
+    if (isSameSpecialty(key, esp)) {
       listFromAghu = list;
       break;
     }
@@ -662,12 +670,12 @@ const procedimentosOpcoes = computed(() => {
   const extraProcs: string[] = [];
 
   for (const p of basePacientes.value) {
-    if (p.especialidade && p.especialidade.toLowerCase().trim().includes(espLower) && p.procedimento) {
+    if (isSameSpecialty(p.especialidade, esp) && p.procedimento) {
       extraProcs.push(p.procedimento);
     }
   }
   for (const s of solicitacoes.value) {
-    if (s.especialidade && s.especialidade.toLowerCase().trim().includes(espLower) && s.procedimento) {
+    if (isSameSpecialty(s.especialidade, esp) && s.procedimento) {
       extraProcs.push(s.procedimento);
     }
   }
@@ -950,7 +958,7 @@ const todosPacientesMap = computed(() => {
     if (s.tipo === 'INSERIR') {
       pac.procedimentos.push({
         id: s.id,
-        especialidade: s.especialidade,
+        especialidade: normalizeEsp(s.especialidade),
         procedimento: s.procedimento,
         judicializado: s.judicializado || 'Não',
         Swalis: s.swalis || s.swallis || s.Swalis || s.Swallis || '—',
@@ -963,9 +971,10 @@ const todosPacientesMap = computed(() => {
       });
     } else if (s.tipo === 'EDITAR') {
       const targetProcName = s.procedimento_anterior || s.procedimento;
-      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === targetProcName));
+      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === targetProcName));
       if (proc) {
         proc.procedimento = s.procedimento;
+        proc.especialidade = normalizeEsp(s.especialidade) || proc.especialidade;
         proc.judicializado = s.judicializado || 'Não';
         const novoSwalis = s.swalis || s.swallis || s.Swalis || s.Swallis || '';
         proc.Swalis = novoSwalis || proc.Swalis || '—';
@@ -977,15 +986,15 @@ const todosPacientesMap = computed(() => {
         }
       }
     } else if (s.tipo === 'EXCLUIR') {
-      pac.procedimentos = pac.procedimentos.filter((p: any) => !( (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento) ));
+      pac.procedimentos = pac.procedimentos.filter((p: any) => !( (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === s.procedimento) ));
     } else if (s.tipo === 'STANDBY') {
-      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento));
+      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === s.procedimento));
       if (proc) {
         proc.status = 'STANDBY';
         proc.tempo_standby = calcularTempoStandbyRestante(s.tempo_standby || null, s.data_acao || s.data_criacao);
       }
     } else if (s.tipo === 'CANCELAR_STANDBY') {
-      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (p.especialidade === s.especialidade && p.procedimento === s.procedimento));
+      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === s.procedimento));
       if (proc) {
         proc.status = 'ATIVO';
         proc.tempo_standby = null;
@@ -999,7 +1008,7 @@ const todosPacientesMap = computed(() => {
       const baseMatch = basePacientes.value.find((bp: any) => String(bp.codigo) === pac.codigo);
       if (baseMatch && baseMatch.procedimento) {
         pac.procedimentos.push({
-          especialidade: baseMatch.especialidade,
+          especialidade: normalizeEsp(baseMatch.especialidade),
           procedimento: baseMatch.procedimento,
           judicializado: 'Não',
           Swalis: baseMatch.swalis || baseMatch.swallis || '—',
@@ -1038,8 +1047,8 @@ const pacientesProcessados = computed(() => {
 
   // Se o perfil ativo for ESPECIALIDADE, filtra obrigatoriamente essa especialidade tanto para o paciente quanto para os procedimentos
   const espAtiva = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
-    ? perfisStore.perfilAtivo.especialidade.toLowerCase().trim()
-    : (filtroEspecialidade.value ? filtroEspecialidade.value.toLowerCase().trim() : null);
+    ? normalizeEsp(perfisStore.perfilAtivo.especialidade)
+    : (filtroEspecialidade.value ? normalizeEsp(filtroEspecialidade.value) : null);
 
   return Array.from(pacMap.values())
     .map(pac => {
@@ -1047,7 +1056,7 @@ const pacientesProcessados = computed(() => {
       let procs = [...pac.procedimentos];
 
       if (espAtiva) {
-        procs = procs.filter((p: any) => p.especialidade && p.especialidade.toLowerCase().trim().includes(espAtiva));
+        procs = procs.filter((p: any) => isSameSpecialty(p.especialidade, espAtiva));
       }
 
       if (filtroProcedimento.value) {

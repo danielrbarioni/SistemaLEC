@@ -46,7 +46,7 @@ const mockPacientesEspecialidades = [
 ];
 
 const mockUsuarios = [
-  { id: 1, username: 'helena.souza', nome: 'Dra. Helena Souza', perfil_id: 'p1', especialidade: 'Cirurgia Geral', funcao: 'Médico' },
+  { id: 1, username: 'helena.souza', nome: 'Dra. Helena Souza', perfil_id: 'p1', especialidade: 'GERAL', funcao: 'Médico' },
   { id: 2, username: 'roberto.cruz', nome: 'Dr. Roberto Cruz', perfil_id: 'p2', especialidade: 'Ortopedia', funcao: 'Médico' },
   { id: 3, username: 'carlos.melo', nome: 'Dr. Carlos Melo', perfil_id: 'p3', especialidade: 'Urologia', funcao: 'Médico' },
   { id: 4, username: 'ana.ferreira', nome: 'Dra. Ana Ferreira', perfil_id: 'p4', especialidade: 'Plástica', funcao: 'Médico' },
@@ -61,7 +61,7 @@ const getLocalSolicitacoes = () => {
       {
         id: 'a1b2c3d4',
         tipo: 'INSERIR',
-        especialidade: 'Cirurgia Geral',
+        especialidade: 'GERAL',
         procedimento: 'Colecistectomia',
         codigo_paciente: '123456',
         nome_paciente: 'CARLA DIAS (DEMO)',

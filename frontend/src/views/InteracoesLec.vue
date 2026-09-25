@@ -1310,11 +1310,23 @@ const isEnfermeiro = computed(() => {
   return perfilTipo === 'EPO_GENERALISTA' || perfilNome.includes('epo generalista') || perfilNome.includes('enfermeiro') || userRole.includes('enfermeiro');
 });
 
+const normalizeEsp = (e?: string) => {
+  if (!e) return '';
+  const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  return n;
+};
+
+const isSameSpecialty = (e1?: string, e2?: string) => {
+  if (!e1 || !e2) return false;
+  return normalizeEsp(e1) === normalizeEsp(e2);
+};
+
 const especialidades = computed(() => {
   const perfis = perfisStore.perfis;
   const lista = perfis
     .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
-    .map(p => (p.especialidade || p.nome).trim())
+    .map(p => normalizeEsp(p.especialidade || p.nome))
     .filter((nome, index, self) => nome && self.indexOf(nome) === index)
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
@@ -1407,13 +1419,11 @@ watch(() => form.value.especialidade, async (newEsp) => {
 const procedimentosDaEspecialidade = computed(() => {
   const espName = form.value.especialidade ? form.value.especialidade.trim() : '';
   if (!espName) return [];
-  const espNorm = espName.toLowerCase();
 
   // Lista obtida dinamicamente do AGHU para a especialidade
   let listFromAghu: string[] = [];
   for (const [key, list] of Object.entries(procedimentosAghuMap.value)) {
-    const keyNorm = key.toLowerCase().trim();
-    if (keyNorm === espNorm || keyNorm.includes(espNorm) || espNorm.includes(keyNorm)) {
+    if (isSameSpecialty(key, espName)) {
       listFromAghu = list;
       break;
     }
@@ -1422,16 +1432,14 @@ const procedimentosDaEspecialidade = computed(() => {
   const extraProcs: string[] = [];
   for (const s of solicitacoes.value) {
     if (s.especialidade && s.procedimento) {
-      const sEspNorm = s.especialidade.toLowerCase().trim();
-      if (sEspNorm.includes(espNorm) || espNorm.includes(sEspNorm)) {
+      if (isSameSpecialty(s.especialidade, espName)) {
         extraProcs.push(s.procedimento);
       }
     }
   }
   for (const p of pacientesBase.value) {
     if (p.especialidade && p.procedimento) {
-      const pEspNorm = p.especialidade.toLowerCase().trim();
-      if (pEspNorm.includes(espNorm) || espNorm.includes(pEspNorm)) {
+      if (isSameSpecialty(p.especialidade, espName)) {
         extraProcs.push(p.procedimento);
       }
     }
@@ -1446,7 +1454,7 @@ const especialidadesFiltroLista = computed(() => {
   const perfis = perfisStore.perfis;
   const lista = perfis
     .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
-    .map(p => (p.especialidade || p.nome).trim())
+    .map(p => normalizeEsp(p.especialidade || p.nome))
     .filter((nome, index, self) => nome && self.indexOf(nome) === index)
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
@@ -1506,12 +1514,19 @@ const contagemPendenciasPorTipo = computed(() => {
   };
 
   const activeSpecialty = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
-    ? perfisStore.perfilAtivo.especialidade.toLowerCase()
+    ? perfisStore.perfilAtivo.especialidade
     : null;
 
   solicitacoes.value.forEach(s => {
-    if (s.status === 'PENDENTE') {
-      if (!activeSpecialty || (s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialty))) {
+    if (
+      s.status === 'PENDENTE' &&
+      s.evento_tipo !== 'RESPOSTA' &&
+      !s.is_resposta &&
+      s.evento_tipo !== 'ALTERACAO' &&
+      s.evento_tipo !== 'EDICAO' &&
+      s.evento_tipo !== 'CANCELAMENTO'
+    ) {
+      if (!activeSpecialty || (s.especialidade && isSameSpecialty(s.especialidade, activeSpecialty))) {
         if (counts[s.tipo] !== undefined) {
           counts[s.tipo]++;
         }
@@ -1575,12 +1590,11 @@ const carregarUsuariosLocais = async () => {
 
 const medicosDaEspecialidade = computed(() => {
   if (!especialidadeForm.value) return [];
-  const espNorm = especialidadeForm.value.toLowerCase().trim();
   
   const medicosEncontrados = usuariosLocais.value
     .filter(u => {
       const isMedico = u.funcao === 'Médico';
-      const matchEsp = u.especialidade && u.especialidade.toLowerCase().trim().includes(espNorm);
+      const matchEsp = u.especialidade && isSameSpecialty(u.especialidade, especialidadeForm.value);
       return isMedico && matchEsp;
     })
     .map(u => u.nome);
@@ -1602,11 +1616,11 @@ const carregarCategorizacoes = async () => {
 
 const categoriasDoMedicoSelecionado = computed(() => {
   const med = (form.value.medico_responsavel || '').trim().toUpperCase();
-  const esp = (especialidadeForm.value || '').trim().toUpperCase();
+  const esp = (especialidadeForm.value || '').trim();
   if (!med || !esp) return [];
 
   const found = categorizacoes.value.find(c =>
-    c.especialidade === esp && (c.medico === med || med.includes(c.medico) || c.medico.includes(med))
+    isSameSpecialty(c.especialidade, esp) && (c.medico === med || med.includes(c.medico) || c.medico.includes(med))
   );
   return found ? (found.categorias || []) : [];
 });
@@ -1691,13 +1705,12 @@ const solicitacoesFiltradas = computed(() => {
 
   // 4. Filtro de Especialidade (perfil restrito ou digitado)
   if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade) {
-    const activeSpecialtyName = (perfisStore.perfilAtivo.especialidade || '').toLowerCase();
+    const activeSpecialtyName = perfisStore.perfilAtivo.especialidade;
     list = list.filter(s => 
-      s.especialidade && s.especialidade.toLowerCase().includes(activeSpecialtyName)
+      s.especialidade && isSameSpecialty(s.especialidade, activeSpecialtyName)
     );
   } else if (filtroEsp.value) {
-    const query = filtroEsp.value.toLowerCase().trim();
-    list = list.filter(s => s.especialidade && s.especialidade.toLowerCase().includes(query));
+    list = list.filter(s => s.especialidade && isSameSpecialty(s.especialidade, filtroEsp.value));
   }
 
   // 5. Filtro de Procedimento
@@ -1762,8 +1775,8 @@ const solicitacoesFiltradas = computed(() => {
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
   if (newProfile?.tipo === 'ESPECIALIDADE' && newProfile?.especialidade) {
     const espTarget = newProfile.especialidade || '';
-    const found = especialidades.value.find(e => e.nome.toLowerCase().includes(espTarget.toLowerCase()));
-    const finalEsp = found ? found.nome : newProfile.especialidade;
+    const found = especialidades.value.find(e => isSameSpecialty(e.nome, espTarget));
+    const finalEsp = found ? found.nome : normalizeEsp(newProfile.especialidade);
     form.value.especialidade = finalEsp;
     filtroEsp.value = finalEsp;
   } else {
@@ -1875,8 +1888,8 @@ const limparFormulario = (manterCodigo = false) => {
   // Reaplica especialidade travada pelo perfil
   const profile = perfisStore.perfilAtivo;
   if (profile.tipo === 'ESPECIALIDADE' && profile.especialidade) {
-    const found = especialidades.value.find(e => e.nome.toLowerCase().includes(profile.especialidade!.toLowerCase()));
-    form.value.especialidade = found ? found.nome : profile.especialidade;
+    const found = especialidades.value.find(e => isSameSpecialty(e.nome, profile.especialidade));
+    form.value.especialidade = found ? found.nome : normalizeEsp(profile.especialidade);
   }
 };
 
@@ -1998,7 +2011,7 @@ const buscarDados = async (isAutomatic = false) => {
       // Busca procedimentos do paciente no histórico de solicitações da LEC
       const { data: solicsData } = await api.get('/api/solicitacoes');
       const especialidadeAtual = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
-        ? perfisStore.perfilAtivo.especialidade.toLowerCase()
+        ? perfisStore.perfilAtivo.especialidade
         : null;
 
       const allSolics: any[] = solicsData;
@@ -2121,7 +2134,7 @@ const buscarDados = async (isAutomatic = false) => {
 
       // Filtra por especialidade se o perfil for ESPECIALIDADE
       if (especialidadeAtual) {
-        procs = procs.filter(p => p.especialidade && p.especialidade.toLowerCase().includes(especialidadeAtual));
+        procs = procs.filter(p => p.especialidade && isSameSpecialty(p.especialidade, especialidadeAtual));
       }
 
       if (procs.length === 0) {
@@ -2552,11 +2565,11 @@ const obterEstadoAnterior = (solic: any) => {
   if (!solic) return { especialidade: '', procedimento: '', judicializado: 'Não', swalis: '', medico_responsavel: '', categorizacao: '', lateralidade: 'Indefinida' };
   
   const targetProc = (solic.procedimento_anterior || solic.procedimento || '').trim().toLowerCase();
-  const espTarget = (solic.especialidade || '').trim().toLowerCase();
+  const espTarget = (solic.especialidade || '').trim();
 
   const pacienteBase = pacientesBase.value.find(p => 
     String(p.prontuario || p.codigo) === String(solic.codigo_paciente) &&
-    (espTarget ? (p.especialidade || '').toLowerCase().includes(espTarget) : true) &&
+    (espTarget ? isSameSpecialty(p.especialidade, espTarget) : true) &&
     (targetProc ? (p.procedimento || '').toLowerCase().trim() === targetProc : true)
   ) || pacientesBase.value.find(p => String(p.prontuario || p.codigo) === String(solic.codigo_paciente));
   
@@ -2575,7 +2588,7 @@ const obterEstadoAnterior = (solic: any) => {
       String(s.codigo_paciente) === String(solic.codigo_paciente) && 
       s.status === 'APROVADO' && 
       s.data_criacao < solic.data_criacao &&
-      (espTarget ? (s.especialidade || '').toLowerCase().includes(espTarget) : true) &&
+      (espTarget ? isSameSpecialty(s.especialidade, espTarget) : true) &&
       (targetProc ? (
         (s.procedimento || '').toLowerCase().trim() === targetProc || 
         (s.procedimento_anterior || '').toLowerCase().trim() === targetProc
@@ -2642,7 +2655,7 @@ const obterMudancaCampo = (solic: any, campo: string) => {
   } else if (campo === 'especialidade') {
     const ant = (estAnt.especialidade || '').trim();
     const novo = (solic.especialidade || '').trim();
-    if (ant && novo && ant !== novo) {
+    if (ant && novo && !isSameSpecialty(ant, novo)) {
       return { anterior: ant, novo };
     }
   } else if (campo === 'lateralidade') {

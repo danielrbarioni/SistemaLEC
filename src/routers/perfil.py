@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from ..helpers.string_helper import generate_profile_id, remove_accents
+from ..helpers.string_helper import generate_profile_id, remove_accents, normalize_specialty_name
 
 from ..auth.auth import auth_handler
 from ..resources.database import get_app_db_session
@@ -213,7 +213,8 @@ async def create_perfil(
             detail="A especialidade correspondente é obrigatória para perfis do tipo ESPECIALIDADE."
         )
 
-    spec_name = perfil_in.especialidade.strip().upper()
+    spec_name = normalize_specialty_name(perfil_in.especialidade)
+    nome_perfil = normalize_specialty_name(perfil_in.nome) if perfil_in.nome else spec_name
     norm_spec = remove_accents(spec_name).lower()
 
     # Busca todos os perfis para validações
@@ -223,7 +224,7 @@ async def create_perfil(
 
     # 1. Valida se já existe uma especialidade com mesmo nome (insensível a acentos)
     for p in all_profiles:
-        if p.especialidade and remove_accents(p.especialidade).lower() == norm_spec:
+        if p.especialidade and remove_accents(normalize_specialty_name(p.especialidade)).lower() == norm_spec:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Já existe um perfil cadastrado para a especialidade '{spec_name}'."
@@ -240,7 +241,7 @@ async def create_perfil(
 
     new_profile = Profile(
         id=candidate_id,
-        nome=perfil_in.nome.strip().upper(),
+        nome=nome_perfil,
         tipo="ESPECIALIDADE",
         cor="verde",
         especialidade=spec_name
@@ -315,23 +316,25 @@ async def update_perfil(
 
     # Se alterou a especialidade, verifica duplicidade
     if existing.tipo == "ESPECIALIDADE" and perfil_in.especialidade:
-        new_spec = perfil_in.especialidade.strip().upper()
+        new_spec = normalize_specialty_name(perfil_in.especialidade)
         norm_new_spec = remove_accents(new_spec).lower()
         
         stmt = select(Profile).where(Profile.id != perfil_id)
         result = await db.execute(stmt)
         other_profiles = result.scalars().all()
         for p in other_profiles:
-            if p.especialidade and remove_accents(p.especialidade).lower() == norm_new_spec:
+            if p.especialidade and remove_accents(normalize_specialty_name(p.especialidade)).lower() == norm_new_spec:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Já existe um perfil cadastrado para a especialidade '{new_spec}'."
                 )
 
     # Atualiza campos
-    existing.nome = perfil_in.nome.strip().upper()
     if existing.tipo == "ESPECIALIDADE":
-        existing.especialidade = perfil_in.especialidade.strip().upper()
+        existing.especialidade = normalize_specialty_name(perfil_in.especialidade) if perfil_in.especialidade else None
+        existing.nome = normalize_specialty_name(perfil_in.nome) if perfil_in.nome else (existing.especialidade or existing.nome)
+    else:
+        existing.nome = perfil_in.nome.strip().upper()
 
     await db.commit()
     await db.refresh(existing)

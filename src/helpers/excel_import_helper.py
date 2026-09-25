@@ -13,7 +13,7 @@ from ..models.user import User
 from ..models.profile import Profile
 from ..models.paciente import Paciente
 from ..models.solicitacao import Solicitacao
-from ..helpers.string_helper import generate_profile_id, remove_accents
+from ..helpers.string_helper import generate_profile_id, remove_accents, normalize_specialty_name
 
 
 def normalize_col_name(text: Any) -> str:
@@ -167,8 +167,9 @@ async def process_excel_pacientes_import(
         id_especialidade_int = int(raw_id_especialidade) if raw_id_especialidade and raw_id_especialidade.isdigit() else None
 
         # Resolução de Nome do Procedimento e Especialidade no AGHU ou Fallback (sempre padronizado em CAIXA ALTA)
+        # Resolução de Nome do Procedimento e Especialidade no AGHU ou Fallback (sempre padronizado em CAIXA ALTA)
         if especialidade_override:
-            nome_especialidade = especialidade_override.strip().upper()
+            nome_especialidade = normalize_specialty_name(especialidade_override)
         else:
             nome_especialidade = f"ESPECIALIDADE {id_especialidade_int}" if id_especialidade_int else "GERAL"
 
@@ -180,7 +181,7 @@ async def process_excel_pacientes_import(
                 proc_cached, esp_cached = procedimentos_cache[cache_key]
                 nome_procedimento = proc_cached
                 if not especialidade_override:
-                    nome_especialidade = esp_cached.strip().upper()
+                    nome_especialidade = normalize_specialty_name(esp_cached)
             else:
                 try:
                     query_aghu = text("""
@@ -200,10 +201,12 @@ async def process_excel_pacientes_import(
                         esp_nome = row_aghu.get("esp_nome") or nome_especialidade
                         nome_procedimento = f"{proc_desc} (ID {id_procedimento_int})"
                         if not especialidade_override:
-                            nome_especialidade = esp_nome.strip().upper()
+                            nome_especialidade = normalize_specialty_name(esp_nome)
                         procedimentos_cache[cache_key] = (nome_procedimento, nome_especialidade)
                 except Exception as e:
                     print(f"Erro ao buscar procedimento {id_procedimento_int} no AGHU: {e}")
+
+        nome_especialidade = normalize_specialty_name(nome_especialidade)
 
         # Garantir existência do Perfil da Especialidade no SQLite local usando ID canônico limpo
         canonical_perfil_id = generate_profile_id(nome_especialidade)

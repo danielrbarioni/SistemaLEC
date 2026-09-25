@@ -470,11 +470,11 @@
                   </td>
                   <td class="px-4 py-3">
                     <span class="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-800 border border-gray-200 inline-block">
-                      {{ user.perfil_id }}
+                      {{ normalizeEsp(user.perfil_id) }}
                     </span>
                   </td>
                   <td class="px-4 py-3 text-gray-700 font-medium">
-                    {{ user.especialidade || '—' }}
+                    {{ normalizeEsp(user.especialidade) || '—' }}
                   </td>
                   <td class="px-4 py-3 text-gray-700">
                     {{ user.funcao || '—' }}
@@ -809,6 +809,18 @@ const podeAtivarPerfil = (perf: any) => {
   return perfisStore.perfisDoUsuario.some(p => p.id === perf.id);
 };
 
+const normalizeEsp = (e?: string) => {
+  if (!e) return '';
+  const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  return n;
+};
+
+const isSameSpecialty = (e1?: string, e2?: string) => {
+  if (!e1 || !e2) return false;
+  return normalizeEsp(e1) === normalizeEsp(e2);
+};
+
 // Ordenação customizada de Perfis: 1) ADMIN, 2) GESTÃO LEC, 3) ESPECIALIDADES CIRÚRGICAS (alfabética)
 const perfisOrdenados = computed(() => {
   return [...perfisStore.perfis].sort((a, b) => {
@@ -824,8 +836,8 @@ const perfisOrdenados = computed(() => {
     const pesoB = getPeso(b);
     if (pesoA !== pesoB) return pesoA - pesoB;
 
-    const nomeA = (a.especialidade || a.nome || '').trim();
-    const nomeB = (b.especialidade || b.nome || '').trim();
+    const nomeA = normalizeEsp(a.especialidade || a.nome || '');
+    const nomeB = normalizeEsp(b.especialidade || b.nome || '');
     return nomeA.localeCompare(nomeB, 'pt-BR');
   });
 });
@@ -841,7 +853,7 @@ const perfisFiltrados = computed(() => {
   } else if (tipo === 'GESTAO_LEC') {
     return base.filter(p => p.tipo === 'GESTAO_LEC' || p.tipo === 'ESPECIALIDADE');
   } else if (tipo === 'ESPECIALIDADE' && esp) {
-    return base.filter(p => p.tipo === 'ESPECIALIDADE' && p.especialidade === esp);
+    return base.filter(p => p.tipo === 'ESPECIALIDADE' && isSameSpecialty(p.especialidade, esp));
   }
   return [];
 });
@@ -852,7 +864,8 @@ const exibirCampoFuncao = computed(() => {
 });
 
 const uniquePerfisIds = computed(() => {
-  return perfisOrdenados.value.map(p => p.id);
+  const ids = perfisOrdenados.value.map(p => p.id);
+  return Array.from(new Set(ids));
 });
 
 // Tabela filtrada e ordenada: 1) ADMIN, 2) GESTÃO LEC, 3) Especialidades (alfabética) e Usuários (alfabética)
@@ -860,7 +873,7 @@ const usuariosFiltrados = computed(() => {
   const lista = usuarios.value.filter(user => {
     // Filtro obrigatório para perfil ESPECIALIDADE
     if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE') {
-      if (user.especialidade !== perfisStore.perfilAtivo.especialidade) {
+      if (!isSameSpecialty(user.especialidade, perfisStore.perfilAtivo.especialidade)) {
         return false;
       }
     }
@@ -877,12 +890,12 @@ const usuariosFiltrados = computed(() => {
     }
 
     if (filtros.value.perfil_id) {
-      const target = filtros.value.perfil_id.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const userPerfId = (user.perfil_id || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const userEsp = (user.especialidade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const target = normalizeEsp(filtros.value.perfil_id);
+      const userPerfId = normalizeEsp(user.perfil_id);
+      const userEsp = normalizeEsp(user.especialidade);
       
       const perfObj = perfisStore.perfis.find(p => p.id === user.perfil_id);
-      const perfNome = (perfObj?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const perfNome = normalizeEsp(perfObj?.nome);
 
       if (userPerfId !== target && userEsp !== target && perfNome !== target) {
         return false;
@@ -1034,11 +1047,11 @@ const salvarPerfil = async () => {
   }
 
   try {
-    const nomePerfil = perfilForm.value.tipo === 'ESPECIALIDADE' 
-      ? perfilForm.value.especialidade.trim().toUpperCase() 
+    let nomePerfil = perfilForm.value.tipo === 'ESPECIALIDADE' 
+      ? normalizeEsp(perfilForm.value.especialidade.trim().toUpperCase())
       : perfilForm.value.nome.trim().toUpperCase();
-    const nomeEspecialidade = perfilForm.value.tipo === 'ESPECIALIDADE' 
-      ? perfilForm.value.especialidade.trim().toUpperCase() 
+    let nomeEspecialidade = perfilForm.value.tipo === 'ESPECIALIDADE' 
+      ? normalizeEsp(perfilForm.value.especialidade.trim().toUpperCase())
       : undefined;
 
     if (editingPerfilId.value) {

@@ -131,16 +131,34 @@ const perfisStore = usePerfisStore();
 const countPendentes = ref(0);
 const countUsuarioSolicitacoesPendentes = ref(0);
 
+const normalizeEsp = (e?: string) => {
+  if (!e) return '';
+  const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  return n;
+};
+
+const isSameSpecialty = (e1?: string, e2?: string) => {
+  if (!e1 || !e2) return false;
+  return normalizeEsp(e1) === normalizeEsp(e2);
+};
+
 const carregarCountPendentes = async () => {
   if (!authStore.isAuthenticated) return;
   try {
     const { data } = await api.get('/api/solicitacoes');
-    let list = data.filter((s: any) => s.status === 'PENDENTE');
+    let list = data.filter((s: any) => 
+      s.status === 'PENDENTE' &&
+      s.evento_tipo !== 'RESPOSTA' &&
+      !s.is_resposta &&
+      s.evento_tipo !== 'ALTERACAO' &&
+      s.evento_tipo !== 'EDICAO' &&
+      s.evento_tipo !== 'CANCELAMENTO'
+    );
     
     const pAtivo = perfisStore.perfilAtivo;
     if (pAtivo && pAtivo.tipo === 'ESPECIALIDADE' && pAtivo.especialidade) {
-      const espName = pAtivo.especialidade.toLowerCase();
-      list = list.filter((s: any) => s.especialidade && s.especialidade.toLowerCase().includes(espName));
+      list = list.filter((s: any) => s.especialidade && isSameSpecialty(s.especialidade, pAtivo.especialidade));
     }
     
     countPendentes.value = list.length;
