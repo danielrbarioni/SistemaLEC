@@ -237,12 +237,13 @@ async def process_excel_pacientes_import(
             user_key = (medico_lower, perfil_id)
 
             if user_key not in existing_users:
+                is_buco = "BUCOMAXILO" in (nome_especialidade or "").upper() or "BUCOMAXILO" in perfil_id.upper()
                 new_doctor = User(
                     username=medico_clean,
                     nome=medico_clean,
                     perfil_id=perfil_id,
                     especialidade=nome_especialidade.upper(),
-                    funcao="Médico"
+                    funcao="Dentista" if is_buco else "Médico"
                 )
                 app_db.add(new_doctor)
                 existing_users[user_key] = new_doctor

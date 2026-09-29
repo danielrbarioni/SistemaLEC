@@ -148,3 +148,27 @@ async def migrate_cirurgia_geral_to_geral(conn):
         logger.info("Migração segura de CIRURGIA GERAL para GERAL concluída com sucesso.")
     except Exception as e:
         logger.error(f"Erro na migração de CIRURGIA GERAL para GERAL: {e}")
+
+async def migrate_bucomaxilofacial_medico_to_dentista(conn):
+    """
+    Substitui a função 'Médico' por 'Dentista' para os profissionais cadastrados
+    na especialidade BUCOMAXILOFACIAL, mantendo todo o banco de dados íntegro.
+    """
+    try:
+        # 1. Tratar usuarios
+        await conn.execute(text(
+            "UPDATE usuarios SET funcao = 'Dentista' WHERE (UPPER(especialidade) LIKE '%BUCOMAXILO%' OR UPPER(perfil_id) LIKE '%BUCOMAXILO%') AND (funcao LIKE 'M%dico' OR funcao = 'Medico' OR funcao = 'Médico');"
+        ))
+
+        # 2. Tratar solicitacoes_criacao_usuario
+        try:
+            await conn.execute(text(
+                "UPDATE solicitacoes_criacao_usuario SET funcao = 'Dentista' WHERE (UPPER(especialidade) LIKE '%BUCOMAXILO%' OR UPPER(perfil_id) LIKE '%BUCOMAXILO%') AND (funcao LIKE 'M%dico' OR funcao = 'Medico' OR funcao = 'Médico');"
+            ))
+        except Exception:
+            pass
+
+        logger.info("Migração segura de BUCOMAXILOFACIAL Médico -> Dentista concluída com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro na migração de BUCOMAXILOFACIAL Médico -> Dentista: {e}")
+

@@ -458,7 +458,9 @@
               </div>
 
               <div class="col-span-2">
-                <span class="font-bold text-gray-500 uppercase text-[10px] block">Médico Responsável:</span>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">
+                  {{ isBucoMaxiloEsp(modalDetalhes.solic?.especialidade) ? 'Dentista Responsável:' : 'Médico Responsável:' }}
+                </span>
                 <span class="font-semibold text-gray-900">{{ modalDetalhes.solic.medico_responsavel || 'Não informado' }}</span>
               </div>
 
@@ -585,6 +587,11 @@ const normalizeEsp = (e?: string) => {
 const isSameSpecialty = (e1?: string, e2?: string) => {
   if (!e1 || !e2) return false;
   return normalizeEsp(e1) === normalizeEsp(e2);
+};
+
+const isBucoMaxiloEsp = (esp?: string) => {
+  if (!esp) return false;
+  return normalizeEsp(esp).includes('BUCOMAXILO');
 };
 
 // Filtros
@@ -1029,7 +1036,10 @@ const obterMudancasCompletas = (solic: any) => {
   if (mSwalis) mudancasCalculadas.push({ campo: 'Swalis (Priorização)', anterior: mSwalis.anterior, novo: mSwalis.novo });
 
   const mMed = obterMudancaCampo(solic, 'medico_responsavel');
-  if (mMed) mudancasCalculadas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+  if (mMed) {
+    const isBuco = isBucoMaxiloEsp(solic.especialidade);
+    mudancasCalculadas.push({ campo: isBuco ? 'Dentista Responsável' : 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+  }
 
   const mLat = obterMudancaCampo(solic, 'lateralidade');
   if (mLat) mudancasCalculadas.push({ campo: 'Lateralidade', anterior: mLat.anterior, novo: mLat.novo });

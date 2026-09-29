@@ -60,8 +60,9 @@ async def lifespan(app: FastAPI):
             pass
 
         # Migração segura e unificação de CIRURGIA GERAL -> GERAL
-        from .helpers.database_migration_helper import migrate_cirurgia_geral_to_geral
+        from .helpers.database_migration_helper import migrate_cirurgia_geral_to_geral, migrate_bucomaxilofacial_medico_to_dentista
         await migrate_cirurgia_geral_to_geral(conn)
+        await migrate_bucomaxilofacial_medico_to_dentista(conn)
 
     print("App SQLite tables checked/created/migrated.")
 

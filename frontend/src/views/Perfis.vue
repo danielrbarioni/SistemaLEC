@@ -244,10 +244,7 @@
                   <label for="usr_funcao" class="form-label font-semibold">Função <span class="text-red-500">*</span></label>
                   <select id="usr_funcao" v-model="usuarioForm.funcao" class="form-control" :required="exibirCampoFuncao">
                     <option value="" disabled>Selecione...</option>
-                    <option value="Médico">Médico</option>
-                    <option value="Residente">Residente</option>
-                    <option value="Enfermeiro">Enfermeiro</option>
-                    <option value="Administrativo">Administrativo</option>
+                    <option v-for="op in opcoesFuncao" :key="op" :value="op">{{ op }}</option>
                   </select>
                 </div>
 
@@ -382,10 +379,7 @@
               <label for="edit_usr_funcao" class="form-label font-semibold">Função <span class="text-red-500">*</span></label>
               <select id="edit_usr_funcao" v-model="usuarioForm.funcao" class="form-control" :required="exibirCampoFuncao">
                 <option value="" disabled>Selecione...</option>
-                <option value="Médico">Médico</option>
-                <option value="Residente">Residente</option>
-                <option value="Enfermeiro">Enfermeiro</option>
-                <option value="Administrativo">Administrativo</option>
+                <option v-for="op in opcoesFuncao" :key="op" :value="op">{{ op }}</option>
               </select>
             </div>
 
@@ -440,6 +434,7 @@
               <select id="filtro_funcao" v-model="filtros.funcao" class="form-control text-xs w-full">
                 <option value="">Todas</option>
                 <option value="Médico">Médico</option>
+                <option value="Dentista">Dentista</option>
                 <option value="Residente">Residente</option>
                 <option value="Enfermeiro">Enfermeiro</option>
                 <option value="Administrativo">Administrativo</option>
@@ -491,7 +486,7 @@
                         type="button"
                         @click="abrirModalCategorizacao(user, false)"
                         class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200 transition cursor-pointer inline-flex items-center space-x-1"
-                        title="Clique para editar a categorização deste médico"
+                        :title="`Clique para editar a categorização deste ${isBucoMaxilo(user.especialidade) ? 'dentista' : 'médico'}`"
                       >
                         <span>Editar categorização</span>
                       </button>
@@ -502,19 +497,19 @@
                         type="button"
                         @click="abrirModalCategorizacao(user, true)"
                         class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-300 transition cursor-pointer inline-flex items-center space-x-1"
-                        title="Clique para visualizar a categorização deste médico"
+                        :title="`Clique para visualizar a categorização deste ${isBucoMaxilo(user.especialidade) ? 'dentista' : 'médico'}`"
                       >
                         <span>Visualizar categorização</span>
                       </button>
                     </div>
 
                     <!-- Usuário sem Categorização, mas quem visualiza pode criar (ADMIN ou GESTÃO LEC) -->
-                    <div v-else-if="podeGerenciarCategorizacao && user.funcao === 'Médico' && user.especialidade">
+                    <div v-else-if="podeGerenciarCategorizacao && (user.funcao === 'Médico' || user.funcao === 'Dentista') && user.especialidade">
                       <button
                         type="button"
                         @click="abrirModalCategorizacao(user, false)"
                         class="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 border border-dashed border-gray-300 hover:border-indigo-300 transition cursor-pointer inline-flex items-center space-x-1"
-                        title="Clique para criar categorização para este médico"
+                        :title="`Clique para criar categorização para este ${isBucoMaxilo(user.especialidade) ? 'dentista' : 'médico'}`"
                       >
                         <span>+ Criar</span>
                       </button>
@@ -588,7 +583,7 @@
               <div class="text-xs leading-relaxed">
                 <p class="font-bold text-sm text-red-900">Confirmar exclusão da categoria?</p>
                 <p class="mt-1">
-                  A exclusão da categoria <strong class="underline">{{ modalCategorizacao.confirmandoExclusaoItem.nome }}</strong> removerá essa categorização de <strong>todos os procedimentos vinculados a este médico nesta especialidade</strong>.
+                  A exclusão da categoria <strong class="underline">{{ modalCategorizacao.confirmandoExclusaoItem.nome }}</strong> removerá essa categorização de <strong>todos os procedimentos vinculados a este {{ isBucoMaxilo(modalCategorizacao.especialidade) ? 'dentista' : 'médico' }} nesta especialidade</strong>.
                 </p>
               </div>
             </div>
@@ -615,9 +610,9 @@
             <div class="flex items-start space-x-2.5 text-red-800">
               <span class="text-lg">⚠️</span>
               <div class="text-xs leading-relaxed">
-                <p class="font-bold text-sm text-red-900">Excluir TODA a categorização deste médico?</p>
+                <p class="font-bold text-sm text-red-900">Excluir TODA a categorização deste {{ isBucoMaxilo(modalCategorizacao.especialidade) ? 'dentista' : 'médico' }}?</p>
                 <p class="mt-1">
-                  Esta ação removerá todas as categorias cadastradas e desvinculará a categorização de <strong>todos os procedimentos</strong> deste médico na especialidade <strong>{{ modalCategorizacao.especialidade }}</strong>.
+                  Esta ação removerá todas as categorias cadastradas e desvinculará a categorização de <strong>todos os procedimentos</strong> deste {{ isBucoMaxilo(modalCategorizacao.especialidade) ? 'dentista' : 'médico' }} na especialidade <strong>{{ modalCategorizacao.especialidade }}</strong>.
                 </p>
               </div>
             </div>
@@ -856,6 +851,24 @@ const perfisFiltrados = computed(() => {
     return base.filter(p => p.tipo === 'ESPECIALIDADE' && isSameSpecialty(p.especialidade, esp));
   }
   return [];
+});
+
+const isBucoMaxilo = (e?: string) => {
+  if (!e) return false;
+  return normalizeEsp(e).includes('BUCOMAXILO');
+};
+
+const isPerfilBucoMaxilo = computed(() => {
+  const selectedPerfil = perfisStore.perfis.find(p => p.id === usuarioForm.value.perfil_id);
+  const esp = selectedPerfil?.especialidade || selectedPerfil?.nome || usuarioForm.value.perfil_id || '';
+  return isBucoMaxilo(esp);
+});
+
+const opcoesFuncao = computed(() => {
+  if (isPerfilBucoMaxilo.value) {
+    return ['Dentista', 'Residente', 'Enfermeiro', 'Administrativo'];
+  }
+  return ['Médico', 'Residente', 'Enfermeiro', 'Administrativo'];
 });
 
 const exibirCampoFuncao = computed(() => {
@@ -1471,6 +1484,19 @@ const salvarModalCategorizacao = async () => {
     modalCategorizacao.value.salvando = false;
   }
 };
+
+// Monitora mudanças no perfil selecionado do formulário para ajustar a função correspondente
+watch(() => usuarioForm.value.perfil_id, (newPerfilId) => {
+  if (!newPerfilId) return;
+  const selectedPerfil = perfisStore.perfis.find(p => p.id === newPerfilId);
+  const esp = selectedPerfil?.especialidade || selectedPerfil?.nome || newPerfilId || '';
+  const isBuco = isBucoMaxilo(esp);
+  if (isBuco && usuarioForm.value.funcao === 'Médico') {
+    usuarioForm.value.funcao = 'Dentista';
+  } else if (!isBuco && usuarioForm.value.funcao === 'Dentista') {
+    usuarioForm.value.funcao = 'Médico';
+  }
+});
 
 // Monitora o perfil ativo para aplicar o filtro mandatório e definir perfil_id padrão no form (se não estiver editando)
 watch(() => perfisStore.perfilAtivo, (newPerfil) => {

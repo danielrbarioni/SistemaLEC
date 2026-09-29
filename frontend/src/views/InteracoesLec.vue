@@ -4,29 +4,8 @@
       <h1 class="text-xl font-bold text-gray-800">Interações com o Sistema LEC da Rede HU Brasil</h1>
       <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial → Gestão da LEC</span>
     </div>
-
-    <!-- Modal de Alerta de Acesso Restrito para Enfermeiros -->
-    <div v-if="isEnfermeiro" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden p-6 text-center space-y-4">
-        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 text-red-600">
-          <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
-        </div>
-        <h3 class="text-xl font-bold text-gray-900">Acesso Restrito</h3>
-        <p class="text-sm text-gray-600 leading-relaxed">
-          A funcionalidade do menu <strong>Solicitações LEC</strong> é voltada exclusivamente para os perfis <strong>Médico</strong> e <strong>Residente</strong>.
-        </p>
-        <div class="pt-2">
-          <Button @click="router.push('/pacientes')" variant="primary" class="w-full justify-center">
-            Ir para Pacientes
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR, NENHUM ou Enfermeiro) -->
-    <Card v-if="!isEnfermeiro && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM'" class="overflow-hidden">
+    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR e NENHUM) -->
+    <Card v-if="perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM'" class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <div class="flex items-center space-x-3">
@@ -356,15 +335,17 @@
             </div>
           </div>
 
-          <!-- Médico Responsável -->
+          <!-- Médico / Dentista Responsável -->
           <div class="form-group">
-            <label for="medico_responsavel" class="form-label font-semibold">Médico Responsável <span class="text-red-500">*</span></label>
+            <label for="medico_responsavel" class="form-label font-semibold">
+              {{ isBucoMaxiloEsp(especialidadeForm) ? 'Dentista Responsável' : 'Médico Responsável' }} <span class="text-red-500">*</span>
+            </label>
             <input
               id="medico_responsavel"
               v-model="form.medico_responsavel"
               type="text"
               list="medicos-lista"
-              :placeholder="!especialidadeForm ? 'Selecione a especialidade primeiro' : 'Digite o nome do médico solicitante'"
+              :placeholder="!especialidadeForm ? 'Selecione a especialidade primeiro' : (isBucoMaxiloEsp(especialidadeForm) ? 'Digite o nome do dentista solicitante' : 'Digite o nome do médico solicitante')"
               class="form-control"
               :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados || !especialidadeForm }"
               required
@@ -401,7 +382,7 @@
         <div v-if="categoriasDoMedicoSelecionado.length > 0 && (abaAtiva === 'INSERIR' || abaAtiva === 'EDITAR')" class="form-group bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-200">
           <label for="categorizacao" class="form-label font-bold text-indigo-950 flex items-center space-x-1.5">
             <span>🏷️ Categorização do Profissional (Opcional)</span>
-            <span class="text-[11px] font-normal text-indigo-600">— Classificação clínica definida pelo médico</span>
+            <span class="text-[11px] font-normal text-indigo-600">— Classificação clínica definida pelo {{ isBucoMaxiloEsp(especialidadeForm) ? 'dentista' : 'médico' }}</span>
           </label>
           <select
             id="categorizacao"
@@ -518,8 +499,8 @@
       </form>
     </Card>
 
-    <!-- Tabela de Solicitações Enviadas (Oculta para Enfermeiro) -->
-    <Card v-if="!isEnfermeiro" class="overflow-hidden">
+    <!-- Tabela de Solicitações Enviadas -->
+    <Card class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <h2 class="text-lg font-bold text-gray-800">
@@ -627,15 +608,17 @@
           </select>
         </div>
 
-        <!-- Médico Responsável -->
+        <!-- Médico / Dentista Responsável -->
         <div class="form-group">
-          <label for="filtroMed" class="text-xs font-semibold text-gray-600 block mb-1">Médico Responsável</label>
+          <label for="filtroMed" class="text-xs font-semibold text-gray-600 block mb-1">
+            {{ isBucoMaxiloEsp(filtroEsp || perfisStore.perfilAtivo.especialidade) ? 'Dentista Responsável' : 'Médico Responsável' }}
+          </label>
           <input
             id="filtroMed"
             type="text"
             v-model="filtroMed"
             list="filtro-medicos-lista"
-            placeholder="Digite para pesquisar médico..."
+            :placeholder="isBucoMaxiloEsp(filtroEsp || perfisStore.perfilAtivo.especialidade) ? 'Digite para pesquisar dentista...' : 'Digite para pesquisar médico...'"
             class="form-control text-xs"
           />
           <datalist id="filtro-medicos-lista">
@@ -706,7 +689,9 @@
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Judicial</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Swalis</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Lateralidade</th>
-                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Médico</th>
+                <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                  {{ isBucoMaxiloEsp(filtroEsp || perfisStore.perfilAtivo.especialidade) ? 'Dentista' : 'Médico' }}
+                </th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Status</th>
                 <th v-if="abaAcompanhamentoAtiva === 'STANDBY'" class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Tempo Standby</th>
                 <th class="sticky top-0 bg-gray-50 z-10 px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap border-b border-gray-200">Descrição</th>
@@ -1026,9 +1011,11 @@
                 <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.swalis || modalDescricao.solic.swallis || modalDescricao.solic.Swalis || '—' }}</span>
               </div>
 
-              <!-- Médico Responsável -->
+              <!-- Médico / Dentista Responsável -->
               <div class="col-span-2">
-                <span class="font-bold text-gray-500 uppercase text-[10px] block">Médico Responsável:</span>
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">
+                  {{ isBucoMaxiloEsp(modalDescricao.solic.especialidade) ? 'Dentista Responsável:' : 'Médico Responsável:' }}
+                </span>
                 <div v-if="modalDescricao.solic.tipo === 'EDITAR' && obterMudancaCampo(modalDescricao.solic, 'medico_responsavel')" class="space-y-0.5">
                   <div class="text-[11px] text-gray-500 line-through">{{ obterMudancaCampo(modalDescricao.solic, 'medico_responsavel')?.anterior }}</div>
                   <div class="font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block text-xs">
@@ -1281,7 +1268,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { 
   UserPlusIcon, 
@@ -1299,16 +1285,9 @@ import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/pro
 import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
 
 const toast = useToast();
-const router = useRouter();
 const perfisStore = usePerfisStore();
 const authStore = useAuthStore();
 
-const isEnfermeiro = computed(() => {
-  const perfilNome = perfisStore.perfilAtivo?.nome?.toLowerCase() || '';
-  const perfilTipo = perfisStore.perfilAtivo?.tipo || '';
-  const userRole = (authStore.user as any)?.funcao?.toLowerCase() || '';
-  return perfilTipo === 'EPO_GENERALISTA' || perfilNome.includes('epo generalista') || perfilNome.includes('enfermeiro') || userRole.includes('enfermeiro');
-});
 
 const normalizeEsp = (e?: string) => {
   if (!e) return '';
@@ -1320,6 +1299,11 @@ const normalizeEsp = (e?: string) => {
 const isSameSpecialty = (e1?: string, e2?: string) => {
   if (!e1 || !e2) return false;
   return normalizeEsp(e1) === normalizeEsp(e2);
+};
+
+const isBucoMaxiloEsp = (esp?: string) => {
+  if (!esp) return false;
+  return normalizeEsp(esp).includes('BUCOMAXILO');
 };
 
 const especialidades = computed(() => {
@@ -1590,12 +1574,15 @@ const carregarUsuariosLocais = async () => {
 
 const medicosDaEspecialidade = computed(() => {
   if (!especialidadeForm.value) return [];
+  const isBuco = isBucoMaxiloEsp(especialidadeForm.value);
   
   const medicosEncontrados = usuariosLocais.value
     .filter(u => {
-      const isMedico = u.funcao === 'Médico';
+      const isProfissional = isBuco 
+        ? (u.funcao === 'Dentista' || u.funcao === 'Médico') 
+        : (u.funcao === 'Médico');
       const matchEsp = u.especialidade && isSameSpecialty(u.especialidade, especialidadeForm.value);
-      return isMedico && matchEsp;
+      return isProfissional && matchEsp;
     })
     .map(u => u.nome);
 
@@ -2193,20 +2180,25 @@ const enviarSolicitacao = async () => {
     }
   }
 
-  // Validação do Médico Responsável (deve ser um médico cadastrado na especialidade)
+  // Validação do Médico / Dentista Responsável
   if (abaAtiva.value === 'INSERIR' || abaAtiva.value === 'EDITAR') {
+    const isBuco = isBucoMaxiloEsp(especialidadeForm.value);
+    const cargoNome = isBuco ? 'Dentista' : 'Médico';
+    const cargoPlural = isBuco ? 'dentistas' : 'médicos';
+    const cargoArtigo = isBuco ? 'um dentista' : 'um médico';
+
     const medDigitado = (form.value.medico_responsavel || '').trim();
     if (!medDigitado) {
-      toast.error('O Médico Responsável é obrigatório.');
+      toast.error(`O ${cargoNome} Responsável é obrigatório.`);
       return;
     }
     const medicosValidos = medicosDaEspecialidade.value;
     const isValido = medicosValidos.some(m => m.toLowerCase().trim() === medDigitado.toLowerCase());
     if (!isValido) {
       if (medicosValidos.length === 0) {
-        toast.error(`Não há médicos cadastrados na especialidade "${especialidadeForm.value}". Crie um usuário com perfil médico nessa especialidade no menu Perfis.`);
+        toast.error(`Não há ${cargoPlural} cadastrados na especialidade "${especialidadeForm.value}". Crie um usuário com perfil ${cargoNome.toLowerCase()} nessa especialidade no menu Perfis.`);
       } else {
-        toast.error(`O Médico Responsável "${medDigitado}" não é um médico cadastrado na especialidade ${especialidadeForm.value}. Selecione um médico da lista: ${medicosValidos.join(', ')}.`);
+        toast.error(`O ${cargoNome} Responsável "${medDigitado}" não é ${cargoArtigo} cadastrado na especialidade ${especialidadeForm.value}. Selecione ${cargoArtigo} da lista: ${medicosValidos.join(', ')}.`);
       }
       return;
     }
@@ -2700,7 +2692,8 @@ const obterListaMudancas = (solic: any) => {
   
   const mMed = obterMudancaCampo(solic, 'medico_responsavel');
   if (mMed) {
-    mudancas.push({ campo: 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
+    const isBuco = isBucoMaxiloEsp(solic.especialidade);
+    mudancas.push({ campo: isBuco ? 'Dentista Responsável' : 'Médico Responsável', anterior: mMed.anterior, novo: mMed.novo });
   }
 
   const mLat = obterMudancaCampo(solic, 'lateralidade');

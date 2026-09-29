@@ -67,17 +67,17 @@
           </select>
         </div>
 
-        <!-- Filtro por Médico Responsável (Abre quando uma Especialidade for selecionada) -->
+        <!-- Filtro por Médico / Dentista Responsável (Abre quando uma Especialidade for selecionada) -->
         <div v-if="espSelecionada" class="form-group">
           <label for="filtroMedico" class="form-label font-semibold">
-            Filtrar por Médico Responsável
+            Filtrar por {{ isBucoEspecialidade ? 'Dentista Responsável' : 'Médico Responsável' }}
           </label>
           <select 
             id="filtroMedico" 
             v-model="filtroMedico" 
             class="form-control"
           >
-            <option value="">Todos os Médicos</option>
+            <option value="">{{ isBucoEspecialidade ? 'Todos os Dentistas' : 'Todos os Médicos' }}</option>
             <option v-for="medico in medicosOpcoes" :key="medico" :value="medico">
               {{ medico }}
             </option>
@@ -229,7 +229,9 @@
               <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Judicialização</th>
               <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Swalis</th>
               <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Data de Inserção</th>
-              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">Médico Responsável</th>
+              <th class="sticky top-0 bg-gray-50 z-10 px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                {{ isBucoEspecialidade ? 'Dentista Responsável' : 'Médico Responsável' }}
+              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
@@ -434,7 +436,9 @@
                   </div>
 
                   <div>
-                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">Médico Responsável</span>
+                    <span class="text-gray-400 font-semibold block uppercase text-[10px]">
+                      {{ isBucoMaxiloEsp(proc.especialidade) ? 'Dentista Responsável' : 'Médico Responsável' }}
+                    </span>
                     <span class="text-gray-900 font-semibold mt-0.5 block truncate" :title="proc.medico_responsavel">
                       {{ proc.medico_responsavel || 'Não informado' }}
                     </span>
@@ -529,11 +533,20 @@ const isSameSpecialty = (e1?: string, e2?: string) => {
   return normalizeEsp(e1) === normalizeEsp(e2);
 };
 
+const isBucoMaxiloEsp = (esp?: string) => {
+  if (!esp) return false;
+  return normalizeEsp(esp).includes('BUCOMAXILO');
+};
+
 const espSelecionada = computed(() => {
   if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
     return normalizeEsp(perfisStore.perfilAtivo.especialidade);
   }
   return normalizeEsp(filtroEspecialidade.value);
+});
+
+const isBucoEspecialidade = computed(() => {
+  return isBucoMaxiloEsp(espSelecionada.value);
 });
 
 const especialidades = computed(() => {
@@ -562,13 +575,16 @@ const medicosOpcoes = computed(() => {
 
   const medicosSet = new Set<string>();
 
-  // 1. Médicos da tabela de usuários associados ao perfil da especialidade com a função Médico
+  // 1. Médicos / Dentistas da tabela de usuários associados ao perfil da especialidade
+  const isBuco = isBucoMaxiloEsp(esp);
   for (const u of usuarios.value) {
     const perfMatch = perfisEspIds.has(u.perfil_id);
     const espMatch = isSameSpecialty(u.especialidade, esp);
-    const isMedico = u.funcao === 'Médico' || (u.funcao && u.funcao.toLowerCase().includes('médico'));
+    const isProfissional = isBuco
+      ? (u.funcao === 'Dentista' || u.funcao === 'Médico' || (u.funcao && (u.funcao.toLowerCase().includes('dentista') || u.funcao.toLowerCase().includes('médico'))))
+      : (u.funcao === 'Médico' || (u.funcao && u.funcao.toLowerCase().includes('médico')));
 
-    if ((perfMatch || espMatch) && isMedico && u.nome) {
+    if ((perfMatch || espMatch) && isProfissional && u.nome) {
       medicosSet.add(u.nome.trim().toUpperCase());
     }
   }
