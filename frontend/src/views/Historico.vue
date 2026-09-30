@@ -162,7 +162,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="solic in solicitacoesFiltradas" :key="solic.id" class="hover:bg-slate-50/80 transition-colors">
+            <tr v-for="solic in solicitacoesPaginadas" :key="solic.id" class="hover:bg-slate-50/80 transition-colors">
               <!-- 1. Data/Hora -->
               <td class="px-2.5 py-2.5 whitespace-nowrap text-[11px] font-mono text-gray-600">
                 {{ formatarDataHora(solic.data_criacao) }}
@@ -267,6 +267,16 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Paginação (50 itens por página padrão) -->
+      <div v-if="solicitacoesFiltradas.length > 0" class="mt-2 border border-gray-100 rounded-lg overflow-hidden">
+        <Pagination
+          :total-items="solicitacoesFiltradas.length"
+          v-model:current-page="paginaAtual"
+          v-model:items-per-page="itensPorPagina"
+          item-name="ações no histórico"
+        />
       </div>
     </Card>
 
@@ -547,10 +557,14 @@ import { useToast } from 'vue-toastification';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
+import Pagination from '../components/Pagination.vue';
 import { usePerfisStore } from '../stores/perfis';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
+
+const paginaAtual = ref(1);
+const itensPorPagina = ref(50);
 
 const solicitacoes = ref<any[]>([]);
 const pacientesBase = ref<any[]>([]);
@@ -638,6 +652,7 @@ const limparFiltros = () => {
   filtroEventoTipo.value = '';
   filtroStatus.value = '';
   filtroUsuario.value = '';
+  paginaAtual.value = 1;
 };
 
 const carregarHistorico = async () => {
@@ -1179,6 +1194,27 @@ const solicitacoesFiltradas = computed(() => {
 
       return (a.detalhes || '').localeCompare(b.detalhes || '');
     });
+});
+
+const solicitacoesPaginadas = computed(() => {
+  const inicio = (paginaAtual.value - 1) * itensPorPagina.value;
+  return solicitacoesFiltradas.value.slice(inicio, inicio + itensPorPagina.value);
+});
+
+// Reseta para a primeira página sempre que qualquer filtro de busca for alterado
+watch([
+  filtroEspecialidade,
+  dataInicio,
+  dataFim,
+  filtroOrigemMenu,
+  filtroPaciente,
+  filtroAcaoTipo,
+  filtroEventoTipo,
+  filtroStatus,
+  filtroUsuario,
+  itensPorPagina
+], () => {
+  paginaAtual.value = 1;
 });
 
 onMounted(() => {

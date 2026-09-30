@@ -236,7 +236,7 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr 
-              v-for="(row, idx) in procedimentosFlat" 
+              v-for="(row, idx) in procedimentosPaginados" 
               :key="idx"
               class="hover:bg-slate-50 transition duration-150"
             >
@@ -322,6 +322,16 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Paginação (50 itens por página padrão) -->
+      <div v-if="procedimentosFlat.length > 0" class="mt-2 border border-gray-100 rounded-lg overflow-hidden">
+        <Pagination
+          :total-items="procedimentosFlat.length"
+          v-model:current-page="paginaAtual"
+          v-model:items-per-page="itensPorPagina"
+          item-name="procedimentos"
+        />
       </div>
     </Card>
 
@@ -482,11 +492,15 @@ import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
+import Pagination from '../components/Pagination.vue';
 import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
 import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
+
+const paginaAtual = ref(1);
+const itensPorPagina = ref(50);
 
 const podeImportarPlanilha = computed(() => {
   const p = perfisStore.perfilAtivo;
@@ -1242,6 +1256,30 @@ const procedimentosFlat = computed(() => {
 
 const totalPacientes = computed(() => pacientesProcessados.value.length);
 const totalProcedimentos = computed(() => procedimentosFlat.value.length);
+
+const procedimentosPaginados = computed(() => {
+  const inicio = (paginaAtual.value - 1) * itensPorPagina.value;
+  return procedimentosFlat.value.slice(inicio, inicio + itensPorPagina.value);
+});
+
+// Reseta para a primeira página sempre que qualquer filtro de busca for alterado
+watch([
+  buscaProntuario,
+  filtroEspecialidade,
+  filtroProcedimento,
+  filtroMedico,
+  filtroCategorizacao,
+  filtroJudicializado,
+  filtroSwalis,
+  filtroApenasUmProcedimento,
+  filtroApenasMultiplos,
+  filtroApenasUmaEspecialidade,
+  filtroApenasMultiplasEspecialidades,
+  espSelecionada,
+  itensPorPagina
+], () => {
+  paginaAtual.value = 1;
+});
 
 const totalEspecialidadesModal = computed(() => {
   if (!pacienteSelecionadoModal.value || !pacienteSelecionadoModal.value.procedimentos) return 0;

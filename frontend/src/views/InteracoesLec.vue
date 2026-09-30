@@ -700,7 +700,7 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="solic in solicitacoesFiltradas" :key="solic.id" class="hover:bg-slate-50 transition duration-150">
+              <tr v-for="solic in solicitacoesPaginadas" :key="solic.id" class="hover:bg-slate-50 transition duration-150">
                 <!-- Data/Hora Criação -->
                 <td class="px-3 py-2.5 whitespace-nowrap font-mono text-[11px] text-gray-600">
                   {{ formatarDataHora(solic.data_criacao) }}
@@ -887,6 +887,16 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Paginação (50 itens por página padrão) -->
+        <div v-if="solicitacoesFiltradas.length > 0" class="mt-2 border border-gray-100 rounded-lg overflow-hidden">
+          <Pagination
+            :total-items="solicitacoesFiltradas.length"
+            v-model:current-page="paginaAtual"
+            v-model:items-per-page="itensPorPagina"
+            item-name="solicitações"
+          />
         </div>
       </div>
     </Card>
@@ -1279,6 +1289,7 @@ import api from '../services/api';
 import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
+import Pagination from '../components/Pagination.vue';
 import { usePerfisStore } from '../stores/perfis';
 import { useAuthStore } from '../stores/auth';
 import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
@@ -1287,6 +1298,9 @@ import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAg
 const toast = useToast();
 const perfisStore = usePerfisStore();
 const authStore = useAuthStore();
+
+const paginaAtual = ref(1);
+const itensPorPagina = ref(50);
 
 
 const normalizeEsp = (e?: string) => {
@@ -1756,6 +1770,27 @@ const solicitacoesFiltradas = computed(() => {
       return dataB.localeCompare(dataA);
     });
   }
+});
+
+const solicitacoesPaginadas = computed(() => {
+  const inicio = (paginaAtual.value - 1) * itensPorPagina.value;
+  return solicitacoesFiltradas.value.slice(inicio, inicio + itensPorPagina.value);
+});
+
+// Reseta para a primeira página sempre que qualquer filtro ou aba for alterado
+watch([
+  abaAcompanhamentoAtiva,
+  subAbaAcompanhamento,
+  filtroEsp,
+  filtroProc,
+  filtroPac,
+  filtroJud,
+  filtroSwalis,
+  filtroLateralidade,
+  filtroMed,
+  itensPorPagina
+], () => {
+  paginaAtual.value = 1;
 });
 
 // Trava a especialidade da nova solicitação caso o perfil ativo seja de uma especialidade específica

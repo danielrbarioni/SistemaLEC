@@ -458,7 +458,7 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200 text-sm">
-                <tr v-for="user in usuariosFiltrados" :key="user.id" class="hover:bg-gray-50/80 transition-colors">
+                <tr v-for="user in usuariosPaginados" :key="user.id" class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3">
                     <div class="font-bold text-gray-900 leading-snug">{{ user.nome }}</div>
                     <div class="text-xs text-gray-500 font-mono">{{ user.username }}</div>
@@ -538,6 +538,16 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Paginação (50 itens por página padrão) -->
+          <div v-if="usuariosFiltrados.length > 0" class="mt-2 border border-gray-100 rounded-lg overflow-hidden">
+            <Pagination
+              :total-items="usuariosFiltrados.length"
+              v-model:current-page="paginaAtual"
+              v-model:items-per-page="itensPorPagina"
+              item-name="usuários"
+            />
           </div>
         </div>
       </Card>
@@ -759,10 +769,14 @@ import { useAuthStore } from '../stores/auth';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import Button from '../components/Button.vue';
+import Pagination from '../components/Pagination.vue';
 
 const toast = useToast();
 const perfisStore = usePerfisStore();
 const authStore = useAuthStore();
+
+const paginaAtual = ref(1);
+const itensPorPagina = ref(50);
 
 const usuarios = ref<any[]>([]);
 const solicitacoes = ref<any[]>([]);
@@ -950,6 +964,15 @@ const usuariosFiltrados = computed(() => {
     return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
   });
 });
+
+const usuariosPaginados = computed(() => {
+  const inicio = (paginaAtual.value - 1) * itensPorPagina.value;
+  return usuariosFiltrados.value.slice(inicio, inicio + itensPorPagina.value);
+});
+
+watch([filtros, itensPorPagina], () => {
+  paginaAtual.value = 1;
+}, { deep: true });
 
 const loadUsuarios = async () => {
   try {
