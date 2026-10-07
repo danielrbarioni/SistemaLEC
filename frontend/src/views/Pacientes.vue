@@ -159,6 +159,15 @@
               />
               <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com mais de 1 procedimento cadastrado</span>
             </label>
+
+            <label class="flex items-center space-x-2 cursor-pointer select-none bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-100 transition shadow-sm">
+              <input 
+                type="checkbox" 
+                v-model="filtroApenasProcedimentoDuplicado" 
+                class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span class="text-xs font-bold text-slate-700">Exibir apenas pacientes com procedimento duplicado</span>
+            </label>
           </div>
 
           <!-- Coluna Especialidades -->
@@ -493,7 +502,7 @@ import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
 import Pagination from '../components/Pagination.vue';
-import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
+import { formatarNomeProcedimento, extrairNomeBaseProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
 import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
 
 const toast = useToast();
@@ -530,6 +539,7 @@ const filtroJudicializado = ref('');
 const filtroSwalis = ref('');
 const filtroApenasUmProcedimento = ref(false);
 const filtroApenasMultiplos = ref(false);
+const filtroApenasProcedimentoDuplicado = ref(false);
 const filtroApenasUmaEspecialidade = ref(false);
 const filtroApenasMultiplasEspecialidades = ref(false);
 const usuarios = ref<any[]>([]);
@@ -670,11 +680,24 @@ watch(espSelecionada, async (newEsp) => {
 }, { immediate: true });
 
 watch(filtroApenasUmProcedimento, (val) => {
-  if (val) filtroApenasMultiplos.value = false;
+  if (val) {
+    filtroApenasMultiplos.value = false;
+    filtroApenasProcedimentoDuplicado.value = false;
+  }
 });
 
 watch(filtroApenasMultiplos, (val) => {
-  if (val) filtroApenasUmProcedimento.value = false;
+  if (val) {
+    filtroApenasUmProcedimento.value = false;
+    filtroApenasProcedimentoDuplicado.value = false;
+  }
+});
+
+watch(filtroApenasProcedimentoDuplicado, (val) => {
+  if (val) {
+    filtroApenasUmProcedimento.value = false;
+    filtroApenasMultiplos.value = false;
+  }
 });
 
 watch(filtroApenasUmaEspecialidade, (val) => {
@@ -1131,19 +1154,49 @@ const pacientesProcessados = computed(() => {
       // Total de especialidades únicas e procedimentos totais do paciente no sistema completo
       const todasEspecialidades = new Set(pac.procedimentos.map((p: any) => (p.especialidade || '').trim()).filter(Boolean));
 
+      // Identifica chaves de procedimentos que ocorrem 2 ou mais vezes no paciente
+      const contagemProcedimentos = new Map<string, number>();
+      for (const p of pac.procedimentos) {
+        const nomeNorm = extrairNomeBaseProcedimento(formatarNomeProcedimento(p.procedimento || ''));
+        if (nomeNorm) {
+          contagemProcedimentos.set(nomeNorm, (contagemProcedimentos.get(nomeNorm) || 0) + 1);
+        }
+      }
+      const chavesDuplicadas = new Set<string>();
+      for (const [chave, cont] of contagemProcedimentos.entries()) {
+        if (cont >= 2) {
+          chavesDuplicadas.add(chave);
+        }
+      }
+
+      // Se houver especialidade ativa, verifica se a lista de procedimentos filtrados contém o procedimento duplicado
+      let temProcedimentoDuplicado = false;
+      if (chavesDuplicadas.size > 0) {
+        if (espAtiva) {
+          temProcedimentoDuplicado = procs.some((p: any) => {
+            const k = extrairNomeBaseProcedimento(formatarNomeProcedimento(p.procedimento || ''));
+            return chavesDuplicadas.has(k);
+          });
+        } else {
+          temProcedimentoDuplicado = true;
+        }
+      }
+
       return {
         ...pac,
         procedimentos: procs,
         totalProcedimentosGerais: pac.procedimentos.length,
-        totalEspecialidadesGerais: todasEspecialidades.size
+        totalEspecialidadesGerais: todasEspecialidades.size,
+        temProcedimentoDuplicado
       };
     })
     .filter(pac => {
       if (pac.procedimentos.length === 0) return false;
       
-      // Filtro para procedimentos (1 ou múltiplos)
+      // Filtro para procedimentos (1, múltiplos ou duplicados)
       if (filtroApenasUmProcedimento.value && pac.totalProcedimentosGerais !== 1) return false;
       if (filtroApenasMultiplos.value && pac.totalProcedimentosGerais <= 1) return false;
+      if (filtroApenasProcedimentoDuplicado.value && !pac.temProcedimentoDuplicado) return false;
 
       // Filtro para especialidades (1 ou múltiplas)
       if (filtroApenasUmaEspecialidade.value && pac.totalEspecialidadesGerais !== 1) return false;

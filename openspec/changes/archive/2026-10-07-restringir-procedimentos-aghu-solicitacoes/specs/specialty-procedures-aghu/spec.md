@@ -1,9 +1,6 @@
-# specialty-procedures-aghu Specification
+# Spec Delta
 
-## Purpose
-TBD - created by archiving change specialty-procedures-aghu. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Carregamento dinâmico de procedimentos por especialidade
 O sistema SHALL carregar dinamicamente do AGHU a lista de procedimentos cirúrgicos ativos da especialidade selecionada e restringir o dropdown de novas solicitações e edições exclusivamente a esse catálogo oficial do AGHU.

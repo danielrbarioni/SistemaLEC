@@ -1413,7 +1413,7 @@ watch(() => form.value.especialidade, async (newEsp) => {
   }
 }, { immediate: true });
 
-// Procedimentos filtrados pela especialidade selecionada (unindo AGHU e histórico com preferência rigorosa ao ID do AGHU)
+// Procedimentos da especialidade selecionada: estritamente oficiais do AGHU
 const procedimentosDaEspecialidade = computed(() => {
   const espName = form.value.especialidade ? form.value.especialidade.trim() : '';
   if (!espName) return [];
@@ -1427,24 +1427,16 @@ const procedimentosDaEspecialidade = computed(() => {
     }
   }
 
-  const extraProcs: string[] = [];
-  for (const s of solicitacoes.value) {
-    if (s.especialidade && s.procedimento) {
-      if (isSameSpecialty(s.especialidade, espName)) {
-        extraProcs.push(s.procedimento);
-      }
-    }
-  }
-  for (const p of pacientesBase.value) {
-    if (p.especialidade && p.procedimento) {
-      if (isSameSpecialty(p.especialidade, espName)) {
-        extraProcs.push(p.procedimento);
-      }
-    }
+  const procs = desduplicarProcedimentos(listFromAghu);
+
+  // Se o formulário já possui um procedimento selecionado (ex: edição de registro legado),
+  // garante que ele conste nas opções para não quebrar a visualização
+  const procAtual = form.value.procedimento ? form.value.procedimento.trim() : '';
+  if (procAtual && !procs.includes(procAtual)) {
+    return [procAtual, ...procs];
   }
 
-  const raw = [...listFromAghu, ...extraProcs];
-  return desduplicarProcedimentos(raw);
+  return procs;
 });
 
 // Lista de especialidades dos perfis criados no menu Perfis (para a caixa de listagem de Especialidade)
