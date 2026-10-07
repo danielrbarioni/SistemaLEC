@@ -907,8 +907,11 @@
         <div class="flex justify-between items-start border-b border-gray-150 pb-3">
           <div>
             <h3 class="text-lg font-bold text-gray-900">Detalhes da Solicitação</h3>
-            <p class="text-xs text-gray-500">
-              Solicitação #{{ modalDescricao.solic?.id }} · {{ formatarTipo(modalDescricao.solic?.tipo) }}
+            <p class="text-xs text-gray-500 flex items-center flex-wrap gap-1">
+              <span>Solicitação #{{ modalDescricao.solic?.id }} · {{ formatarTipo(modalDescricao.solic?.tipo) }}</span>
+              <span v-if="modalDescricao.solic?.tempo_standby" class="font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 text-[11px] inline-flex items-center gap-0.5">
+                ⏱️ {{ modalDescricao.solic.tempo_standby }}d
+              </span>
             </p>
           </div>
           <button @click="modalDescricao.aberto = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold p-1">
@@ -1019,6 +1022,19 @@
                   </div>
                 </div>
                 <span v-else class="font-medium text-gray-800">{{ modalDescricao.solic.swalis || modalDescricao.solic.swallis || modalDescricao.solic.Swalis || '—' }}</span>
+              </div>
+
+              <!-- Tempo de Standby (se aplicável ou se for solicitação de STANDBY) -->
+              <div v-if="modalDescricao.solic.tipo === 'STANDBY' || modalDescricao.solic.tempo_standby">
+                <span class="font-bold text-gray-500 uppercase text-[10px] block">Tempo de Standby:</span>
+                <div class="mt-0.5">
+                  <span v-if="modalDescricao.solic.tempo_standby" class="font-bold text-purple-800 bg-purple-50 px-2.5 py-0.5 rounded border border-purple-200 inline-flex items-center gap-1 text-xs">
+                    ⏱️ {{ modalDescricao.solic.tempo_standby }} dias
+                  </span>
+                  <span v-else class="text-gray-400 italic text-xs">
+                    Prazo indefinido
+                  </span>
+                </div>
               </div>
 
               <!-- Médico / Dentista Responsável -->
@@ -1158,6 +1174,12 @@
               </span>
               <span v-else>{{ modalRejeicao.solic.procedimento }}</span>
             </div>
+            <div v-if="modalRejeicao.solic.tipo === 'STANDBY' || modalRejeicao.solic.tempo_standby">
+              <span class="font-bold">Tempo de Standby:</span> 
+              <span class="font-bold text-purple-800 bg-purple-100/70 px-1.5 py-0.5 rounded border border-purple-300 ml-1">
+                ⏱️ {{ modalRejeicao.solic.tempo_standby ? `${modalRejeicao.solic.tempo_standby} dias` : 'Prazo indefinido' }}
+              </span>
+            </div>
           </div>
 
           <div class="space-y-1">
@@ -1221,6 +1243,12 @@
               <span v-else>{{ modalCancelar.solic.procedimento }}</span>
             </div>
             <div><span class="font-bold">Especialidade:</span> {{ modalCancelar.solic.especialidade }}</div>
+            <div v-if="modalCancelar.solic.tipo === 'STANDBY' || modalCancelar.solic.tempo_standby">
+              <span class="font-bold">Tempo de Standby:</span> 
+              <span class="font-bold text-purple-800 bg-purple-100/70 px-1.5 py-0.5 rounded border border-purple-300 ml-1">
+                ⏱️ {{ modalCancelar.solic.tempo_standby ? `${modalCancelar.solic.tempo_standby} dias` : 'Prazo indefinido' }}
+              </span>
+            </div>
           </div>
           
           <p class="text-gray-500 italic text-[11px]">
