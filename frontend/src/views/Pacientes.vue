@@ -468,6 +468,124 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- Linha do Tempo de Ações do Procedimento -->
+                <div class="mt-4 pt-3.5 border-t border-slate-100">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                      <ClockIcon class="h-4 w-4 text-indigo-600" />
+                      <h5 class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                        Linha do Tempo de Ações
+                      </h5>
+                      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {{ (proc.timeline || []).length }} {{ (proc.timeline || []).length === 1 ? 'evento' : 'eventos' }}
+                      </span>
+                    </div>
+
+                    <button
+                      @click="toggleTimelineProc(index, proc)"
+                      type="button"
+                      class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1 px-2.5 py-1 rounded-md hover:bg-indigo-50 transition cursor-pointer"
+                    >
+                      <span>{{ isTimelineExpanded(index, proc) ? 'Ocultar Linha do Tempo' : 'Exibir Linha do Tempo' }}</span>
+                      <ChevronUpIcon v-if="isTimelineExpanded(index, proc)" class="h-3.5 w-3.5 ml-0.5" />
+                      <ChevronDownIcon v-else class="h-3.5 w-3.5 ml-0.5" />
+                    </button>
+                  </div>
+
+                  <!-- Container da Timeline -->
+                  <div v-show="isTimelineExpanded(index, proc)" class="mt-2.5">
+                    <div v-if="!proc.timeline || proc.timeline.length === 0" class="text-xs text-slate-400 italic py-2">
+                      Nenhuma ação histórica registrada para este procedimento.
+                    </div>
+
+                    <div v-else class="relative pl-6 space-y-4 before:content-[''] before:absolute before:top-2 before:bottom-2 before:left-[11px] before:w-0.5 before:bg-slate-200">
+                      <div 
+                        v-for="(item, tIdx) in proc.timeline" 
+                        :key="tIdx"
+                        class="relative flex flex-col space-y-1.5"
+                      >
+                        <!-- Marcador circular da Timeline -->
+                        <div 
+                          class="absolute -left-[23px] top-0.5 h-5 w-5 rounded-full ring-4 flex items-center justify-center text-white text-[10px] font-black shadow-sm"
+                          :class="getTimelineDotColor(item.cor)"
+                        >
+                          {{ tIdx + 1 }}
+                        </div>
+
+                        <!-- Cabeçalho do Evento: Título, Status e Data -->
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                          <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold text-slate-900">
+                              {{ item.titulo }}
+                            </span>
+                            <span 
+                              class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border shadow-2xs"
+                              :class="getTimelineBadgeColor(item.cor)"
+                            >
+                              {{ item.status || 'REGISTRADO' }}
+                            </span>
+                          </div>
+
+                          <div class="flex items-center space-x-1 text-[11px] font-mono text-slate-600 font-semibold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            <ClockIcon class="h-3 w-3 text-slate-400" />
+                            <span>{{ formatarDataHora(item.data) }}</span>
+                          </div>
+                        </div>
+
+                        <!-- Usuário e Perfil -->
+                        <div v-if="item.usuario || item.perfil" class="text-[11px] text-slate-500 flex items-center space-x-1.5">
+                          <span>Responsável:</span>
+                          <span class="font-semibold text-slate-700">{{ item.usuario || 'Sistema' }}</span>
+                          <span v-if="item.perfil" class="text-[10px] font-medium bg-slate-200/70 px-1.5 py-0.2 rounded text-slate-600">
+                            {{ item.perfil }}
+                          </span>
+                        </div>
+
+                        <!-- Balão com Justificativa e Detalhes da Ação -->
+                        <div 
+                          v-if="item.justificativa || item.detalhes_extras || (item.mudancas && item.mudancas.length > 0)"
+                          class="bg-slate-50/80 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-700 space-y-1.5 shadow-2xs"
+                        >
+                          <!-- Bloco de Alterações Realizadas (o que era e o que passou a ser) -->
+                          <div v-if="item.mudancas && item.mudancas.length > 0" class="space-y-1">
+                            <div class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+                              <span>✏️</span>
+                              <span>Alterações no procedimento:</span>
+                            </div>
+                            <div class="space-y-1 pl-1">
+                              <div 
+                                v-for="(m, mIdx) in item.mudancas" 
+                                :key="mIdx"
+                                class="bg-white rounded border border-slate-200 px-2.5 py-1 text-xs flex flex-wrap items-center gap-1.5 shadow-2xs"
+                              >
+                                <span class="font-bold text-slate-700 shrink-0">{{ m.campo }}:</span>
+                                <span class="text-slate-500 line-through bg-slate-100 px-1.5 py-0.5 rounded text-[11px] border border-slate-200">
+                                  {{ m.anterior || '—' }}
+                                </span>
+                                <span class="text-indigo-600 font-bold text-xs">➔</span>
+                                <span class="text-indigo-900 font-bold bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-200">
+                                  {{ m.novo || '—' }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Detalhes Extras (quando não houver lista de mudanças estruturadas) -->
+                          <div v-if="item.detalhes_extras && (!item.mudancas || item.mudancas.length === 0)" class="text-[11px] font-medium text-slate-600 pb-0.5">
+                            {{ item.detalhes_extras }}
+                          </div>
+
+                          <!-- Justificativa clínica escrita -->
+                          <div v-if="item.justificativa" class="flex items-start space-x-1.5 text-slate-800">
+                            <span class="font-bold text-slate-600 text-[11px] shrink-0">💬 Justificativa:</span>
+                            <span class="italic leading-relaxed break-words font-medium">{{ item.justificativa }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -495,7 +613,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
-import { UserGroupIcon, ClipboardDocumentListIcon, DocumentArrowUpIcon } from '@heroicons/vue/24/outline';
+import { 
+  UserGroupIcon, 
+  ClipboardDocumentListIcon, 
+  DocumentArrowUpIcon,
+  ClockIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
+} from '@heroicons/vue/24/outline';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
@@ -945,27 +1070,25 @@ const getSwalisClass = (Swalis: string) => {
   }
 };
 
+const resolverMedicoNome = (med: string) => {
+  if (!med || med === 'Não informado' || med === '—') return med || 'Não informado';
+  const clean = med.trim();
+  if (!clean) return 'Não informado';
+
+  const cleanNorm = norm(clean);
+  const userMatch = usuarios.value.find(u => {
+    if (!u) return false;
+    const uNameNorm = u.nome ? norm(u.nome) : '';
+    const uUserNorm = u.username ? norm(u.username) : '';
+    return uUserNorm === cleanNorm || uNameNorm === cleanNorm || (cleanNorm.length > 5 && uNameNorm.includes(cleanNorm)) || (uNameNorm.length > 5 && cleanNorm.includes(uNameNorm));
+  });
+
+  const finalName = userMatch?.nome?.trim() || clean;
+  return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
+};
+
 // 1. Mapa mestre com todos os pacientes e TODOS os seus procedimentos (sem filtros)
 const todosPacientesMap = computed(() => {
-  const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-  const resolverMedicoNome = (med: string) => {
-    if (!med || med === 'Não informado' || med === '—') return med || 'Não informado';
-    const clean = med.trim();
-    if (!clean) return 'Não informado';
-
-    const cleanNorm = norm(clean);
-    const userMatch = usuarios.value.find(u => {
-      if (!u) return false;
-      const uNameNorm = u.nome ? norm(u.nome) : '';
-      const uUserNorm = u.username ? norm(u.username) : '';
-      return uUserNorm === cleanNorm || uNameNorm === cleanNorm || (cleanNorm.length > 5 && uNameNorm.includes(cleanNorm)) || (uNameNorm.length > 5 && cleanNorm.includes(uNameNorm));
-    });
-
-    const finalName = userMatch?.nome?.trim() || clean;
-    return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
-  };
-
   const pacMap = new Map<string, any>();
   
   for (const p of basePacientes.value) {
@@ -1215,10 +1338,547 @@ const pacientesProcessados = computed(() => {
 const modalDetalhesAberto = ref(false);
 const pacienteSelecionadoModal = ref<any | null>(null);
 
+function obterMudancasEdicao(
+  s: any,
+  proc: any,
+  pac: any,
+  matchingSolics: any[]
+): Array<{ campo: string; anterior: string; novo: string }> {
+  const mudancas: Array<{ campo: string; anterior: string; novo: string }> = [];
+  const jaAdicionados = new Set<string>();
+
+  // 1. Tenta extrair primeiro de s.detalhes se contiver "->" ou "➔" (comum em ALTERACAO ou logs gravados)
+  if (s.detalhes && (s.detalhes.includes('->') || s.detalhes.includes('➔'))) {
+    let str = s.detalhes.replace(/Editou a solicitação #[a-zA-Z0-9_-]+\s*\(.*?\)\s*-\s*/, '');
+    if (str.includes('Justificativa:')) {
+      str = str.split('Justificativa:')[0].trim();
+    }
+    if (str.endsWith('.')) str = str.slice(0, -1).trim();
+
+    const partes = str.split(';');
+    for (const parte of partes) {
+      const pTrim = parte.trim();
+      if (!pTrim) continue;
+      const match = pTrim.match(/^([^:]+):\s*(.*?)\s*(?:->|➔)\s*(.+)$/);
+      if (match) {
+        let campo = match[1].trim();
+        const campoLower = campo.toLowerCase();
+        if (campoLower === 'médico' && isBucoMaxiloEsp(s.especialidade || proc.especialidade)) {
+          campo = 'Dentista Responsável';
+        } else if (campoLower === 'médico') {
+          campo = 'Médico Responsável';
+        } else if (campoLower === 'swalis' || campoLower === 'prioridade') {
+          campo = 'Swalis (Prioridade)';
+        } else if (campoLower === 'categorização') {
+          campo = 'Categorização Profissional';
+        }
+
+        const anterior = match[2].trim();
+        const novo = match[3].trim();
+        mudancas.push({ campo, anterior, novo });
+        jaAdicionados.add(campo.toLowerCase());
+        jaAdicionados.add(campoLower);
+      }
+    }
+  }
+
+  // 2. Compara campos estruturais da solicitação contra o estado imediatamente anterior
+  const targetProc = (s.procedimento_anterior || s.procedimento || proc.procedimento || '').trim().toLowerCase();
+  const espTarget = (s.especialidade || proc.especialidade || '').trim();
+  const codStr = String(pac.codigo);
+
+  // Busca o paciente correspondente na base inicial
+  const pacienteBase = basePacientes.value.find((p: any) => 
+    String(p.prontuario || p.codigo) === codStr &&
+    (espTarget ? isSameSpecialty(p.especialidade, espTarget) : true) &&
+    (targetProc ? (p.procedimento || '').toLowerCase().trim() === targetProc : true)
+  ) || basePacientes.value.find((p: any) => String(p.prontuario || p.codigo) === codStr);
+
+  const estadoAnt = {
+    especialidade: pacienteBase ? pacienteBase.especialidade : (proc.especialidade || ''),
+    procedimento: pacienteBase ? pacienteBase.procedimento : (proc.procedimento || ''),
+    judicializado: pacienteBase ? (pacienteBase.judicializado || 'Não') : 'Não',
+    swalis: pacienteBase ? (pacienteBase.swalis || pacienteBase.swallis || pacienteBase.Swalis || '') : '',
+    medico_responsavel: pacienteBase ? (pacienteBase.medico_responsavel || '') : '',
+    categorizacao: pacienteBase ? (pacienteBase.categorizacao || '') : '',
+    lateralidade: pacienteBase ? (pacienteBase.lateralidade || 'Indefinida') : 'Indefinida'
+  };
+
+  // Aplica eventos aprovados anteriores em ordem cronológica
+  const aprovadasAnteriores = (matchingSolics || [])
+    .filter((prev: any) => 
+      prev.status === 'APROVADO' && 
+      prev.id !== s.id &&
+      prev.data_criacao && s.data_criacao &&
+      prev.data_criacao < s.data_criacao
+    )
+    .sort((a: any, b: any) => (a.data_criacao || '').localeCompare(b.data_criacao || ''));
+
+  for (const prev of aprovadasAnteriores) {
+    if (prev.tipo === 'INSERIR') {
+      if (prev.especialidade) estadoAnt.especialidade = prev.especialidade;
+      if (prev.procedimento) estadoAnt.procedimento = prev.procedimento;
+      if (prev.judicializado) estadoAnt.judicializado = prev.judicializado || 'Não';
+      if (prev.swalis || prev.swallis || prev.Swalis) estadoAnt.swalis = prev.swalis || prev.swallis || prev.Swalis || '';
+      if (prev.medico_responsavel) estadoAnt.medico_responsavel = prev.medico_responsavel || '';
+      if (prev.categorizacao !== undefined) estadoAnt.categorizacao = prev.categorizacao || '';
+      if (prev.lateralidade !== undefined) estadoAnt.lateralidade = prev.lateralidade || 'Indefinida';
+    } else if (prev.tipo === 'EDITAR') {
+      if (prev.especialidade) estadoAnt.especialidade = prev.especialidade;
+      if (prev.procedimento) estadoAnt.procedimento = prev.procedimento;
+      if (prev.judicializado) estadoAnt.judicializado = prev.judicializado;
+      const sw = prev.swalis || prev.swallis || prev.Swalis;
+      if (sw) estadoAnt.swalis = sw;
+      if (prev.medico_responsavel) estadoAnt.medico_responsavel = prev.medico_responsavel;
+      if (prev.categorizacao !== undefined) estadoAnt.categorizacao = prev.categorizacao || '';
+      if (prev.lateralidade !== undefined) estadoAnt.lateralidade = prev.lateralidade || 'Indefinida';
+    }
+  }
+
+  if (s.procedimento_anterior) {
+    estadoAnt.procedimento = s.procedimento_anterior;
+  }
+
+  // Procedimento
+  if (!jaAdicionados.has('procedimento')) {
+    const pAnt = (s.procedimento_anterior || estadoAnt.procedimento || '').trim();
+    const pNovo = (s.procedimento || '').trim();
+    if (pAnt && pNovo && pAnt.toLowerCase() !== pNovo.toLowerCase()) {
+      mudancas.push({ campo: 'Procedimento', anterior: pAnt, novo: pNovo });
+      jaAdicionados.add('procedimento');
+    }
+  }
+
+  // Especialidade
+  if (!jaAdicionados.has('especialidade')) {
+    const eAnt = (estadoAnt.especialidade || '').trim();
+    const eNovo = (s.especialidade || '').trim();
+    if (eAnt && eNovo && !isSameSpecialty(eAnt, eNovo)) {
+      mudancas.push({ campo: 'Especialidade', anterior: eAnt, novo: eNovo });
+      jaAdicionados.add('especialidade');
+    }
+  }
+
+  // Médico / Dentista Responsável
+  const isBuco = isBucoMaxiloEsp(s.especialidade || proc.especialidade);
+  const rotuloMedico = isBuco ? 'Dentista Responsável' : 'Médico Responsável';
+  if (!jaAdicionados.has('médico responsável') && !jaAdicionados.has('dentista responsável') && !jaAdicionados.has('médico')) {
+    const mAnt = (estadoAnt.medico_responsavel || '').trim();
+    const mNovo = (s.medico_responsavel || '').trim();
+    if (mAnt && mNovo && norm(mAnt) !== norm(mNovo)) {
+      mudancas.push({ 
+        campo: rotuloMedico, 
+        anterior: resolverMedicoNome(mAnt) || mAnt, 
+        novo: resolverMedicoNome(mNovo) || mNovo 
+      });
+      jaAdicionados.add('médico responsável');
+    }
+  }
+
+  // Swalis
+  if (!jaAdicionados.has('swalis') && !jaAdicionados.has('swalis (prioridade)') && !jaAdicionados.has('prioridade')) {
+    const swAnt = (estadoAnt.swalis || '').trim();
+    const swNovo = (s.swalis || s.swallis || s.Swalis || '').trim();
+    if (swAnt && swNovo && swAnt.toUpperCase() !== swNovo.toUpperCase()) {
+      mudancas.push({ campo: 'Swalis (Prioridade)', anterior: swAnt, novo: swNovo });
+      jaAdicionados.add('swalis');
+      jaAdicionados.add('swalis (prioridade)');
+    }
+  }
+
+  // Lateralidade
+  if (!jaAdicionados.has('lateralidade')) {
+    const lAnt = (estadoAnt.lateralidade || 'Indefinida').trim();
+    const lNovo = (s.lateralidade || 'Indefinida').trim();
+    if (lAnt.toLowerCase() !== lNovo.toLowerCase()) {
+      mudancas.push({ campo: 'Lateralidade', anterior: lAnt, novo: lNovo });
+      jaAdicionados.add('lateralidade');
+    }
+  }
+
+  // Judicializado
+  if (!jaAdicionados.has('judicializado') && !jaAdicionados.has('judicialização')) {
+    const jAnt = (estadoAnt.judicializado || 'Não').trim();
+    const jNovo = (s.judicializado || 'Não').trim();
+    if (jAnt.toLowerCase() !== jNovo.toLowerCase()) {
+      mudancas.push({ campo: 'Judicializado', anterior: jAnt, novo: jNovo });
+      jaAdicionados.add('judicializado');
+    }
+  }
+
+  // Categorização Profissional
+  if (!jaAdicionados.has('categorização') && !jaAdicionados.has('categorização profissional')) {
+    const cAnt = (estadoAnt.categorizacao || '').trim();
+    const cNovo = (s.categorizacao || '').trim();
+    if (cNovo !== cAnt && (cNovo || cAnt)) {
+      mudancas.push({ 
+        campo: 'Categorização Profissional', 
+        anterior: cAnt || 'Sem categorização', 
+        novo: cNovo || 'Sem categorização' 
+      });
+      jaAdicionados.add('categorização');
+      jaAdicionados.add('categorização profissional');
+    }
+  }
+
+  return mudancas;
+}
+
+function gerarTimelineProcedimentosPaciente(pac: any) {
+  if (!pac || !pac.procedimentos) return;
+
+  const codStr = String(pac.codigo);
+  const pacNomeNorm = norm(pac.nome);
+  const solicsDoPaciente = solicitacoes.value.filter((s: any) => {
+    const sCod = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
+    if (sCod && sCod === codStr) return true;
+    const sNomeNorm = norm(s.nome_paciente);
+    if (sNomeNorm && pacNomeNorm && (sNomeNorm === pacNomeNorm || (pacNomeNorm.length > 5 && sNomeNorm.includes(pacNomeNorm)))) {
+      return true;
+    }
+    return false;
+  });
+
+  for (const proc of pac.procedimentos) {
+    // Coleta histórico de nomes/aliases deste procedimento
+    const procAliases = new Set<string>();
+    if (proc.procedimento) procAliases.add(proc.procedimento.trim().toUpperCase());
+    if (proc.id) {
+      const originSolic = solicsDoPaciente.find((s: any) => s.id === proc.id);
+      if (originSolic?.procedimento) procAliases.add(originSolic.procedimento.trim().toUpperCase());
+      if (originSolic?.procedimento_anterior) procAliases.add(originSolic.procedimento_anterior.trim().toUpperCase());
+    }
+
+    // Expande aliases transitivamente por solicitações de EDITAR na mesma especialidade
+    let changed = true;
+    let maxLoops = 5;
+    while (changed && maxLoops > 0) {
+      changed = false;
+      maxLoops--;
+      for (const s of solicsDoPaciente) {
+        if (!isSameSpecialty(s.especialidade, proc.especialidade)) continue;
+        const pCurrent = s.procedimento ? s.procedimento.trim().toUpperCase() : '';
+        const pAnterior = s.procedimento_anterior ? s.procedimento_anterior.trim().toUpperCase() : '';
+        if (pCurrent && procAliases.has(pCurrent) && pAnterior && !procAliases.has(pAnterior)) {
+          procAliases.add(pAnterior);
+          changed = true;
+        }
+        if (pAnterior && procAliases.has(pAnterior) && pCurrent && !procAliases.has(pCurrent)) {
+          procAliases.add(pCurrent);
+          changed = true;
+        }
+      }
+    }
+
+    // IDs de outros procedimentos deste mesmo paciente para evitar vazamento em duplicidades
+    const otherProcIds = new Set(
+      pac.procedimentos
+        .filter((p: any) => p !== proc && p.id)
+        .map((p: any) => String(p.id))
+    );
+
+    const matchingSolics = solicsDoPaciente.filter((s: any) => {
+      if (!isSameSpecialty(s.especialidade, proc.especialidade)) return false;
+      
+      // Se a solicitação pertence explicitamente a outro procedimento diferente deste
+      if (s.id && otherProcIds.has(String(s.id))) return false;
+      for (const oId of otherProcIds) {
+        if (s.detalhes && s.detalhes.includes(`#${oId}`)) return false;
+      }
+
+      if (proc.id && s.id === proc.id) return true;
+      if (proc.id && s.detalhes && s.detalhes.includes(`#${proc.id}`)) return true;
+
+      const sProc = s.procedimento ? s.procedimento.trim().toUpperCase() : '';
+      const sProcAnt = s.procedimento_anterior ? s.procedimento_anterior.trim().toUpperCase() : '';
+
+      if (sProc && procAliases.has(sProc)) return true;
+      if (sProcAnt && procAliases.has(sProcAnt)) return true;
+
+      return false;
+    });
+
+    const timelineItems: any[] = [];
+
+    for (const s of matchingSolics) {
+      const dataEvento = s.data_criacao || s.data_acao || '—';
+      const usuarioExecutor = s.usuario || s.perfil_executor || 'Sistema';
+      const perfilExecutor = s.perfil_executor || '';
+
+      const isImportacao = s.evento_tipo === 'EXECUCAO' || 
+        (s.id && String(s.id).startsWith('SOL-FILA-')) || 
+        (s.detalhes && String(s.detalhes).toLowerCase().includes('importação de fila via planilha'));
+
+      if (isImportacao) {
+        let detalhesLimpos = s.detalhes || 'Importação de fila via planilha Excel.';
+        let just = 'Procedimento importado da planilha oficial da especialidade.';
+        let extras = '';
+        if (detalhesLimpos.includes('ID Fila:')) {
+          extras = detalhesLimpos;
+        } else {
+          just = detalhesLimpos;
+        }
+
+        timelineItems.push({
+          id: s.id || `imp-${Math.random()}`,
+          data: dataEvento,
+          tipo_acao: 'INCLUSAO',
+          titulo: 'Inclusão na Fila (Importação de Planilha)',
+          justificativa: just,
+          detalhes_extras: extras.toLowerCase().includes('lateralidade') ? '' : extras,
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor || 'Gestão LEC',
+          status: s.status || 'APROVADO',
+          cor: 'verde'
+        });
+      } else if (s.evento_tipo === 'RESPOSTA') {
+        let detalhesLimpos = s.detalhes || '';
+        let just = '';
+        let extras = '';
+        if (detalhesLimpos.includes('Justificativa:')) {
+          const parts = detalhesLimpos.split('Justificativa:');
+          extras = parts[0].replace(/^(Aprovou|Rejeitou)\s+a\s+solicitação\s+#[a-zA-Z0-9_-]+\s*\(.*?\)\s*-?\s*/, '').trim();
+          just = parts[1].trim();
+        } else {
+          just = detalhesLimpos;
+        }
+
+        const isAprovado = s.status === 'APROVADO';
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'RESPOSTA',
+          titulo: isAprovado ? 'Aprovação pela Gestão LEC' : 'Rejeição pela Gestão LEC',
+          justificativa: just || (isAprovado ? 'Solicitação analisada e aprovada pela Gestão LEC.' : 'Solicitação indeferida pela Gestão LEC.'),
+          detalhes_extras: extras,
+          usuario: usuarioExecutor || 'Gestão LEC',
+          perfil: perfilExecutor || 'GESTAO_LEC',
+          status: s.status,
+          cor: isAprovado ? 'verde' : 'vermelho'
+        });
+      } else if (s.evento_tipo === 'CANCELAMENTO') {
+        let detalhesLimpos = s.detalhes || '';
+        let just = '';
+        if (detalhesLimpos.includes('Justificativa:')) {
+          const parts = detalhesLimpos.split('Justificativa:');
+          just = parts[1].trim();
+        } else {
+          just = detalhesLimpos;
+        }
+
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'CANCELAMENTO',
+          titulo: 'Cancelamento de Solicitação',
+          justificativa: just || 'Solicitação cancelada pelo usuário.',
+          detalhes_extras: '',
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: 'CANCELADO',
+          cor: 'vermelho'
+        });
+      } else if (s.evento_tipo === 'ALTERACAO') {
+        let detalhesLimpos = s.detalhes || '';
+        let just = '';
+        if (detalhesLimpos.includes('Justificativa:')) {
+          const parts = detalhesLimpos.split('Justificativa:');
+          just = parts[1].trim();
+        } else {
+          just = detalhesLimpos;
+        }
+
+        const mudancas = obterMudancasEdicao(s, proc, pac, matchingSolics);
+
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'EDICAO',
+          titulo: s.tipo === 'STANDBY' ? 'Alteração em Solicitação de Standby' : (s.tipo === 'INSERIR' ? 'Alteração em Solicitação de Inclusão' : 'Alteração em Solicitação de Edição'),
+          justificativa: just || 'Alteração realizada nos dados da solicitação.',
+          mudancas,
+          detalhes_extras: '',
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: s.status || 'PENDENTE',
+          cor: 'azul'
+        });
+      } else if (s.tipo === 'INSERIR') {
+        let titulo = 'Solicitação de Inclusão';
+        let cor = 'amarelo';
+        if (s.status === 'APROVADO') {
+          titulo = 'Inclusão de Procedimento Aprovada';
+          cor = 'verde';
+        } else if (s.status === 'REJEITADO') {
+          titulo = 'Solicitação de Inclusão Rejeitada';
+          cor = 'vermelho';
+        } else if (s.status === 'CANCELADO') {
+          titulo = 'Solicitação de Inclusão Cancelada';
+          cor = 'vermelho';
+        }
+
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'INCLUSAO',
+          titulo,
+          justificativa: s.detalhes || 'Procedimento solicitado para inclusão na fila cirúrgica.',
+          detalhes_extras: '',
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: s.status,
+          cor
+        });
+      } else if (s.tipo === 'EDITAR') {
+        let titulo = 'Solicitação de Edição';
+        let cor = 'azul';
+        if (s.status === 'APROVADO') {
+          titulo = 'Edição de Procedimento Aprovada';
+          cor = 'verde';
+        } else if (s.status === 'REJEITADO') {
+          titulo = 'Edição de Procedimento Rejeitada';
+          cor = 'vermelho';
+        } else if (s.status === 'CANCELADO') {
+          titulo = 'Solicitação de Edição Cancelada';
+          cor = 'vermelho';
+        }
+
+        let detalhesLimpos = s.detalhes || '';
+        let just = '';
+        if (detalhesLimpos.includes('Justificativa:')) {
+          const parts = detalhesLimpos.split('Justificativa:');
+          just = parts[1].trim();
+        } else {
+          just = detalhesLimpos;
+        }
+
+        const mudancas = obterMudancasEdicao(s, proc, pac, matchingSolics);
+
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'EDICAO',
+          titulo,
+          justificativa: just || 'Edição de dados do procedimento.',
+          mudancas,
+          detalhes_extras: '',
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: s.status,
+          cor
+        });
+      } else if (s.tipo === 'STANDBY') {
+        const prazo = s.tempo_standby ? `${s.tempo_standby} dias` : 'Prazo indefinido';
+        let titulo = `Solicitação de Standby (${prazo})`;
+        let cor = 'amarelo';
+        if (s.status === 'APROVADO') {
+          titulo = `Colocado em Standby (${prazo})`;
+          cor = 'roxo';
+        } else if (s.status === 'REJEITADO') {
+          titulo = `Standby Rejeitado (${prazo})`;
+          cor = 'vermelho';
+        }
+
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'STANDBY',
+          titulo,
+          justificativa: s.detalhes || 'Procedimento colocado temporariamente em standby.',
+          detalhes_extras: `Período previsto: ${prazo}`,
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: s.status,
+          cor
+        });
+      } else if (s.tipo === 'CANCELAR_STANDBY') {
+        let titulo = 'Solicitação de Retirada de Standby';
+        let cor = 'amarelo';
+        if (s.status === 'APROVADO') {
+          titulo = 'Reativação na Fila (Saída de Standby)';
+          cor = 'verde';
+        } else if (s.status === 'REJEITADO') {
+          titulo = 'Retirada de Standby Rejeitada';
+          cor = 'vermelho';
+        }
+
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'RETIRADA_STANDBY',
+          titulo,
+          justificativa: s.detalhes || 'Procedimento reativado para atendimento na fila cirúrgica ativa.',
+          detalhes_extras: '',
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: s.status,
+          cor
+        });
+      } else if (s.tipo === 'EXCLUIR') {
+        timelineItems.push({
+          id: s.id,
+          data: dataEvento,
+          tipo_acao: 'EXCLUSAO',
+          titulo: s.status === 'APROVADO' ? 'Exclusão de Procedimento Aprovada' : 'Solicitação de Exclusão da Fila',
+          justificativa: s.detalhes || 'Solicitação de exclusão do procedimento.',
+          detalhes_extras: '',
+          usuario: usuarioExecutor,
+          perfil: perfilExecutor,
+          status: s.status,
+          cor: 'vermelho'
+        });
+      }
+    }
+
+    // Se não houver nenhum evento de inclusão, cria o evento inicial a partir dos dados do cadastro
+    const temInclusao = timelineItems.some(item => item.tipo_acao === 'INCLUSAO');
+    if (!temInclusao) {
+      timelineItems.unshift({
+        id: `cad-inicial-${codStr}-${proc.especialidade}-${proc.procedimento}`,
+        data: proc.data_insercao || pac.dt_nascimento || '—',
+        tipo_acao: 'INCLUSAO',
+        titulo: 'Cadastro Inicial no Sistema LEC',
+        justificativa: 'Procedimento inserido no cadastro inicial da fila cirúrgica.',
+        detalhes_extras: '',
+        usuario: proc.medico_responsavel || 'Sistema',
+        perfil: proc.especialidade,
+        status: 'ATIVO',
+        cor: 'cinza'
+      });
+    }
+
+    // Ordenação temporal (do evento mais antigo para o mais recente)
+    timelineItems.sort((a, b) => {
+      const timeA = parseDataHoraSort(a.data);
+      const timeB = parseDataHoraSort(b.data);
+      if (timeA !== timeB) return timeA - timeB;
+
+      const prioridadeTipo = (tipo: string) => {
+        switch (tipo) {
+          case 'INCLUSAO': return 1;
+          case 'EDICAO': return 2;
+          case 'STANDBY': return 3;
+          case 'RETIRADA_STANDBY': return 4;
+          case 'EXCLUSAO': return 5;
+          case 'RESPOSTA': return 6;
+          case 'CANCELAMENTO': return 7;
+          default: return 9;
+        }
+      };
+      return prioridadeTipo(a.tipo_acao) - prioridadeTipo(b.tipo_acao);
+    });
+
+    proc.timeline = timelineItems;
+  }
+}
+
 function abrirModalPaciente(paciente: any) {
   const cod = String(paciente?.codigo || paciente);
   // Sempre busca o registro completo e não-filtrado do paciente para exibir todas as especialidades e procedimentos no modal
   const pacienteCompleto = todosPacientesMap.value.get(cod) || paciente;
+  if (pacienteCompleto) {
+    gerarTimelineProcedimentosPaciente(pacienteCompleto);
+  }
   pacienteSelecionadoModal.value = pacienteCompleto;
   modalDetalhesAberto.value = true;
 }
@@ -1226,6 +1886,62 @@ function abrirModalPaciente(paciente: any) {
 function fecharModalPaciente() {
   modalDetalhesAberto.value = false;
   pacienteSelecionadoModal.value = null;
+}
+
+const timelineExpandida = ref<Record<string, boolean>>({});
+
+function getProcKey(index: number, proc: any): string {
+  return `${proc.id || index}-${proc.especialidade}-${proc.procedimento}`;
+}
+
+function isTimelineExpanded(index: number, proc: any): boolean {
+  const key = getProcKey(index, proc);
+  if (timelineExpandida.value[key] !== undefined) {
+    return timelineExpandida.value[key];
+  }
+  return true; // Aberto por padrão
+}
+
+function toggleTimelineProc(index: number, proc: any) {
+  const key = getProcKey(index, proc);
+  const current = isTimelineExpanded(index, proc);
+  timelineExpandida.value[key] = !current;
+}
+
+function getTimelineBadgeColor(cor: string): string {
+  switch (cor) {
+    case 'verde':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    case 'azul':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'roxo':
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    case 'amarelo':
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    case 'vermelho':
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    case 'cinza':
+    default:
+      return 'bg-slate-100 text-slate-700 border-slate-200';
+  }
+}
+
+function getTimelineDotColor(cor: string): string {
+  switch (cor) {
+    case 'verde':
+      return 'bg-emerald-600 ring-emerald-100';
+    case 'azul':
+      return 'bg-blue-600 ring-blue-100';
+    case 'roxo':
+      return 'bg-purple-600 ring-purple-100';
+    case 'amarelo':
+      return 'bg-amber-500 ring-amber-100';
+    case 'vermelho':
+      return 'bg-rose-600 ring-rose-100';
+    case 'cinza':
+    default:
+      return 'bg-slate-500 ring-slate-100';
+  }
 }
 
 // Mapeia os pacientes filtrados em linhas individuais de procedimento (Flat Table)
