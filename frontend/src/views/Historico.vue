@@ -140,6 +140,28 @@
 
     <!-- Lista de Solicitações/Respostas -->
     <Card>
+      <!-- Barra de Ferramentas / Cabeçalho Superior da Tabela -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-gray-100 gap-2 mb-3">
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-gray-500 font-medium">
+            Total de registros: <span class="font-bold text-gray-800">{{ solicitacoesFiltradas.length }}</span>
+          </span>
+          <span v-if="solicitacoesFiltradas.length !== solicitacoes.length" class="text-[11px] text-gray-400">
+            (de {{ solicitacoes.length }} totais)
+          </span>
+        </div>
+        <div v-if="podeExportarHistorico" class="self-end sm:self-auto">
+          <button 
+            @click="abrirModalExportar"
+            class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs hover:shadow transition-all cursor-pointer"
+            title="Exportar histórico filtrado para planilha Excel (.xlsx)"
+          >
+            <ArrowDownTrayIcon class="w-4 h-4" />
+            <span>Exportar Histórico</span>
+          </button>
+        </div>
+      </div>
+
       <div v-if="loading" class="flex justify-center items-center py-8">
         <LoadingIndicator />
       </div>
@@ -548,12 +570,92 @@
       </div>
     </div>
 
+    <!-- Modal de Intervalo de Datas para Exportação em Excel -->
+    <div v-if="modalExportar.aberto" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+        
+        <!-- Cabeçalho do Modal -->
+        <div class="flex justify-between items-center border-b border-gray-150 pb-3">
+          <div class="flex items-center space-x-2.5">
+            <div class="p-2 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-600">
+              <ArrowDownTrayIcon class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-gray-900 leading-tight">Exportar Histórico para Excel</h3>
+              <p class="text-xs text-gray-500">Defina o período das ações a exportar</p>
+            </div>
+          </div>
+          <button 
+            @click="fecharModalExportar" 
+            class="text-gray-400 hover:text-gray-600 text-xl font-bold p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+            title="Fechar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Formulário do Modal -->
+        <div class="space-y-4 text-xs text-gray-700 py-1">
+          <p class="text-gray-600 leading-relaxed">
+            A exportação respeitará todos os filtros ativos na tela. Escolha o intervalo de datas das ações:
+          </p>
+
+          <div class="grid grid-cols-2 gap-3 bg-gray-50 p-3.5 rounded-xl border border-gray-200">
+            <div class="form-group">
+              <label for="exportDataInicio" class="form-label font-bold text-xs text-gray-700">Data de</label>
+              <input 
+                id="exportDataInicio" 
+                v-model="modalExportar.dataInicio" 
+                type="date" 
+                class="form-control text-xs py-1.5 bg-white" 
+              />
+            </div>
+            <div class="form-group">
+              <label for="exportDataFim" class="form-label font-bold text-xs text-gray-700">Data até</label>
+              <input 
+                id="exportDataFim" 
+                v-model="modalExportar.dataFim" 
+                type="date" 
+                class="form-control text-xs py-1.5 bg-white" 
+              />
+            </div>
+          </div>
+
+          <div v-if="resumoFiltrosAtivos" class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-[11px] text-slate-600">
+            <span class="font-bold text-slate-700 block mb-0.5">Demais filtros aplicados:</span>
+            <span>{{ resumoFiltrosAtivos }}</span>
+          </div>
+        </div>
+
+        <!-- Rodapé do Modal -->
+        <div class="flex justify-end space-x-2 pt-3 border-t border-gray-150">
+          <button 
+            @click="fecharModalExportar" 
+            class="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button 
+            @click="executarExportacaoExcel" 
+            :disabled="modalExportar.loading"
+            class="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs hover:shadow transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <ArrowDownTrayIcon class="w-4 h-4" />
+            <span>{{ modalExportar.loading ? 'Gerando...' : 'Exportar (.xlsx)' }}</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
+import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
+import * as XLSX from 'xlsx-js-style';
 import api from '../services/api';
 import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
@@ -589,6 +691,394 @@ const fecharModalDetalhes = () => {
     aberto: false,
     solic: null
   };
+};
+
+// Controle de Acesso: Apenas ADMIN ou GESTÃO LEC podem exportar o histórico
+const podeExportarHistorico = computed(() => {
+  const p = perfisStore.perfilAtivo;
+  if (!p) return false;
+  const tipo = (p.tipo || '').toUpperCase();
+  const nome = (p.nome || '').toUpperCase();
+  const id = (p.id || '').toUpperCase();
+  return (
+    tipo === 'ADMIN' ||
+    tipo === 'GESTAO_LEC' ||
+    nome === 'ADMIN' ||
+    nome.includes('GESTAO') ||
+    nome.includes('GESTÃO') ||
+    id === 'ADMIN' ||
+    id === 'GESTAO_LEC'
+  );
+});
+
+// Modal e Lógica de Exportação para Excel
+const modalExportar = ref({
+  aberto: false,
+  dataInicio: '',
+  dataFim: '',
+  loading: false
+});
+
+const obterHojeString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const calcularDataMaisAntiga = () => {
+  let maisAntiga = '';
+  for (const s of solicitacoes.value) {
+    if (s.data_criacao) {
+      const match = String(s.data_criacao).match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) {
+        const dt = match[1];
+        if (!maisAntiga || dt < maisAntiga) {
+          maisAntiga = dt;
+        }
+      }
+    }
+  }
+  return maisAntiga || obterHojeString();
+};
+
+const abrirModalExportar = () => {
+  modalExportar.value = {
+    aberto: true,
+    dataInicio: dataInicio.value || calcularDataMaisAntiga(),
+    dataFim: dataFim.value || obterHojeString(),
+    loading: false
+  };
+};
+
+const fecharModalExportar = () => {
+  modalExportar.value.aberto = false;
+  modalExportar.value.loading = false;
+};
+
+const resumoFiltrosAtivos = computed(() => {
+  const f: string[] = [];
+  if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE') {
+    f.push(`Especialidade: ${perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome}`);
+  } else if (filtroEspecialidade.value) {
+    f.push(`Especialidade: ${filtroEspecialidade.value}`);
+  }
+  if (filtroOrigemMenu.value) f.push(`Origem: ${filtroOrigemMenu.value}`);
+  if (filtroPaciente.value) f.push(`Prontuário/Paciente: ${filtroPaciente.value}`);
+  if (filtroAcaoTipo.value) f.push(`Ação: ${formatarTipo(filtroAcaoTipo.value)}`);
+  if (filtroEventoTipo.value) f.push(`Tipo de Evento: ${filtroEventoTipo.value}`);
+  if (filtroStatus.value) f.push(`Status: ${filtroStatus.value}`);
+  if (filtroUsuario.value) f.push(`Usuário: ${filtroUsuario.value}`);
+  return f.join(' | ');
+});
+
+const obterEventoTipoTexto = (solic: any) => {
+  if (solic.evento_tipo === 'CANCELAMENTO' || (solic.status === 'CANCELADO' && (solic.detalhes?.toLowerCase().includes('cancelou') || solic.evento_tipo === 'CANCELAMENTO'))) {
+    return 'Cancelamento de Solicitação';
+  }
+  if (solic.evento_tipo === 'RESPOSTA' || solic.is_resposta) {
+    return 'Resposta';
+  }
+  if (solic.evento_tipo === 'EXECUCAO' || solic.origem_menu === 'Pacientes' || solic.origem_menu === 'Importação Planilha') {
+    return 'Execução';
+  }
+  if (solic.evento_tipo === 'ALTERACAO' || solic.evento_tipo === 'EDICAO') {
+    return 'Alteração de Solicitação';
+  }
+  return 'Solicitação';
+};
+
+const extrairProcedimentoTexto = (solic: any) => {
+  if (!solic.procedimento || solic.procedimento === '—' || String(solic.procedimento).trim() === '') {
+    return 'NA';
+  }
+  if (solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento) {
+    return `${solic.procedimento_anterior} ➔ ${solic.procedimento}`;
+  }
+  return String(solic.procedimento).trim();
+};
+
+const extrairProntuarioTexto = (solic: any) => {
+  if (solic.codigo_paciente && String(solic.codigo_paciente) !== '0' && String(solic.codigo_paciente).trim() !== '') {
+    return String(solic.codigo_paciente).trim();
+  }
+  return 'NA';
+};
+
+const extrairPacienteTexto = (solic: any) => {
+  if (solic.nome_paciente && solic.nome_paciente !== '—' && !String(solic.nome_paciente).startsWith('Paciente #0') && String(solic.nome_paciente).trim() !== '') {
+    return String(solic.nome_paciente).trim();
+  }
+  return 'NA';
+};
+
+const extrairEspecialidadeTexto = (solic: any) => {
+  if (solic.especialidade && solic.especialidade !== '—' && String(solic.especialidade).trim() !== '') {
+    return String(solic.especialidade).trim();
+  }
+  return 'NA';
+};
+
+const extrairPerfilExecutorTexto = (solic: any) => {
+  if (solic.perfil_executor && String(solic.perfil_executor).trim() !== '') {
+    return String(solic.perfil_executor).trim();
+  }
+  return 'NA';
+};
+
+const extrairUsuarioExecutorTexto = (solic: any) => {
+  const u = solic.username || solic.usuario || solic.user;
+  if (u && String(u).trim() !== '' && u !== '—') {
+    return String(u).trim();
+  }
+  return 'NA';
+};
+
+const formatarDataBR = (dtStr: string) => {
+  if (!dtStr) return '—';
+  const parts = dtStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dtStr;
+};
+
+const executarExportacaoExcel = () => {
+  if (modalExportar.value.dataInicio && modalExportar.value.dataFim && modalExportar.value.dataInicio > modalExportar.value.dataFim) {
+    toast.error('A data inicial não pode ser posterior à data final.');
+    return;
+  }
+
+  modalExportar.value.loading = true;
+
+  try {
+    // 1. Filtragem com base em todos os filtros ativos e no intervalo de datas do modal
+    const registrosFiltrados = solicitacoes.value.filter(s => {
+      // Especialidade
+      if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)) {
+        const espAtiva = perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome;
+        if (!(s.especialidade && isSameSpecialty(s.especialidade, espAtiva))) {
+          return false;
+        }
+      } else if (filtroEspecialidade.value && !(s.especialidade && isSameSpecialty(s.especialidade, filtroEspecialidade.value))) {
+        return false;
+      }
+
+      // Intervalo de Datas do Modal
+      if (s.data_criacao) {
+        const solicDataOnly = s.data_criacao.split(' ')[0];
+        if (modalExportar.value.dataInicio && solicDataOnly < modalExportar.value.dataInicio) return false;
+        if (modalExportar.value.dataFim && solicDataOnly > modalExportar.value.dataFim) return false;
+      } else if (modalExportar.value.dataInicio || modalExportar.value.dataFim) {
+        return false;
+      }
+
+      // Origem / Menu
+      if (filtroOrigemMenu.value) {
+        const origem = formatarOrigemMenu(s.origem_menu);
+        if (origem.toLowerCase() !== filtroOrigemMenu.value.toLowerCase()) return false;
+      }
+
+      // Prontuário / Paciente
+      if (filtroPaciente.value) {
+        const term = filtroPaciente.value.toLowerCase();
+        const codMatch = String(s.codigo_paciente || '').toLowerCase().includes(term);
+        const nomeMatch = (s.nome_paciente || '').toLowerCase().includes(term);
+        if (!codMatch && !nomeMatch) return false;
+      }
+
+      // Ação / Tipo
+      if (filtroAcaoTipo.value) {
+        if (filtroAcaoTipo.value === 'INSERIR' && !(s.tipo === 'INSERIR' || s.tipo === 'INCLUSAO')) return false;
+        else if (filtroAcaoTipo.value === 'EDITAR' && !(s.tipo === 'EDITAR' || s.tipo === 'EDICAO')) return false;
+        else if (filtroAcaoTipo.value === 'EXCLUIR' && !(s.tipo === 'EXCLUIR' || s.tipo === 'EXCLUSAO')) return false;
+        else if (filtroAcaoTipo.value !== 'INSERIR' && filtroAcaoTipo.value !== 'EDITAR' && filtroAcaoTipo.value !== 'EXCLUIR' && s.tipo !== filtroAcaoTipo.value) return false;
+      }
+
+      // Tipo de Evento
+      if (filtroEventoTipo.value) {
+        const isCanc = s.evento_tipo === 'CANCELAMENTO' || (s.status === 'CANCELADO' && (s.detalhes?.toLowerCase().includes('cancelou') || s.evento_tipo === 'CANCELAMENTO'));
+        const isResp = (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && !isCanc;
+        const isAlt = s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO';
+        const isExec = s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha';
+        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec && !isCanc;
+
+        if (filtroEventoTipo.value === 'CANCELAMENTO' && !isCanc) return false;
+        if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
+        if (filtroEventoTipo.value === 'EXECUCAO' && !isExec) return false;
+        if (filtroEventoTipo.value === 'ALTERACAO' && !isAlt) return false;
+        if (filtroEventoTipo.value === 'SOLICITACAO' && !isSolic) return false;
+      }
+
+      // Status
+      if (filtroStatus.value && s.status !== filtroStatus.value) {
+        return false;
+      }
+
+      // Usuário Executor
+      if (filtroUsuario.value) {
+        const termUser = filtroUsuario.value.toLowerCase();
+        const uName = (s.username || s.usuario || s.user || '').toLowerCase();
+        if (!uName.includes(termUser)) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      const dataA = a.data_criacao || '';
+      const dataB = b.data_criacao || '';
+      if (dataA && dataB) return dataB.localeCompare(dataA);
+      if (dataA && !dataB) return -1;
+      if (!dataA && dataB) return 1;
+      return 0;
+    });
+
+    if (registrosFiltrados.length === 0) {
+      toast.warning('Nenhum registro encontrado para os filtros e intervalo selecionados.');
+      modalExportar.value.loading = false;
+      return;
+    }
+
+    // 2. Metadados do cabeçalho
+    const agora = new Date();
+    const agoraFormatado = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`;
+    const intervaloTexto = `${formatarDataBR(modalExportar.value.dataInicio)} até ${formatarDataBR(modalExportar.value.dataFim)}`;
+    const textoFiltros = resumoFiltrosAtivos.value || 'Nenhum outro filtro aplicado';
+
+    // 3. Montagem das 11 colunas exatas
+    const linhasDados = registrosFiltrados.map(solic => [
+      solic.data_criacao ? formatarDataHora(solic.data_criacao) : 'NA',
+      formatarOrigemMenu(solic.origem_menu) || 'NA',
+      extrairProntuarioTexto(solic),
+      extrairPacienteTexto(solic),
+      extrairEspecialidadeTexto(solic),
+      extrairProcedimentoTexto(solic),
+      formatarTipo(solic.tipo) || 'NA',
+      obterEventoTipoTexto(solic),
+      solic.status || 'CONCLUIDO',
+      extrairPerfilExecutorTexto(solic),
+      extrairUsuarioExecutorTexto(solic)
+    ]);
+
+    const cabecalhoTabela = [
+      'DATA/HORA',
+      'ORIGEM/MENU',
+      'PRONTUÁRIO',
+      'PACIENTE',
+      'ESPECIALIDADE',
+      'PROCEDIMENTO',
+      'AÇÃO',
+      'TIPO DE EVENTO',
+      'STATUS',
+      'PERFIL EXECUTOR',
+      'USUÁRIO EXECUTOR'
+    ];
+
+    const aoa = [
+      ['SISTEMA COMUNICAÇÃO CIRÚRGICA HC-UFPE - RELATÓRIO DO HISTÓRICO DE AÇÕES'],
+      [`Data/Hora da Exportação: ${agoraFormatado}`],
+      [`Intervalo da Exportação: ${intervaloTexto}`],
+      [`Filtros Aplicados: ${textoFiltros}`],
+      [], // Linha em branco separando os metadados da tabela
+      cabecalhoTabela,
+      ...linhasDados
+    ];
+
+    // 4. Criação e estilização da planilha com xlsx-js-style
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Linha 1 a 4: Informações institucionais e metadados em negrito
+    ['A1', 'A2', 'A3', 'A4'].forEach((cellRef, idx) => {
+      if (ws[cellRef]) {
+        ws[cellRef].s = {
+          font: {
+            name: 'Calibri',
+            sz: idx === 0 ? 12 : 10,
+            bold: true,
+            color: { rgb: idx === 0 ? '0F172A' : '334155' }
+          }
+        };
+      }
+    });
+
+    // Colunas da tabela (A até K)
+    const colunas = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+
+    // Linha 6: Cabeçalho da tabela com formato de tabela em negrito
+    colunas.forEach(col => {
+      const cellRef = `${col}6`;
+      if (ws[cellRef]) {
+        ws[cellRef].s = {
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '1E3A8A' } },
+          alignment: { vertical: 'center', horizontal: 'center', wrapText: true },
+          border: {
+            top: { style: 'thin', color: { rgb: '0F172A' } },
+            bottom: { style: 'medium', color: { rgb: '0F172A' } },
+            left: { style: 'thin', color: { rgb: '1E3A8A' } },
+            right: { style: 'thin', color: { rgb: '1E3A8A' } }
+          }
+        };
+      }
+    });
+
+    // Linhas de dados (linhas 7 até total): formatação com bordas finas e zebrado
+    const totalLinhas = 6 + linhasDados.length;
+    for (let r = 7; r <= totalLinhas; r++) {
+      colunas.forEach((col, cIdx) => {
+        const cellRef = `${col}${r}`;
+        if (ws[cellRef]) {
+          const isCenter = [1, 2, 6, 7, 8].includes(cIdx); // ORIGEM/MENU, PRONTUÁRIO, AÇÃO, TIPO DE EVENTO, STATUS
+          ws[cellRef].s = {
+            font: { name: 'Calibri', sz: 10, color: { rgb: '1E293B' } },
+            fill: { fgColor: { rgb: r % 2 === 0 ? 'F8FAFC' : 'FFFFFF' } },
+            alignment: {
+              vertical: 'center',
+              horizontal: isCenter ? 'center' : 'left'
+            },
+            border: {
+              top: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              left: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              right: { style: 'thin', color: { rgb: 'E2E8F0' } }
+            }
+          };
+        }
+      });
+    }
+
+    // Configuração de autofiltro na tabela (linha 6 com setas de filtro ativas até a última linha de dados)
+    ws['!autofilter'] = { ref: `A6:K${totalLinhas}` };
+
+    // Largura das colunas para visualização ideal
+    ws['!cols'] = [
+      { wch: 18 }, // DATA/HORA
+      { wch: 18 }, // ORIGEM/MENU
+      { wch: 14 }, // PRONTUÁRIO
+      { wch: 32 }, // PACIENTE
+      { wch: 22 }, // ESPECIALIDADE
+      { wch: 36 }, // PROCEDIMENTO
+      { wch: 28 }, // AÇÃO
+      { wch: 25 }, // TIPO DE EVENTO
+      { wch: 14 }, // STATUS
+      { wch: 22 }, // PERFIL EXECUTOR
+      { wch: 20 }  // USUÁRIO EXECUTOR
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Histórico');
+
+    const nomeArquivo = `Historico_ComCir_${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}_${String(agora.getHours()).padStart(2, '0')}-${String(agora.getMinutes()).padStart(2, '0')}.xlsx`;
+    XLSX.writeFile(wb, nomeArquivo);
+
+    toast.success(`Exportação concluída com sucesso! ${registrosFiltrados.length} registros exportados.`);
+    fecharModalExportar();
+  } catch (err: any) {
+    console.error('Erro ao exportar histórico para Excel:', err);
+    toast.error('Erro ao gerar o arquivo Excel: ' + (err?.message || 'erro inesperado'));
+  } finally {
+    modalExportar.value.loading = false;
+  }
 };
 
 const normalizeEsp = (e?: string) => {
