@@ -39,8 +39,8 @@
               id="filtroEspecialidade" 
               v-model="filtroEspecialidade" 
               class="form-control"
-              :disabled="perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE'"
-              :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' }"
+              :disabled="perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE'"
+              :class="{ 'bg-gray-100 cursor-not-allowed': perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' }"
             >
               <option value="">Todas</option>
               <option v-for="esp in especialidades" :key="esp" :value="esp">
@@ -688,8 +688,8 @@ const isBucoMaxiloEsp = (esp?: string) => {
 };
 
 const espSelecionada = computed(() => {
-  if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
-    return normalizeEsp(perfisStore.perfilAtivo.especialidade);
+  if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)) {
+    return normalizeEsp(perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome);
   }
   return normalizeEsp(filtroEspecialidade.value);
 });
@@ -699,14 +699,39 @@ const isBucoEspecialidade = computed(() => {
 });
 
 const especialidades = computed(() => {
-  const perfis = perfisStore.perfis;
-  const lista = perfis
-    .filter(p => p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC'))
-    .map(p => normalizeEsp(p.especialidade || p.nome))
-    .filter((nome, index, self) => nome && self.indexOf(nome) === index)
-    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const listaSet = new Set<string>();
 
-  return lista;
+  // 1. Perfis cadastrados
+  for (const p of perfisStore.perfis) {
+    if (p.tipo === 'ESPECIALIDADE' || (p.especialidade && p.tipo !== 'ADMIN' && p.tipo !== 'GESTAO_LEC')) {
+      const norm = normalizeEsp(p.especialidade || p.nome);
+      if (norm) listaSet.add(norm);
+    }
+  }
+
+  // 2. Perfil ativo se for especialidade (garante que a opção do perfil selecionado sempre exista no dropdown)
+  if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE') {
+    const normAtivo = normalizeEsp(perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome);
+    if (normAtivo) listaSet.add(normAtivo);
+  }
+
+  // 3. Pacientes base cadastrados
+  for (const p of basePacientes.value) {
+    if (p.especialidade) {
+      const norm = normalizeEsp(p.especialidade);
+      if (norm) listaSet.add(norm);
+    }
+  }
+
+  // 4. Solicitações cadastradas
+  for (const s of solicitacoes.value) {
+    if (s.especialidade && s.especialidade !== '—' && s.especialidade !== 'Não informado') {
+      const norm = normalizeEsp(s.especialidade);
+      if (norm) listaSet.add(norm);
+    }
+  }
+
+  return Array.from(listaSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 const medicosOpcoes = computed(() => {
@@ -863,8 +888,10 @@ const procedimentosOpcoes = computed(() => {
 });
 
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
-  if (newProfile.tipo === 'ESPECIALIDADE' && newProfile.especialidade) {
-    filtroEspecialidade.value = newProfile.especialidade;
+  if (newProfile?.tipo === 'ESPECIALIDADE' && (newProfile.especialidade || newProfile.nome)) {
+    filtroEspecialidade.value = normalizeEsp(newProfile.especialidade || newProfile.nome);
+  } else {
+    filtroEspecialidade.value = '';
   }
 }, { immediate: true });
 
@@ -1222,8 +1249,8 @@ const pacientesProcessados = computed(() => {
   const pacMap = todosPacientesMap.value;
 
   // Se o perfil ativo for ESPECIALIDADE, filtra obrigatoriamente essa especialidade tanto para o paciente quanto para os procedimentos
-  const espAtiva = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade)
-    ? normalizeEsp(perfisStore.perfilAtivo.especialidade)
+  const espAtiva = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo?.especialidade || perfisStore.perfilAtivo?.nome))
+    ? normalizeEsp(perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)
     : (filtroEspecialidade.value ? normalizeEsp(filtroEspecialidade.value) : null);
 
   return Array.from(pacMap.values())

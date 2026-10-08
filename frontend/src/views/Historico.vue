@@ -1112,6 +1112,8 @@ const filtroUsuario = ref('');
 watch(() => perfisStore.perfilAtivo, (newProfile) => {
   if (newProfile?.tipo === 'ESPECIALIDADE' && (newProfile.especialidade || newProfile.nome)) {
     filtroEspecialidade.value = normalizeEsp(newProfile.especialidade || newProfile.nome);
+  } else {
+    filtroEspecialidade.value = '';
   }
 }, { immediate: true });
 
@@ -1125,7 +1127,11 @@ const especialidadesDisponiveis = computed(() => {
     .map(s => normalizeEsp(s.especialidade))
     .filter((e): e is string => Boolean(e) && e !== '—');
 
-  return Array.from(new Set([...perfisEspecialidades, ...solicitacoesEsp])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const ativoEsp = (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE')
+    ? [normalizeEsp(perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)].filter(Boolean)
+    : [];
+
+  return Array.from(new Set([...perfisEspecialidades, ...solicitacoesEsp, ...ativoEsp])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
 
 const limparFiltros = () => {
