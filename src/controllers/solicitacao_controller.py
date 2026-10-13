@@ -21,8 +21,9 @@ async def criar_solicitacao(
     if tipo == "INSERIR":
         codigo = str(solicitacao.get("codigo_paciente", "")).strip()
         nome_paciente = str(solicitacao.get("nome_paciente", "")).strip()
-        especialidade = solicitacao.get("especialidade", "")
-        procedimento = solicitacao.get("procedimento", "")
+        especialidade = str(solicitacao.get("especialidade", "")).strip()
+        procedimento = str(solicitacao.get("procedimento", "")).strip()
+        medico_responsavel = str(solicitacao.get("medico_responsavel", "")).strip()
         
         if not codigo:
             raise HTTPException(
@@ -34,6 +35,24 @@ async def criar_solicitacao(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Nome do paciente é obrigatório."
+            )
+
+        if not especialidade:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Especialidade é obrigatória."
+            )
+
+        if not procedimento:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Procedimento (Fila de Espera) é obrigatório."
+            )
+
+        if not medico_responsavel or medico_responsavel in ["—", "Não informado"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Médico Responsável é obrigatório."
             )
             
         # Validação do prontuário no AGHU / base de pacientes
@@ -158,6 +177,12 @@ async def editar_solicitacao(
             detail="Solicitações de exclusão não podem ser editadas, apenas canceladas."
         )
         
+    if "procedimento" in dados_atualizados and not str(dados_atualizados.get("procedimento", "")).strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Procedimento (Fila de Espera) não pode ser vazio."
+        )
+
     # Se a solicitação for de INSERIR e estiver atualizando o prontuário/paciente
     if solic_original.get("tipo") == "INSERIR":
         codigo = str(dados_atualizados.get("codigo_paciente", solic_original.get("codigo_paciente", ""))).strip()

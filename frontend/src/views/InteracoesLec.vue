@@ -172,7 +172,7 @@
               class="form-control"
               :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': isEspecialidadeDisabled }"
               required
-              @change="form.procedimento = ''"
+              @change="form.procedimento = ''; form.medico_responsavel = ''; form.categorizacao = ''"
               :disabled="isEspecialidadeDisabled"
             >
               <option value="" disabled>Selecione a especialidade...</option>
@@ -226,49 +226,88 @@
 
             <!-- Custom Searchable Dropdown de procedimento (Apenas na inclusão ou se o usuário selecionou Sim na edição) -->
             <div v-if="abaAtiva === 'INSERIR' || (abaAtiva === 'EDITAR' && desejaAlterarProcedimento === 'Sim')" class="relative">
-              <input
-                id="procedimento"
-                type="text"
-                v-model="form.procedimento"
-                @focus="dropdownAberto = true"
-                @blur="dropdownAberto = false"
-                :placeholder="form.especialidade ? 'Digite para pesquisar o novo procedimento...' : 'Selecione a especialidade primeiro'"
-                class="form-control pr-10"
-                :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': !form.especialidade }"
-                required
-                :disabled="!form.especialidade"
-                autocomplete="off"
-              />
-              
-              <!-- Ícone de seta de dropdown -->
-              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
+              <div class="relative">
+                <input
+                  id="procedimento"
+                  type="text"
+                  v-model="form.procedimento"
+                  @focus="dropdownAberto = true"
+                  @blur="onBlurProcedimento"
+                  @keydown.enter.prevent="onEnterProcedimento"
+                  :placeholder="form.especialidade ? 'Digite para pesquisar o procedimento oficial...' : 'Selecione a especialidade primeiro'"
+                  class="form-control pr-16"
+                  :class="{ 
+                    'bg-gray-100 cursor-not-allowed opacity-75': !form.especialidade,
+                    'border-green-500 focus:border-green-500 focus:ring-green-100': isProcedimentoValido,
+                    'border-amber-400 focus:border-amber-500 focus:ring-amber-100': form.procedimento && !isProcedimentoValido && !dropdownAberto
+                  }"
+                  required
+                  :disabled="!form.especialidade"
+                  autocomplete="off"
+                />
+                
+                <!-- Botão limpar seleção quando preenchido -->
+                <button
+                  v-if="form.procedimento && form.especialidade"
+                  type="button"
+                  @click="limparProcedimento"
+                  class="absolute inset-y-0 right-8 flex items-center text-gray-400 hover:text-gray-600 transition px-1"
+                  title="Limpar seleção do procedimento"
+                >
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                <!-- Ícone de status / seta -->
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <span v-if="isProcedimentoValido" class="text-green-600 font-bold text-xs" title="Procedimento oficial do AGHU selecionado">✓</span>
+                  <svg v-else class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
+
+              <!-- Feedback visual de validação do procedimento -->
+              <p v-if="isProcedimentoValido" class="text-xs text-green-700 mt-1 font-semibold flex items-center space-x-1">
+                <span>✓ Procedimento oficial do AGHU selecionado</span>
+              </p>
+              <p v-else-if="form.procedimento && !dropdownAberto" class="text-xs text-amber-700 mt-1 font-semibold flex items-center space-x-1">
+                <span>⚠️ Procedimento não selecionado da lista oficial do AGHU. Clique para selecionar uma das opções válidas.</span>
+              </p>
 
               <!-- Lista flutuante de opções -->
               <div
-                v-if="dropdownAberto && form.especialidade && procedimentosFiltrados.length > 0"
+                v-if="dropdownAberto && form.especialidade"
+                @mousedown.prevent
                 class="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none text-sm border border-gray-200"
               >
-                <div
-                  v-for="proc in procedimentosFiltrados"
-                  :key="proc"
-                  @mousedown="selecionarProcedimento(proc)"
-                  class="cursor-pointer select-none py-2 px-4 text-gray-900 hover:bg-blue-600 hover:text-white transition duration-150"
-                  :class="{ 'bg-blue-50 font-semibold text-blue-900': form.procedimento === proc }"
-                >
-                  {{ proc }}
+                <!-- Loading de procedimentos do AGHU -->
+                <div v-if="carregandoProcedimentosAghu" class="py-3 px-4 text-sm text-gray-500 flex items-center space-x-2">
+                  <span class="animate-spin text-blue-600">⏳</span>
+                  <span>Carregando procedimentos cadastrados no AGHU...</span>
                 </div>
-              </div>
-              
-              <!-- Mensagem de nenhum resultado -->
-              <div
-                v-if="dropdownAberto && form.especialidade && procedimentosFiltrados.length === 0"
-                class="absolute z-50 mt-1 w-full rounded-md bg-white py-2 px-4 shadow-lg ring-1 ring-black ring-opacity-5 text-sm text-gray-500 border border-gray-200"
-              >
-                Nenhum procedimento encontrado.
+
+                <!-- Lista de resultados filtrados -->
+                <template v-else-if="procedimentosFiltrados.length > 0">
+                  <div
+                    v-for="proc in procedimentosFiltrados"
+                    :key="proc"
+                    @click="selecionarProcedimento(proc)"
+                    class="cursor-pointer select-none py-2 px-4 text-gray-900 hover:bg-blue-600 hover:text-white transition duration-150"
+                    :class="{ 'bg-blue-50 font-semibold text-blue-900': form.procedimento === proc }"
+                  >
+                    {{ proc }}
+                  </div>
+                </template>
+                
+                <!-- Mensagem de nenhum resultado -->
+                <div
+                  v-else
+                  class="py-3 px-4 text-sm text-gray-500"
+                >
+                  {{ procedimentosDaEspecialidade.length === 0 ? 'Nenhum procedimento encontrado no AGHU para esta especialidade.' : 'Nenhum procedimento coincide com a pesquisa. Digite outro termo ou selecione da lista.' }}
+                </div>
               </div>
             </div>
           </div>
@@ -340,20 +379,32 @@
             <label for="medico_responsavel" class="form-label font-semibold">
               {{ isBucoMaxiloEsp(especialidadeForm) ? 'Dentista Responsável' : 'Médico Responsável' }} <span class="text-red-500">*</span>
             </label>
-            <input
+            <select
               id="medico_responsavel"
               v-model="form.medico_responsavel"
-              type="text"
-              list="medicos-lista"
-              :placeholder="!especialidadeForm ? 'Selecione a especialidade primeiro' : (isBucoMaxiloEsp(especialidadeForm) ? 'Digite o nome do dentista solicitante' : 'Digite o nome do médico solicitante')"
               class="form-control"
               :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': camposEdicaoBloqueados || !especialidadeForm }"
               required
               :disabled="camposEdicaoBloqueados || !especialidadeForm"
-            />
-            <datalist id="medicos-lista">
-              <option v-for="med in medicosDaEspecialidade" :key="med" :value="med" />
-            </datalist>
+            >
+              <option value="" disabled>
+                {{ !especialidadeForm 
+                    ? 'Selecione a especialidade primeiro' 
+                    : (medicosDaEspecialidade.length === 0 
+                        ? `Nenhum ${isBucoMaxiloEsp(especialidadeForm) ? 'dentista' : 'médico'} cadastrado nesta especialidade` 
+                        : (isBucoMaxiloEsp(especialidadeForm) ? 'Selecione o dentista responsável...' : 'Selecione o médico responsável...')) 
+                }}
+              </option>
+              <option v-for="med in medicosDaEspecialidade" :key="med" :value="med">
+                {{ med }}
+              </option>
+            </select>
+            <p v-if="especialidadeForm && medicosDaEspecialidade.length === 0" class="text-xs text-amber-600 mt-1 font-medium">
+              ⚠️ Não há {{ isBucoMaxiloEsp(especialidadeForm) ? 'dentistas' : 'médicos' }} cadastrados para esta especialidade no menu Usuários.
+            </p>
+            <p v-else-if="abaAtiva === 'EDITAR' && form.medico_responsavel && !medicosDaEspecialidade.includes(form.medico_responsavel)" class="text-xs text-amber-700 mt-1">
+              ℹ️ Profissional registrado anteriormente no prontuário: "<strong>{{ form.medico_responsavel }}</strong>" (não cadastrado no sistema). Selecione um profissional cadastrado acima.
+            </p>
           </div>
 
           <!-- Lateralidade -->
@@ -1305,7 +1356,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useToast } from 'vue-toastification';
 import { 
   UserPlusIcon, 
@@ -1455,16 +1506,7 @@ const procedimentosDaEspecialidade = computed(() => {
     }
   }
 
-  const procs = desduplicarProcedimentos(listFromAghu);
-
-  // Se o formulário já possui um procedimento selecionado (ex: edição de registro legado),
-  // garante que ele conste nas opções para não quebrar a visualização
-  const procAtual = form.value.procedimento ? form.value.procedimento.trim() : '';
-  if (procAtual && !procs.includes(procAtual)) {
-    return [procAtual, ...procs];
-  }
-
-  return procs;
+  return desduplicarProcedimentos(listFromAghu);
 });
 
 // Lista de especialidades dos perfis criados no menu Perfis (para a caixa de listagem de Especialidade)
@@ -1563,16 +1605,55 @@ const desejaAlterarProcedimento = ref('Não');
 const dropdownAberto = ref(false);
 
 const procedimentosFiltrados = computed(() => {
-  const query = form.value.procedimento.toLowerCase().trim();
+  const query = form.value.procedimento ? form.value.procedimento.toLowerCase().trim() : '';
   if (!query) return procedimentosDaEspecialidade.value;
   return procedimentosDaEspecialidade.value.filter(p => 
     p.toLowerCase().includes(query)
   );
 });
 
+const isProcedimentoValido = computed(() => {
+  const proc = form.value.procedimento ? form.value.procedimento.trim() : '';
+  if (!proc) return false;
+  return procedimentosDaEspecialidade.value.some(
+    p => p.toLowerCase().trim() === proc.toLowerCase()
+  );
+});
+
 const selecionarProcedimento = (proc: string) => {
   form.value.procedimento = proc;
   dropdownAberto.value = false;
+};
+
+const onBlurProcedimento = () => {
+  setTimeout(() => {
+    dropdownAberto.value = false;
+    // Se o usuário digitou ou colou o nome exato (com ou sem variação de caixa), auto-normaliza para a versão oficial
+    if (form.value.procedimento) {
+      const procTrim = form.value.procedimento.trim();
+      const match = procedimentosDaEspecialidade.value.find(
+        p => p.toLowerCase().trim() === procTrim.toLowerCase()
+      );
+      if (match) {
+        form.value.procedimento = match;
+      }
+    }
+  }, 200);
+};
+
+const onEnterProcedimento = () => {
+  if (procedimentosFiltrados.value.length > 0 && !isProcedimentoValido.value) {
+    selecionarProcedimento(procedimentosFiltrados.value[0]);
+  }
+};
+
+const limparProcedimento = () => {
+  form.value.procedimento = '';
+  dropdownAberto.value = true;
+  nextTick(() => {
+    const el = document.getElementById('procedimento');
+    if (el) el.focus();
+  });
 };
 
 // Sincroniza o valor ao alternar "Sim/Não" no desejaAlterarProcedimento
@@ -1612,13 +1693,15 @@ const medicosDaEspecialidade = computed(() => {
   
   const medicosEncontrados = usuariosLocais.value
     .filter(u => {
+      const funcNorm = (u.funcao || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       const isProfissional = isBuco 
-        ? (u.funcao === 'Dentista' || u.funcao === 'Médico') 
-        : (u.funcao === 'Médico');
+        ? (funcNorm === 'dentista' || funcNorm === 'medico') 
+        : (funcNorm === 'medico');
       const matchEsp = u.especialidade && isSameSpecialty(u.especialidade, especialidadeForm.value);
       return isProfissional && matchEsp;
     })
-    .map(u => u.nome);
+    .map(u => (u.nome || '').trim())
+    .filter(Boolean);
 
   return Array.from(new Set(medicosEncontrados)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 });
@@ -2235,6 +2318,33 @@ const enviarSolicitacao = async () => {
     }
   }
 
+  // Validação do Procedimento (Fila de Espera): estritamente oficial do AGHU
+  const precisaValidarProcedimento = 
+    abaAtiva.value === 'INSERIR' || 
+    (abaAtiva.value === 'EDITAR' && desejaAlterarProcedimento.value === 'Sim') ||
+    (modoEdicaoSolicitacao.value && (abaAtiva.value === 'INSERIR' || desejaAlterarProcedimento.value === 'Sim'));
+
+  if (precisaValidarProcedimento) {
+    const procDigitado = (form.value.procedimento || '').trim();
+    if (!procDigitado) {
+      toast.error('O Procedimento (Fila de Espera) é obrigatório.');
+      return;
+    }
+    if (carregandoProcedimentosAghu.value) {
+      toast.error('Os procedimentos do AGHU ainda estão sendo carregados. Por favor, aguarde alguns instantes e tente novamente.');
+      return;
+    }
+    const procsValidos = procedimentosDaEspecialidade.value;
+    const procEncontrado = procsValidos.find(p => p.toLowerCase().trim() === procDigitado.toLowerCase());
+    if (!procEncontrado) {
+      toast.error(`O Procedimento informado ("${procDigitado}") não consta na lista de procedimentos oficiais do AGHU para a especialidade "${especialidadeForm.value}". Selecione obrigatoriamente um procedimento da lista.`);
+      dropdownAberto.value = true;
+      return;
+    }
+    // Garante a grafia oficial padronizada do AGHU
+    form.value.procedimento = procEncontrado;
+  }
+
   // Validação do Médico / Dentista Responsável
   if (abaAtiva.value === 'INSERIR' || abaAtiva.value === 'EDITAR') {
     const isBuco = isBucoMaxiloEsp(especialidadeForm.value);
@@ -2251,9 +2361,9 @@ const enviarSolicitacao = async () => {
     const isValido = medicosValidos.some(m => m.toLowerCase().trim() === medDigitado.toLowerCase());
     if (!isValido) {
       if (medicosValidos.length === 0) {
-        toast.error(`Não há ${cargoPlural} cadastrados na especialidade "${especialidadeForm.value}". Crie um usuário com perfil ${cargoNome.toLowerCase()} nessa especialidade no menu Perfis.`);
+        toast.error(`Não há ${cargoPlural} cadastrados na especialidade "${especialidadeForm.value}". Cadastre um ${cargoNome.toLowerCase()} nessa especialidade no menu Usuários.`);
       } else {
-        toast.error(`O ${cargoNome} Responsável "${medDigitado}" não é ${cargoArtigo} cadastrado na especialidade ${especialidadeForm.value}. Selecione ${cargoArtigo} da lista: ${medicosValidos.join(', ')}.`);
+        toast.error(`O ${cargoNome} Responsável "${medDigitado}" não é ${cargoArtigo} cadastrado na especialidade ${especialidadeForm.value}. Selecione ${cargoArtigo} cadastrado no sistema.`);
       }
       return;
     }
