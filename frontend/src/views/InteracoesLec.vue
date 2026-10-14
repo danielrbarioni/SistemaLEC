@@ -2421,6 +2421,21 @@ const enviarSolicitacao = async () => {
     }
   }
 
+  // Validação de duplicidade de exclusão pendente
+  if (abaAtiva.value === 'EXCLUIR') {
+    const pendente = solicitacoes.value.some((s: any) => 
+      s.tipo === 'EXCLUIR' && 
+      s.status === 'PENDENTE' && 
+      String(s.codigo_paciente) === String(form.value.codigo_paciente) && 
+      isSameSpecialty(s.especialidade, form.value.especialidade) && 
+      (s.procedimento || '').trim().toLowerCase() === (form.value.procedimento || '').trim().toLowerCase()
+    );
+    if (pendente) {
+      toast.error(`Já existe uma solicitação de exclusão PENDENTE para o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
+      return;
+    }
+  }
+
   let tipoFinal = abaAtiva.value;
   let tempoStandbyFinal = form.value.tempo_standby || undefined;
 

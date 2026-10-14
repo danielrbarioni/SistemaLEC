@@ -237,6 +237,15 @@
                   <span v-else-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     Resposta
                   </span>
+
+                  <!-- Para eventos de Resposta: exibe a solicitação original avaliada -->
+                  <div 
+                    v-if="extrairSolicitacaoAlvoResposta(solic)" 
+                    class="mt-1 text-[10px] font-mono font-bold text-purple-900 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 truncate max-w-[140px]" 
+                    :title="`Resposta referente à solicitação #${extrairSolicitacaoAlvoResposta(solic)?.idAlvo}`"
+                  >
+                    Resp. #{{ extrairSolicitacaoAlvoResposta(solic)?.idAlvo }}
+                  </div>
                   <span v-else-if="solic.evento_tipo === 'EXECUCAO' || solic.origem_menu === 'Pacientes' || solic.origem_menu === 'Importação Planilha'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
                     Execução
                   </span>
@@ -315,6 +324,9 @@
               </span>
               <span class="text-xs font-mono text-gray-500 font-semibold">
                 #{{ modalDetalhes.solic.id }}
+              </span>
+              <span v-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA'" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                Evento de Resposta
               </span>
             </div>
             <h3 class="text-lg font-bold text-gray-900 mt-1">
@@ -523,18 +535,64 @@
 
           <!-- CASO D: Resposta da Gestão LEC (quando for evento RESPOSTA ou concluído com justificativa) -->
           <div 
-            v-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta || modalDetalhes.solic.status === 'REJEITADO' || modalDetalhes.solic.status === 'CANCELADO'" 
-            class="p-3.5 rounded-xl border space-y-2"
+            v-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta || modalDetalhes.solic.status === 'REJEITADO' || modalDetalhes.solic.status === 'CANCELADO' || obterEventoRespostaVinculado(modalDetalhes.solic)" 
+            class="p-3.5 rounded-xl border space-y-2.5"
             :class="modalDetalhes.solic.status === 'REJEITADO' ? 'bg-red-50/70 border-red-200' : modalDetalhes.solic.status === 'APROVADO' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-gray-50 border-gray-200'"
           >
             <div 
-              class="flex justify-between items-center border-b pb-1"
+              class="flex justify-between items-center border-b pb-1.5"
               :class="modalDetalhes.solic.status === 'REJEITADO' ? 'border-red-200 text-red-900' : modalDetalhes.solic.status === 'APROVADO' ? 'border-emerald-200 text-emerald-900' : 'border-gray-200 text-gray-800'"
             >
-              <span class="text-[11px] font-bold uppercase tracking-wider">
-                💬 Decisão / Resposta
+              <span class="text-[11px] font-bold uppercase tracking-wider flex items-center space-x-1.5">
+                <span>💬 Decisão / Resposta da Gestão LEC</span>
               </span>
               <span :class="getStatusBadgeClass(modalDetalhes.solic.status)">{{ modalDetalhes.solic.status }}</span>
+            </div>
+
+            <!-- Caso 1: Evento de RESPOSTA - Mostra a Solicitação Original que foi avaliada -->
+            <div 
+              v-if="extrairSolicitacaoAlvoResposta(modalDetalhes.solic)" 
+              class="p-2.5 rounded-lg border text-xs bg-white/95 shadow-2xs flex items-center justify-between flex-wrap gap-2"
+              :class="modalDetalhes.solic.status === 'REJEITADO' ? 'border-red-200 text-red-950' : 'border-emerald-200 text-emerald-950'"
+            >
+              <div class="flex items-center space-x-1.5 flex-wrap">
+                <span class="font-bold text-gray-700">🎯 Solicitação Avaliada:</span>
+                <span class="font-mono font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-900 border border-gray-300">
+                  #{{ extrairSolicitacaoAlvoResposta(modalDetalhes.solic)?.idAlvo }}
+                </span>
+                <span class="text-[11px] text-gray-600 font-medium">
+                  ({{ formatarTipo(extrairSolicitacaoAlvoResposta(modalDetalhes.solic)?.tipo) }})
+                </span>
+              </div>
+              <span 
+                class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase"
+                :class="modalDetalhes.solic.status === 'REJEITADO' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'"
+              >
+                {{ modalDetalhes.solic.status === 'REJEITADO' ? 'Solicitação Rejeitada' : 'Solicitação Aprovada' }}
+              </span>
+            </div>
+
+            <!-- Caso 2: Evento de SOLICITAÇÃO Original que já possui uma resposta gravada no histórico -->
+            <div 
+              v-else-if="obterEventoRespostaVinculado(modalDetalhes.solic)"
+              class="p-2.5 rounded-lg border text-xs bg-white/95 shadow-2xs flex items-center justify-between flex-wrap gap-2"
+              :class="modalDetalhes.solic.status === 'REJEITADO' ? 'border-red-200 text-red-950' : 'border-emerald-200 text-emerald-950'"
+            >
+              <div class="flex items-center space-x-1.5 flex-wrap">
+                <span class="font-bold text-gray-700">📋 Resposta Vinculada:</span>
+                <span class="font-mono font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-900 border border-purple-200">
+                  #{{ obterEventoRespostaVinculado(modalDetalhes.solic)?.id }}
+                </span>
+                <span class="text-[11px] text-gray-600 font-medium">
+                  por {{ obterEventoRespostaVinculado(modalDetalhes.solic)?.usuario || 'Gestão LEC' }} em {{ formatarDataHora(obterEventoRespostaVinculado(modalDetalhes.solic)?.data_criacao) }}
+                </span>
+              </div>
+              <span 
+                class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase"
+                :class="modalDetalhes.solic.status === 'REJEITADO' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'"
+              >
+                {{ modalDetalhes.solic.status }}
+              </span>
             </div>
 
             <div>
@@ -1575,8 +1633,41 @@ const obterMudancasCompletas = (solic: any) => {
   return Array.from(mapaCampos.values());
 };
 
+// Helper para extrair a solicitação original alvo referenciada em um evento de resposta
+const extrairSolicitacaoAlvoResposta = (solic: any) => {
+  if (!solic || !solic.detalhes) return null;
+  const match = solic.detalhes.match(/(Aprovou|Rejeitou|Cancelou)\s+a\s+solicitação\s+#([a-zA-Z0-9_-]+)(?:\s*\((.*?)\))?/i);
+  if (match) {
+    return {
+      acao: match[1],
+      idAlvo: match[2],
+      tipo: match[3] || solic.tipo
+    };
+  }
+  return null;
+};
+
+// Helper para encontrar o evento de resposta vinculado a uma solicitação original
+const obterEventoRespostaVinculado = (solic: any) => {
+  if (!solic || !solic.id) return null;
+  if (solic.evento_tipo === 'RESPOSTA' || solic.is_resposta) return null;
+  return solicitacoes.value.find(s => 
+    (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && 
+    s.detalhes && s.detalhes.includes(`#${solic.id}`)
+  ) || null;
+};
+
 const extrairJustificativaResposta = (solic: any) => {
   if (!solic) return '—';
+
+  // Se for o registro original de solicitação, busca o texto da justificativa no evento de resposta vinculado
+  if (solic.evento_tipo !== 'RESPOSTA' && !solic.is_resposta) {
+    const respVinculada = obterEventoRespostaVinculado(solic);
+    if (respVinculada) {
+      return extrairJustificativaResposta(respVinculada);
+    }
+  }
+
   const detalhes = solic.detalhes || '';
   if (detalhes.includes('Justificativa:')) {
     return detalhes.split('Justificativa:')[1].trim();
@@ -1585,6 +1676,10 @@ const extrairJustificativaResposta = (solic: any) => {
     return detalhes.split('Motivo:')[1].trim();
   }
   if (solic.evento_tipo === 'RESPOSTA' || solic.is_resposta) {
+    // Se for o texto padrão automático "Aprovou a solicitação #X (TIPO)"
+    if (/^Aprovou a solicitação #[a-zA-Z0-9_-]+(\s*\(.*?\))?$/i.test(detalhes.trim())) {
+      return 'Solicitação aprovada e aplicada com sucesso pela Gestão LEC.';
+    }
     return detalhes;
   }
   return detalhes || 'Nenhuma justificativa detalhada registrada.';

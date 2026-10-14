@@ -124,6 +124,70 @@ async def criar_solicitacao(
                 detail=f"Este paciente já está cadastrado ativamente no procedimento '{procedimento}' na especialidade '{especialidade}'. Caso queira alterar dados, solicite a edição deste procedimento na aba correspondente."
             )
 
+    elif tipo == "EXCLUIR":
+        codigo = str(solicitacao.get("codigo_paciente", "")).strip()
+        especialidade = str(solicitacao.get("especialidade", "")).strip()
+        procedimento = str(solicitacao.get("procedimento", "")).strip()
+        
+        solics = await provider.listar_solicitacoes()
+        solics_paciente = [s for s in solics if str(s.get("codigo_paciente")) == codigo]
+        
+        # 1. Verifica se já existe uma solicitação de exclusão PENDENTE idêntica
+        pendente = any(
+            s.get("tipo") == "EXCLUIR" and 
+            str(s.get("especialidade", "")).strip().lower() == especialidade.lower() and 
+            str(s.get("procedimento", "")).strip().lower() == procedimento.lower() and 
+            s.get("status") == "PENDENTE"
+            for s in solics_paciente
+        )
+        if pendente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Já existe uma solicitação de exclusão PENDENTE para o procedimento '{procedimento}' na especialidade '{especialidade}'. Aguarde a análise da Gestão LEC."
+            )
+
+    elif tipo in ["EDITAR", "EDICAO"]:
+        codigo = str(solicitacao.get("codigo_paciente", "")).strip()
+        especialidade = str(solicitacao.get("especialidade", "")).strip()
+        procedimento_alvo = str(solicitacao.get("procedimento_anterior") or solicitacao.get("procedimento", "")).strip()
+        
+        solics = await provider.listar_solicitacoes()
+        solics_paciente = [s for s in solics if str(s.get("codigo_paciente")) == codigo]
+        
+        pendente = any(
+            s.get("tipo") in ["EDITAR", "EDICAO", "EXCLUIR"] and 
+            str(s.get("especialidade", "")).strip().lower() == especialidade.lower() and 
+            str(s.get("procedimento_anterior") or s.get("procedimento", "")).strip().lower() == procedimento_alvo.lower() and 
+            s.get("status") == "PENDENTE"
+            for s in solics_paciente
+        )
+        if pendente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Já existe uma solicitação PENDENTE para o procedimento '{procedimento_alvo}' na especialidade '{especialidade}'. Aguarde a análise da Gestão LEC."
+            )
+
+    elif tipo in ["STANDBY", "CANCELAR_STANDBY"]:
+        codigo = str(solicitacao.get("codigo_paciente", "")).strip()
+        especialidade = str(solicitacao.get("especialidade", "")).strip()
+        procedimento = str(solicitacao.get("procedimento", "")).strip()
+        
+        solics = await provider.listar_solicitacoes()
+        solics_paciente = [s for s in solics if str(s.get("codigo_paciente")) == codigo]
+        
+        pendente = any(
+            s.get("tipo") in [tipo, "EXCLUIR"] and 
+            str(s.get("especialidade", "")).strip().lower() == especialidade.lower() and 
+            str(s.get("procedimento", "")).strip().lower() == procedimento.lower() and 
+            s.get("status") == "PENDENTE"
+            for s in solics_paciente
+        )
+        if pendente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Já existe uma solicitação PENDENTE para o procedimento '{procedimento}' na especialidade '{especialidade}'. Aguarde a análise da Gestão LEC."
+            )
+
     return await provider.criar_solicitacao(solicitacao)
 
 async def listar_solicitacoes(
