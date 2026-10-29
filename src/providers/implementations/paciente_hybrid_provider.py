@@ -9,6 +9,7 @@ from .paciente_postgres_provider import PacientePostgresProvider
 from .paciente_sqlite_provider import PacienteSqliteProvider
 from ...models.solicitacao import Solicitacao
 from ...models.status_local import StatusLocal
+from ...helpers.string_helper import aplicar_nome_social_dict
 
 class HybridPacienteProvider(PacienteProviderInterface):
     def __init__(self, postgres_session: AsyncSession, sqlite_session: AsyncSession):
@@ -39,13 +40,13 @@ class HybridPacienteProvider(PacienteProviderInterface):
             try:
                 from sqlalchemy import text
                 query = text("""
-                    SELECT prontuario as codigo, nome, dt_nascimento, nome_mae 
+                    SELECT prontuario as codigo, nome, nome_social, dt_nascimento, nome_mae 
                     FROM agh.aip_pacientes 
                     WHERE prontuario = ANY(:codigos)
                 """)
                 res = await self.postgres.session.execute(query, {"codigos": list(list_codigos)})
                 for row in res.mappings().all():
-                    found_map[row["codigo"]] = dict(row)
+                    found_map[row["codigo"]] = aplicar_nome_social_dict(dict(row))
             except Exception as e:
                 print(f"Erro ao obter dados dos pacientes do AGHU: {e}. Executando fallback para SQLite local.")
 
@@ -58,9 +59,10 @@ class HybridPacienteProvider(PacienteProviderInterface):
                 res = await self.sqlite.session.execute(stmt)
                 rows = res.scalars().all()
                 for p in rows:
-                    found_map[p.codigo] = {
+                    found_map[p.codigo] = aplicar_nome_social_dict({
                         "codigo": p.codigo,
                         "nome": p.nome,
+                        "nome_social": getattr(p, "nome_social", None),
                         "dt_nascimento": p.dt_nascimento,
                         "cpf": p.cpf,
                         "sexo": p.sexo,
@@ -74,7 +76,7 @@ class HybridPacienteProvider(PacienteProviderInterface):
                         "ultima_consulta_epo": p.ultima_consulta_epo,
                         "categorizacao": getattr(p, "categorizacao", "") or "",
                         "lateralidade": getattr(p, "lateralidade", "Indefinida") or "Indefinida"
-                    }
+                    })
             except Exception as e:
                 print(f"Erro ao obter dados dos pacientes do SQLite: {e}")
 

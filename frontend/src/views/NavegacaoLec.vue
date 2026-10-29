@@ -116,7 +116,17 @@
           <tbody class="bg-white divide-y divide-gray-200 text-sm">
             <tr v-for="paciente in pacientesFiltrados" :key="paciente.codigo">
               <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-mono">{{ paciente.codigo }}</td>
-              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ paciente.nome }}</td>
+              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                <div class="flex items-center gap-1.5">
+                  <span>{{ paciente.nome }}</span>
+                  <span
+                    v-if="paciente.possui_nome_social || (paciente.nome && String(paciente.nome).toLowerCase().includes('(nome social)'))"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                  >
+                    Nome Social
+                  </span>
+                </div>
+              </td>
               <td class="px-6 py-4 text-gray-600 max-w-sm break-words whitespace-normal leading-snug">{{ formatarNomeProcedimento(paciente.procedimento) || 'Não informado' }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-mono">
                 {{ formatarData(paciente.ultima_consulta_epo) }}

@@ -92,7 +92,17 @@
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap font-mono text-gray-800">{{ pedido.codigo_paciente }}</td>
-              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ pedido.nome_paciente }}</td>
+              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                <div class="flex items-center gap-1.5">
+                  <span>{{ pedido.nome_paciente }}</span>
+                  <span
+                    v-if="pedido.possui_nome_social || (pedido.nome_paciente && String(pedido.nome_paciente).toLowerCase().includes('(nome social)'))"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                  >
+                    Nome Social
+                  </span>
+                </div>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-gray-900 font-semibold">{{ pedido.item_solicitado }}</div>
                 <div class="text-xs text-gray-500">Solicitado em: {{ pedido.data_solicitacao }}</div>
@@ -164,11 +174,16 @@ const carregarPacientesLec = async () => {
 
 // Mapeia se o paciente solicitado está de fato na fila cirúrgica (LEC)
 const pedidosProcessados = computed(() => {
-  const codigosLec = new Set(pacientesLec.value.map(p => p.codigo.toString()));
-  return pedidosAgendamento.value.map(p => ({
-    ...p,
-    isCirurgico: codigosLec.has(p.codigo_paciente)
-  })).sort((a, b) => {
+  const pacMap = new Map(pacientesLec.value.map(p => [p.codigo.toString(), p]));
+  return pedidosAgendamento.value.map(p => {
+    const pacLec = pacMap.get(p.codigo_paciente);
+    return {
+      ...p,
+      nome_paciente: pacLec?.nome || p.nome_paciente,
+      possui_nome_social: Boolean(pacLec?.possui_nome_social || (pacLec?.nome && String(pacLec.nome).toLowerCase().includes('(nome social)'))),
+      isCirurgico: pacMap.has(p.codigo_paciente)
+    };
+  }).sort((a, b) => {
     // Ordena colocando os cirúrgicos críticos no topo
     if (a.isCirurgico && !b.isCirurgico) return -1;
     if (!a.isCirurgico && b.isCirurgico) return 1;

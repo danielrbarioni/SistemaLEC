@@ -91,11 +91,23 @@ async def criar_solicitacao(
 @router.get("", response_model=List[dict])
 async def listar_solicitacoes(
     provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    paciente_provider: PacienteProviderInterface = Depends(get_paciente_provider(PACIENTE_STRATEGY)),
     db: AsyncSession = Depends(get_app_db_session)
 ):
-    """Lista todas as solicitações, resolvendo logins Ebserh de médicos responsáveis para seus Nomes Completos."""
+    """Lista todas as solicitações, resolvendo logins Ebserh de médicos responsáveis e nomes sociais de pacientes do AGHU."""
     solics = await solicitacao_controller.listar_solicitacoes(provider)
     
+    # Enriquecimento com Nome Social / Nome atualizado do AGHU para os pacientes das solicitações
+    pac_map: Dict[str, dict] = {}
+    try:
+        pacientes = await paciente_provider.listar_pacientes()
+        for p in pacientes:
+            cod_p = p.get("codigo")
+            if cod_p is not None:
+                pac_map[str(cod_p).strip()] = p
+    except Exception:
+        pass
+
     # Mapeia usernames para nomes completos a partir do banco de dados local
     try:
         from sqlalchemy import select
@@ -103,25 +115,38 @@ async def listar_solicitacoes(
         result = await db.execute(select(User))
         usuarios = result.scalars().all()
         user_map = {u.username.lower().strip(): u.nome.strip() for u in usuarios if u.username and u.nome}
-        
-        for s in solics:
-            medico = s.get('medico_responsavel')
-            if medico:
-                medico_clean = str(medico).strip()
-                medico_lower = medico_clean.lower()
-                if medico_lower in user_map:
-                    s['medico_responsavel'] = user_map[medico_lower].upper()
-                elif medico_clean not in ['Não informado', '—', '']:
-                    s['medico_responsavel'] = medico_clean.upper()
-    except Exception as e:
-        pass
+    except Exception:
+        user_map = {}
+
+    for s in solics:
+        cod_str = str(s.get("codigo_paciente", "")).strip()
+        if cod_str and cod_str != "0" and cod_str in pac_map:
+            p_info = pac_map[cod_str]
+            p_nome = p_info.get("nome")
+            if p_nome and not str(p_nome).lower().startswith("paciente #"):
+                s["nome_paciente"] = p_nome
+                if p_info.get("possui_nome_social"):
+                    s["possui_nome_social"] = True
+                    s["nome_social"] = p_info.get("nome_social")
+        elif "(nome social)" in str(s.get("nome_paciente", "")).lower():
+            s["possui_nome_social"] = True
+
+        medico = s.get('medico_responsavel')
+        if medico:
+            medico_clean = str(medico).strip()
+            medico_lower = medico_clean.lower()
+            if medico_lower in user_map:
+                s['medico_responsavel'] = user_map[medico_lower].upper()
+            elif medico_clean not in ['Não informado', '—', '']:
+                s['medico_responsavel'] = medico_clean.upper()
         
     return solics
 
 @router.get("/paciente/{codigo_paciente}", response_model=dict)
 async def obter_solicitacao_por_paciente(
     codigo_paciente: str,
-    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY))
+    provider: SolicitacaoProviderInterface = Depends(get_solicitacao_provider(STRATEGY)),
+    paciente_provider: PacienteProviderInterface = Depends(get_paciente_provider(PACIENTE_STRATEGY))
 ):
     """Retorna a solicitação mais recente cadastrada para um paciente específico."""
     solicitacoes = await solicitacao_controller.listar_solicitacoes(provider)
@@ -131,7 +156,18 @@ async def obter_solicitacao_por_paciente(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Nenhuma solicitação encontrada para este prontuário no Sistema LEC."
         )
-    return solics_paciente[-1]
+    ultima = solics_paciente[-1]
+    try:
+        cod_int = int(codigo_paciente) if str(codigo_paciente).isdigit() else codigo_paciente
+        pac_data = await paciente_provider.obter_paciente_por_codigo(cod_int)
+        if pac_data and pac_data.get("nome") and not str(pac_data.get("nome", "")).lower().startswith("paciente #"):
+            ultima["nome_paciente"] = pac_data["nome"]
+            if pac_data.get("possui_nome_social"):
+                ultima["possui_nome_social"] = True
+                ultima["nome_social"] = pac_data.get("nome_social")
+    except Exception:
+        pass
+    return ultima
 
 @router.put("/{id_solicitacao}", response_model=dict)
 async def editar_solicitacao(

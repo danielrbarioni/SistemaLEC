@@ -821,7 +821,7 @@ const podeAtivarPerfil = (perf: any) => {
 const normalizeEsp = (e?: string) => {
   if (!e) return '';
   const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  if (['CIRURGIA GERAL', 'CIRURGIA_GERAL', 'APARELHO DIGESTIVO', 'APARELHO_DIGESTIVO', 'CIRURGIA DO APARELHO DIGESTIVO', 'PROCTOLOGIA'].includes(n)) return 'GERAL';
   return n;
 };
 

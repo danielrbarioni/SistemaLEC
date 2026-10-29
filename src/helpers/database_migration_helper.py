@@ -4,20 +4,33 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
+LEGACY_GERAL_SPECIALTIES = (
+    'CIRURGIA_GERAL',
+    'CIRURGIA GERAL',
+    'APARELHO_DIGESTIVO',
+    'APARELHO DIGESTIVO',
+    'CIRURGIA DO APARELHO DIGESTIVO',
+    'CIRURGIA_DO_APARELHO_DIGESTIVO',
+    'PROCTOLOGIA',
+)
+
 async def migrate_cirurgia_geral_to_geral(conn):
     """
     Migra de forma segura, transacional e idempotente qualquer registro de
-    CIRURGIA GERAL para GERAL em todas as tabelas do banco de dados SQLite.
+    CIRURGIA GERAL, APARELHO DIGESTIVO e PROCTOLOGIA para GERAL em todas as
+    tabelas do banco de dados SQLite.
     Garante que ações pendentes, concluídas, usuários, procedimentos, perfis,
     solicitações e categorizações sejam perfeitamente preservados e unificados.
     """
     try:
+        legacy_in = ", ".join(f"'{s}'" for s in LEGACY_GERAL_SPECIALTIES)
+
         # 1. Tratar perfis
         res = await conn.execute(text("SELECT id, nome, tipo, cor, especialidade FROM perfis WHERE id = 'GERAL';"))
         geral_profile = res.mappings().first()
 
         res_cg = await conn.execute(text(
-            "SELECT id, nome, tipo, cor, especialidade FROM perfis WHERE id IN ('CIRURGIA_GERAL', 'CIRURGIA GERAL') OR UPPER(especialidade) = 'CIRURGIA GERAL' OR UPPER(nome) = 'CIRURGIA GERAL';"
+            f"SELECT id, nome, tipo, cor, especialidade FROM perfis WHERE UPPER(id) IN ({legacy_in}) OR UPPER(especialidade) IN ({legacy_in}) OR UPPER(nome) IN ({legacy_in});"
         ))
         cg_profiles = res_cg.mappings().all()
 
@@ -39,7 +52,7 @@ async def migrate_cirurgia_geral_to_geral(conn):
 
         # 2. Tratar usuarios
         res_users = await conn.execute(text(
-            "SELECT id, username, nome, perfil_id, especialidade, funcao FROM usuarios WHERE UPPER(perfil_id) IN ('CIRURGIA_GERAL', 'CIRURGIA GERAL') OR UPPER(especialidade) IN ('CIRURGIA GERAL', 'CIRURGIA_GERAL');"
+            f"SELECT id, username, nome, perfil_id, especialidade, funcao FROM usuarios WHERE UPPER(perfil_id) IN ({legacy_in}) OR UPPER(especialidade) IN ({legacy_in});"
         ))
         cg_users = res_users.mappings().all()
 
@@ -51,7 +64,7 @@ async def migrate_cirurgia_geral_to_geral(conn):
 
             # Verifica se já existe o mesmo username com perfil_id = 'GERAL'
             res_dup = await conn.execute(text(
-                "SELECT id, username, nome, perfil_id, especialidade, funcao FROM usuarios WHERE LOWER(username) = LOWER(:username) AND perfil_id = 'GERAL' AND id != :uid;"
+                "SELECT id, username, nome, perfil_id, especialidade, funcao FROM usuarios WHERE LOWER(TRIM(username)) = LOWER(TRIM(:username)) AND perfil_id = 'GERAL' AND id != :uid;"
             ), {"username": u_username, "uid": u_id})
             dup_user = res_dup.mappings().first()
 
@@ -71,28 +84,29 @@ async def migrate_cirurgia_geral_to_geral(conn):
                     "UPDATE usuarios SET perfil_id = 'GERAL', especialidade = 'GERAL' WHERE id = :uid;"
                 ), {"uid": u_id})
 
-        # Remove eventuais perfis CIRURGIA_GERAL residuais agora que usuários foram migrados
+        # Remove os perfis CIRURGIA_GERAL, APARELHO_DIGESTIVO e PROCTOLOGIA agora que usuários foram migrados
         await conn.execute(text(
-            "DELETE FROM perfis WHERE id != 'GERAL' AND (id IN ('CIRURGIA_GERAL', 'CIRURGIA GERAL') OR UPPER(especialidade) = 'CIRURGIA GERAL' OR UPPER(nome) = 'CIRURGIA GERAL');"
+            f"DELETE FROM perfis WHERE id != 'GERAL' AND (UPPER(id) IN ({legacy_in}) OR UPPER(especialidade) IN ({legacy_in}) OR UPPER(nome) IN ({legacy_in}));"
         ))
 
         # 3. Tratar pacientes
         await conn.execute(text(
-            "UPDATE pacientes SET especialidade = 'GERAL' WHERE UPPER(especialidade) IN ('CIRURGIA GERAL', 'CIRURGIA_GERAL');"
+            f"UPDATE pacientes SET especialidade = 'GERAL' WHERE UPPER(TRIM(especialidade)) IN ({legacy_in});"
         ))
 
         # 4. Tratar solicitacoes
         await conn.execute(text(
-            "UPDATE solicitacoes SET especialidade = 'GERAL' WHERE UPPER(especialidade) IN ('CIRURGIA GERAL', 'CIRURGIA_GERAL');"
+            f"UPDATE solicitacoes SET especialidade = 'GERAL' WHERE UPPER(TRIM(especialidade)) IN ({legacy_in});"
         ))
-        await conn.execute(text(
-            "UPDATE solicitacoes SET perfil_executor = REPLACE(REPLACE(perfil_executor, 'Cirurgia Geral', 'GERAL'), 'CIRURGIA GERAL', 'GERAL') WHERE perfil_executor LIKE '%Cirurgia Geral%' OR perfil_executor LIKE '%CIRURGIA GERAL%';"
-        ))
+        for label in ("Cirurgia Geral", "CIRURGIA GERAL", "Aparelho Digestivo", "APARELHO DIGESTIVO", "APARELHO_DIGESTIVO", "Proctologia", "PROCTOLOGIA"):
+            await conn.execute(text(
+                "UPDATE solicitacoes SET perfil_executor = REPLACE(perfil_executor, :lbl, 'GERAL') WHERE perfil_executor LIKE :like_lbl;"
+            ), {"lbl": label, "like_lbl": f"%{label}%"})
 
         # 5. Tratar categorizacoes_profissionais
         try:
             res_cats = await conn.execute(text(
-                "SELECT id, medico, especialidade, categorias_json FROM categorizacoes_profissionais WHERE UPPER(especialidade) IN ('CIRURGIA GERAL', 'CIRURGIA_GERAL');"
+                f"SELECT id, medico, especialidade, categorias_json FROM categorizacoes_profissionais WHERE UPPER(TRIM(especialidade)) IN ({legacy_in});"
             ))
             cg_cats = res_cats.mappings().all()
 
@@ -137,17 +151,17 @@ async def migrate_cirurgia_geral_to_geral(conn):
         # 6. Tratar solicitacoes_criacao_usuario
         try:
             await conn.execute(text(
-                "UPDATE solicitacoes_criacao_usuario SET perfil_id = 'GERAL' WHERE UPPER(perfil_id) IN ('CIRURGIA_GERAL', 'CIRURGIA GERAL');"
+                f"UPDATE solicitacoes_criacao_usuario SET perfil_id = 'GERAL' WHERE UPPER(TRIM(perfil_id)) IN ({legacy_in});"
             ))
             await conn.execute(text(
-                "UPDATE solicitacoes_criacao_usuario SET especialidade = 'GERAL' WHERE UPPER(especialidade) IN ('CIRURGIA GERAL', 'CIRURGIA_GERAL');"
+                f"UPDATE solicitacoes_criacao_usuario SET especialidade = 'GERAL' WHERE UPPER(TRIM(especialidade)) IN ({legacy_in});"
             ))
         except Exception as e:
             logger.warning(f"Aviso ao migrar solicitacoes_criacao_usuario: {e}")
 
-        logger.info("Migração segura de CIRURGIA GERAL para GERAL concluída com sucesso.")
+        logger.info("Migração segura de CIRURGIA GERAL, APARELHO DIGESTIVO e PROCTOLOGIA para GERAL concluída com sucesso.")
     except Exception as e:
-        logger.error(f"Erro na migração de CIRURGIA GERAL para GERAL: {e}")
+        logger.error(f"Erro na migração de especialidades para GERAL: {e}")
 
 async def migrate_bucomaxilofacial_medico_to_dentista(conn):
     """
@@ -171,4 +185,3 @@ async def migrate_bucomaxilofacial_medico_to_dentista(conn):
         logger.info("Migração segura de BUCOMAXILOFACIAL Médico -> Dentista concluída com sucesso.")
     except Exception as e:
         logger.error(f"Erro na migração de BUCOMAXILOFACIAL Médico -> Dentista: {e}")
-

@@ -90,7 +90,15 @@
           </div>
 
           <div class="form-group md:col-span-2">
-            <label for="nome_paciente" class="form-label font-semibold">Nome Completo do Paciente <span class="text-red-500">*</span></label>
+            <label for="nome_paciente" class="form-label font-semibold flex items-center gap-2">
+              <span>{{ isNomeSocial(form.nome_paciente, form.possui_nome_social) ? 'Nome Social do Paciente' : 'Nome Completo do Paciente' }} <span class="text-red-500">*</span></span>
+              <span
+                v-if="isNomeSocial(form.nome_paciente, form.possui_nome_social)"
+                class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider"
+              >
+                Nome Social (AGHU)
+              </span>
+            </label>
             <input 
               id="nome_paciente" 
               v-model="form.nome_paciente" 
@@ -100,7 +108,10 @@
               required
               disabled
             />
-            <p class="text-xs text-gray-400 mt-1">Importado automaticamente do prontuário</p>
+            <p v-if="isNomeSocial(form.nome_paciente, form.possui_nome_social)" class="text-xs text-purple-700 font-semibold mt-1">
+              ✓ Nome Social cadastrado no AGHU informado em substituição ao nome original
+            </p>
+            <p v-else class="text-xs text-gray-400 mt-1">Importado automaticamente do prontuário</p>
           </div>
         </div>
 
@@ -792,7 +803,16 @@
 
                 <!-- Prontuário / Paciente -->
                 <td class="px-3 py-2.5 text-gray-700">
-                  <div class="font-mono font-bold text-indigo-900">#{{ solic.codigo_paciente }}</div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-mono font-bold text-indigo-900">#{{ solic.codigo_paciente }}</span>
+                    <span
+                      v-if="isNomeSocial(solic.nome_paciente, solic.possui_nome_social)"
+                      class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                      title="Nome Social cadastrado no AGHU"
+                    >
+                      Nome Social
+                    </span>
+                  </div>
                   <div class="font-medium text-gray-800 truncate max-w-[180px]" :title="solic.nome_paciente">{{ solic.nome_paciente }}</div>
                 </td>
 
@@ -1018,7 +1038,15 @@
               </div>
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Paciente:</span>
-                <span class="font-bold text-gray-900">{{ modalDescricao.solic.nome_paciente }}</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-bold text-gray-900">{{ modalDescricao.solic.nome_paciente }}</span>
+                  <span
+                    v-if="isNomeSocial(modalDescricao.solic.nome_paciente, modalDescricao.solic.possui_nome_social)"
+                    class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                  >
+                    Nome Social
+                  </span>
+                </div>
               </div>
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Nº Prontuário:</span>
@@ -1371,7 +1399,7 @@ import LoadingIndicator from '../components/LoadingIndicator.vue';
 import Pagination from '../components/Pagination.vue';
 import { usePerfisStore } from '../stores/perfis';
 import { useAuthStore } from '../stores/auth';
-import { formatarNomeProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
+import { formatarNomeProcedimento, desduplicarProcedimentos, extrairNomeBaseProcedimento } from '../utils/procedimentoHelper';
 import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
 
 const toast = useToast();
@@ -1385,7 +1413,7 @@ const itensPorPagina = ref(50);
 const normalizeEsp = (e?: string) => {
   if (!e) return '';
   const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  if (['CIRURGIA GERAL', 'CIRURGIA_GERAL', 'APARELHO DIGESTIVO', 'APARELHO_DIGESTIVO', 'CIRURGIA DO APARELHO DIGESTIVO', 'PROCTOLOGIA'].includes(n)) return 'GERAL';
   return n;
 };
 
@@ -1397,6 +1425,10 @@ const isSameSpecialty = (e1?: string, e2?: string) => {
 const isBucoMaxiloEsp = (esp?: string) => {
   if (!esp) return false;
   return normalizeEsp(esp).includes('BUCOMAXILO');
+};
+
+const isNomeSocial = (nome?: string, flag?: boolean) => {
+  return Boolean(flag || (nome && String(nome).toLowerCase().includes('(nome social)')));
 };
 
 const especialidades = computed(() => {
@@ -1422,6 +1454,7 @@ const form = ref({
   procedimento_anterior: '', // Armazena o procedimento original antes de editar
   codigo_paciente: '',
   nome_paciente: '',
+  possui_nome_social: false,
   dt_nascimento: '',
   nome_mae: '',
   judicializado: '',
@@ -1452,6 +1485,7 @@ const confirmarContinuarSemAghu = () => {
   const cod = modalConfirmacaoProntuarioNaoLocalizado.value.prontuario || form.value.codigo_paciente;
   modalConfirmacaoProntuarioNaoLocalizado.value.aberto = false;
   form.value.nome_paciente = `Prontuário ${cod} não identificado no AGHU`;
+  form.value.possui_nome_social = false;
   form.value.dt_nascimento = '';
   form.value.nome_mae = '';
   pacienteValidadoNoAghu.value = true;
@@ -1463,6 +1497,7 @@ watch(() => form.value.codigo_paciente, (newVal, oldVal) => {
   if (newVal !== oldVal) {
     pacienteValidadoNoAghu.value = false;
     form.value.nome_paciente = '';
+    form.value.possui_nome_social = false;
     form.value.dt_nascimento = '';
     form.value.nome_mae = '';
     formCarregadoDaSede.value = false;
@@ -1994,6 +2029,7 @@ const limparFormulario = (manterCodigo = false) => {
     procedimento_anterior: '',
     codigo_paciente: codSalvo,
     nome_paciente: '',
+    possui_nome_social: false,
     dt_nascimento: '',
     nome_mae: '',
     judicializado: '',
@@ -2029,6 +2065,7 @@ const iniciarEdicaoSolicitacao = (solic: any) => {
     procedimento_anterior: solic.procedimento_anterior || '',
     codigo_paciente: String(solic.codigo_paciente || ''),
     nome_paciente: solic.nome_paciente || '',
+    possui_nome_social: Boolean(solic.possui_nome_social || isNomeSocial(solic.nome_paciente)),
     dt_nascimento: '',
     nome_mae: '',
     judicializado: solic.judicializado || 'Não',
@@ -2104,6 +2141,7 @@ const buscarDados = async (isAutomatic = false) => {
           throw new Error('Paciente não encontrado');
         }
         form.value.nome_paciente = pacData.nome;
+        form.value.possui_nome_social = Boolean(pacData.possui_nome_social || isNomeSocial(pacData.nome));
         form.value.dt_nascimento = pacData.dt_nascimento;
         form.value.nome_mae = pacData.nome_mae;
         pacienteValidadoNoAghu.value = true;
@@ -2126,6 +2164,7 @@ const buscarDados = async (isAutomatic = false) => {
         pacData = resp.data;
         if (pacData && pacData.nome && !String(pacData.nome).toLowerCase().startsWith('paciente #')) {
           form.value.nome_paciente = pacData.nome;
+          form.value.possui_nome_social = Boolean(pacData.possui_nome_social || isNomeSocial(pacData.nome));
           form.value.dt_nascimento = pacData.dt_nascimento;
           form.value.nome_mae = pacData.nome_mae;
         }
@@ -2151,6 +2190,12 @@ const buscarDados = async (isAutomatic = false) => {
         toast.error('Paciente não incluído no Sistema de Comunicação Cirúrgica HC-UFPE');
         limparFormulario(true);
         return;
+      }
+
+      if (!form.value.nome_paciente && solicsDosPac.length > 0) {
+        const ultSolic = solicsDosPac[solicsDosPac.length - 1];
+        form.value.nome_paciente = ultSolic.nome_paciente || '';
+        form.value.possui_nome_social = Boolean(ultSolic.possui_nome_social || isNomeSocial(ultSolic.nome_paciente));
       }
 
       let procs: any[] = [];
@@ -2421,17 +2466,118 @@ const enviarSolicitacao = async () => {
     }
   }
 
-  // Validação de duplicidade de exclusão pendente
-  if (abaAtiva.value === 'EXCLUIR') {
-    const pendente = solicitacoes.value.some((s: any) => 
-      s.tipo === 'EXCLUIR' && 
-      s.status === 'PENDENTE' && 
-      String(s.codigo_paciente) === String(form.value.codigo_paciente) && 
-      isSameSpecialty(s.especialidade, form.value.especialidade) && 
-      (s.procedimento || '').trim().toLowerCase() === (form.value.procedimento || '').trim().toLowerCase()
+  // Validação unificada de duplicidade (paciente + procedimento) para todas as abas
+  const codPacAtual = String(form.value.codigo_paciente || '').trim();
+  const idEmEdicao = modoEdicaoSolicitacao.value && solicitacaoEmEdicaoId.value ? String(solicitacaoEmEdicaoId.value) : null;
+  const normProcBase = (p?: string) => extrairNomeBaseProcedimento(p || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const isLogEvent = (s: any) => ['RESPOSTA', 'ALTERACAO', 'EDICAO', 'CANCELAMENTO'].includes(String(s.evento_tipo || '').toUpperCase()) || Boolean(s.is_resposta);
+
+  const solicsDoPac = solicitacoes.value.filter((s: any) =>
+    String(s.codigo_paciente || '').trim() === codPacAtual &&
+    (!idEmEdicao || String(s.id) !== idEmEdicao)
+  );
+  const pendentesDoPac = solicsDoPac.filter((s: any) => s.status === 'PENDENTE' && !isLogEvent(s));
+
+  // Reconstrói os procedimentos ativos do paciente em Pacientes (base + solicitações aprovadas)
+  const obterProcsAtivosNorm = (): Set<string> => {
+    const listaAtivos: Array<{ esp: string; proc: string }> = [];
+    for (const bp of pacientesBase.value) {
+      if (String(bp.codigo || bp.prontuario || '').trim() === codPacAtual && bp.procedimento) {
+        const pN = normProcBase(bp.procedimento);
+        const eN = normalizeEsp(bp.especialidade);
+        if (pN && !listaAtivos.some(a => a.proc === pN && a.esp === eN)) {
+          listaAtivos.push({ esp: eN, proc: pN });
+        }
+      }
+    }
+    const aprovadas = solicsDoPac
+      .filter((s: any) => s.status === 'APROVADO' && !isLogEvent(s))
+      .sort((a: any, b: any) => String(a.data_criacao || '').localeCompare(String(b.data_criacao || '')));
+    for (const s of aprovadas) {
+      const sTipo = String(s.tipo || '').toUpperCase();
+      const sEsp = normalizeEsp(s.especialidade);
+      const sProc = normProcBase(s.procedimento);
+      const sProcAnt = normProcBase(s.procedimento_anterior || s.procedimento);
+      if (!sProc) continue;
+      if (sTipo === 'INSERIR') {
+        if (!listaAtivos.some(a => a.proc === sProc && a.esp === sEsp)) {
+          listaAtivos.push({ esp: sEsp, proc: sProc });
+        }
+      } else if (sTipo === 'EDITAR' || sTipo === 'EDICAO') {
+        const item = listaAtivos.find(a => a.proc === sProcAnt && (!sEsp || !a.esp || a.esp === sEsp));
+        if (item) {
+          item.proc = sProc;
+          if (sEsp) item.esp = sEsp;
+        } else {
+          listaAtivos.push({ esp: sEsp, proc: sProc });
+        }
+      } else if (sTipo === 'EXCLUIR') {
+        const idx = listaAtivos.findIndex(a => a.proc === sProc && (!sEsp || !a.esp || a.esp === sEsp));
+        if (idx !== -1) listaAtivos.splice(idx, 1);
+      }
+    }
+    return new Set(listaAtivos.map(a => a.proc).filter(Boolean));
+  };
+
+  const procAtualNorm = normProcBase(form.value.procedimento);
+  const procAntNorm = normProcBase(form.value.procedimento_anterior || form.value.procedimento);
+  const procsAtivosNorm = obterProcsAtivosNorm();
+
+  if (abaAtiva.value === 'INSERIR') {
+    const pendenteInserir = pendentesDoPac.some((s: any) =>
+      String(s.tipo || '').toUpperCase() === 'INSERIR' &&
+      normProcBase(s.procedimento) === procAtualNorm
     );
-    if (pendente) {
-      toast.error(`Já existe uma solicitação de exclusão PENDENTE para o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
+    if (pendenteInserir) {
+      toast.error(`Não é permitido solicitar inclusão: já existe uma solicitação de inclusão PENDENTE para o paciente (#${codPacAtual}) e o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
+      return;
+    }
+    if (procAtualNorm && procsAtivosNorm.has(procAtualNorm)) {
+      toast.error(`Não é permitido solicitar inclusão: o paciente (#${codPacAtual}) já possui o procedimento "${form.value.procedimento}" cadastrado no banco de dados (Pacientes).`);
+      return;
+    }
+  } else if (abaAtiva.value === 'EDITAR') {
+    const procExib = form.value.procedimento_anterior || form.value.procedimento;
+    const pendenteEditar = pendentesDoPac.some((s: any) => {
+      if (!['EDITAR', 'EDICAO'].includes(String(s.tipo || '').toUpperCase())) return false;
+      const sAnt = normProcBase(s.procedimento_anterior || s.procedimento);
+      const sNovo = normProcBase(s.procedimento);
+      return sAnt === procAntNorm || sAnt === procAtualNorm || sNovo === procAntNorm || sNovo === procAtualNorm;
+    });
+    if (pendenteEditar) {
+      toast.error(`Não é permitido solicitar edição: já existe uma solicitação de edição PENDENTE para o paciente (#${codPacAtual}) e o procedimento "${procExib}". Aguarde a análise da Gestão LEC.`);
+      return;
+    }
+    if (procAtualNorm && procAntNorm && procAtualNorm !== procAntNorm) {
+      if (procsAtivosNorm.has(procAtualNorm)) {
+        toast.error(`Não é permitido alterar para o procedimento "${form.value.procedimento}": o paciente (#${codPacAtual}) já possui este procedimento cadastrado no banco de dados (Pacientes).`);
+        return;
+      }
+      const pendenteInserirNovo = pendentesDoPac.some((s: any) =>
+        String(s.tipo || '').toUpperCase() === 'INSERIR' &&
+        normProcBase(s.procedimento) === procAtualNorm
+      );
+      if (pendenteInserirNovo) {
+        toast.error(`Não é permitido alterar para o procedimento "${form.value.procedimento}": já existe uma solicitação de inclusão PENDENTE para este paciente e procedimento.`);
+        return;
+      }
+    }
+  } else if (abaAtiva.value === 'STANDBY') {
+    const pendenteStandby = pendentesDoPac.some((s: any) =>
+      ['STANDBY', 'CANCELAR_STANDBY'].includes(String(s.tipo || '').toUpperCase()) &&
+      normProcBase(s.procedimento) === procAtualNorm
+    );
+    if (pendenteStandby) {
+      toast.error(`Não é permitido solicitar standby: já existe uma solicitação de standby PENDENTE para o paciente (#${codPacAtual}) e o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
+      return;
+    }
+  } else if (abaAtiva.value === 'EXCLUIR') {
+    const pendenteExcluir = pendentesDoPac.some((s: any) =>
+      String(s.tipo || '').toUpperCase() === 'EXCLUIR' &&
+      normProcBase(s.procedimento) === procAtualNorm
+    );
+    if (pendenteExcluir) {
+      toast.error(`Não é permitido solicitar exclusão: já existe uma solicitação de exclusão PENDENTE para o paciente (#${codPacAtual}) e o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
       return;
     }
   }

@@ -199,8 +199,15 @@
 
               <!-- 3. Prontuário/Paciente -->
               <td class="px-2.5 py-2.5 text-[11px] max-w-[180px]">
-                <div v-if="solic.codigo_paciente && String(solic.codigo_paciente) !== '0'" class="font-mono font-bold text-gray-800">
-                  #{{ solic.codigo_paciente }}
+                <div v-if="solic.codigo_paciente && String(solic.codigo_paciente) !== '0'" class="flex items-center gap-1 flex-wrap">
+                  <span class="font-mono font-bold text-gray-800">#{{ solic.codigo_paciente }}</span>
+                  <span
+                    v-if="isNomeSocial(solic.nome_paciente, solic.possui_nome_social)"
+                    class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                    title="Nome Social cadastrado no AGHU"
+                  >
+                    Nome Social
+                  </span>
                 </div>
                 <div class="text-gray-900 font-medium truncate" :title="solic.nome_paciente">
                   {{ solic.nome_paciente && solic.nome_paciente !== '—' && !String(solic.nome_paciente).startsWith('Paciente #0') ? solic.nome_paciente : '—' }}
@@ -408,7 +415,15 @@
               </div>
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Nome do Paciente:</span>
-                <span class="font-bold text-gray-900">{{ modalDetalhes.solic.nome_paciente }}</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-bold text-gray-900">{{ modalDetalhes.solic.nome_paciente }}</span>
+                  <span
+                    v-if="isNomeSocial(modalDetalhes.solic.nome_paciente, modalDetalhes.solic.possui_nome_social)"
+                    class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                  >
+                    Nome Social
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1142,7 +1157,7 @@ const executarExportacaoExcel = () => {
 const normalizeEsp = (e?: string) => {
   if (!e) return '';
   const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  if (['CIRURGIA GERAL', 'CIRURGIA_GERAL', 'APARELHO DIGESTIVO', 'APARELHO_DIGESTIVO', 'CIRURGIA DO APARELHO DIGESTIVO', 'PROCTOLOGIA'].includes(n)) return 'GERAL';
   return n;
 };
 
@@ -1209,6 +1224,10 @@ const limparFiltros = () => {
   paginaAtual.value = 1;
 };
 
+const isNomeSocial = (nome?: string, flag?: boolean) => {
+  return Boolean(flag || (nome && String(nome).toLowerCase().includes('(nome social)')));
+};
+
 const carregarHistorico = async () => {
   loading.value = true;
   try {
@@ -1223,12 +1242,15 @@ const carregarHistorico = async () => {
     usuariosLocais.value = userRes.status === 'fulfilled' ? userRes.value.data : [];
     pacientesBase.value = pacientesData;
 
-    const pacMap = new Map<string, string>();
+    const pacMap = new Map<string, { nome: string; possui_nome_social: boolean }>();
     for (const p of pacientesData) {
       const cod = String(p.codigo || p.prontuario || '').trim();
       const nome = p.nome || p.nome_paciente;
       if (cod && nome) {
-        pacMap.set(cod, nome);
+        pacMap.set(cod, {
+          nome,
+          possui_nome_social: Boolean(p.possui_nome_social || isNomeSocial(nome))
+        });
       }
     }
 
@@ -1243,9 +1265,12 @@ const carregarHistorico = async () => {
     solicitacoes.value = solicitacoesData.map((s: any) => {
       const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
       let nomeReal = s.nome_paciente || s.nome;
-      if (!nomeReal || nomeReal.startsWith('Paciente #') || nomeReal === 'Não informado') {
-        if (pacMap.has(codStr) && codStr !== '0') {
-          nomeReal = pacMap.get(codStr);
+      let possuiNomeSocial = Boolean(s.possui_nome_social || isNomeSocial(nomeReal));
+      if (codStr && codStr !== '0' && pacMap.has(codStr)) {
+        const pacEntry = pacMap.get(codStr)!;
+        if (!nomeReal || nomeReal.startsWith('Paciente #') || nomeReal === 'Não informado' || pacEntry.possui_nome_social) {
+          nomeReal = pacEntry.nome;
+          possuiNomeSocial = pacEntry.possui_nome_social;
         }
       }
 
@@ -1261,7 +1286,8 @@ const carregarHistorico = async () => {
       return {
         ...s,
         status: statusFinal,
-        nome_paciente: nomeReal || (codStr && codStr !== '0' ? `Paciente #${codStr}` : '—')
+        nome_paciente: nomeReal || (codStr && codStr !== '0' ? `Paciente #${codStr}` : '—'),
+        possui_nome_social: possuiNomeSocial
       };
     });
   } catch (error) {

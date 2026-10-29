@@ -315,6 +315,9 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             
         if 'procedimento_anterior' in dados_atualizados:
             solic.procedimento_anterior = dados_atualizados['procedimento_anterior']
+
+        if 'nome_paciente' in dados_atualizados and dados_atualizados['nome_paciente']:
+            solic.nome_paciente = dados_atualizados['nome_paciente']
             
         # O data_criacao original da solicitação permanece intacto para manter sua posição na fila
         data_alteracao = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

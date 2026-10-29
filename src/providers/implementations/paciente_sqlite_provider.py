@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 
 from ..interfaces.paciente_provider_interface import PacienteProviderInterface
 from ...models.paciente import Paciente
+from ...helpers.string_helper import aplicar_nome_social_dict
 
 class PacienteSqliteProvider(PacienteProviderInterface):
     def __init__(self, session: AsyncSession):
@@ -16,9 +17,10 @@ class PacienteSqliteProvider(PacienteProviderInterface):
         pacientes = result.scalars().all()
         
         return [
-            {
+            aplicar_nome_social_dict({
                 "codigo": p.codigo,
                 "nome": p.nome,
+                "nome_social": getattr(p, "nome_social", None),
                 "dt_nascimento": p.dt_nascimento,
                 "cpf": p.cpf,
                 "sexo": p.sexo,
@@ -32,7 +34,7 @@ class PacienteSqliteProvider(PacienteProviderInterface):
                 "ultima_consulta_epo": p.ultima_consulta_epo,
                 "categorizacao": getattr(p, "categorizacao", "") or "",
                 "lateralidade": getattr(p, "lateralidade", "Indefinida") or "Indefinida"
-            }
+            })
             for p in pacientes
         ]
 
@@ -44,9 +46,10 @@ class PacienteSqliteProvider(PacienteProviderInterface):
         if not p:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paciente não encontrado")
             
-        return {
+        return aplicar_nome_social_dict({
             "codigo": p.codigo,
             "nome": p.nome,
+            "nome_social": getattr(p, "nome_social", None),
             "dt_nascimento": p.dt_nascimento,
             "cpf": p.cpf,
             "sexo": p.sexo,
@@ -60,7 +63,7 @@ class PacienteSqliteProvider(PacienteProviderInterface):
             "ultima_consulta_epo": p.ultima_consulta_epo,
             "categorizacao": getattr(p, "categorizacao", "") or "",
             "lateralidade": getattr(p, "lateralidade", "Indefinida") or "Indefinida"
-        }
+        })
 
     async def obter_procedimentos_por_especialidade(self, id_especialidade: int) -> List[Dict[str, Any]]:
         # O SQLite local não gerencia a tabela de especialidades/procedimentos cirúrgicos do AGHU

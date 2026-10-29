@@ -262,13 +262,22 @@
 
               <!-- Nome Completo Clicável -->
               <td class="px-4 py-3 font-semibold text-gray-900">
-                <button 
-                  @click="abrirModalPaciente(row.pacienteCompleto)"
-                  class="text-left font-bold text-gray-800 hover:text-indigo-600 hover:underline cursor-pointer focus:outline-none"
-                  title="Clique para ver todos os detalhes e procedimentos deste paciente"
-                >
-                  {{ row.nome }}
-                </button>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <button 
+                    @click="abrirModalPaciente(row.pacienteCompleto)"
+                    class="text-left font-bold text-gray-800 hover:text-indigo-600 hover:underline cursor-pointer focus:outline-none"
+                    title="Clique para ver todos os detalhes e procedimentos deste paciente"
+                  >
+                    {{ row.nome }}
+                  </button>
+                  <span
+                    v-if="isNomeSocial(row.nome, row.possui_nome_social)"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-tight"
+                    title="Nome Social cadastrado no AGHU"
+                  >
+                    Nome Social
+                  </span>
+                </div>
               </td>
 
               <!-- Data de Nascimento -->
@@ -355,8 +364,14 @@
         <div class="px-6 py-4 bg-slate-50 border-b border-gray-200 flex justify-between items-center shrink-0">
           <div>
             <span class="text-xs font-mono text-indigo-600 font-bold uppercase tracking-wider block mb-1">Detalhes do Paciente Cadastrado</span>
-            <h2 class="text-2xl font-black text-slate-900 mt-0.5 flex items-center space-x-2">
+            <h2 class="text-2xl font-black text-slate-900 mt-0.5 flex items-center flex-wrap gap-2">
               <span class="text-indigo-950">{{ pacienteSelecionadoModal.nome }}</span>
+              <span
+                v-if="isNomeSocial(pacienteSelecionadoModal.nome, pacienteSelecionadoModal.possui_nome_social)"
+                class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider"
+              >
+                Nome Social (AGHU)
+              </span>
               <span class="text-sm font-mono text-slate-500 font-semibold bg-slate-200/80 px-2 py-0.5 rounded">({{ pacienteSelecionadoModal.codigo }})</span>
             </h2>
           </div>
@@ -673,7 +688,7 @@ const categorizacoes = ref<any[]>([]);
 const normalizeEsp = (e?: string) => {
   if (!e) return '';
   const n = e.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
-  if (n === 'CIRURGIA GERAL' || n === 'CIRURGIA_GERAL') return 'GERAL';
+  if (['CIRURGIA GERAL', 'CIRURGIA_GERAL', 'APARELHO DIGESTIVO', 'APARELHO_DIGESTIVO', 'CIRURGIA DO APARELHO DIGESTIVO', 'PROCTOLOGIA'].includes(n)) return 'GERAL';
   return n;
 };
 
@@ -1114,6 +1129,10 @@ const resolverMedicoNome = (med: string) => {
   return finalName && finalName !== 'Não informado' && finalName !== '—' ? finalName.toUpperCase() : finalName;
 };
 
+const isNomeSocial = (nome?: string, flag?: boolean) => {
+  return Boolean(flag || (nome && String(nome).toLowerCase().includes('(nome social)')));
+};
+
 // 1. Mapa mestre com todos os pacientes e TODOS os seus procedimentos (sem filtros)
 const todosPacientesMap = computed(() => {
   const pacMap = new Map<string, any>();
@@ -1123,6 +1142,7 @@ const todosPacientesMap = computed(() => {
     pacMap.set(cod, {
       codigo: cod,
       nome: p.nome,
+      possui_nome_social: Boolean(p.possui_nome_social || isNomeSocial(p.nome)),
       dt_nascimento: p.dt_nascimento,
       nome_mae: p.nome_mae,
       procedimentos: []
@@ -1138,9 +1158,11 @@ const todosPacientesMap = computed(() => {
     let pac = pacMap.get(cod);
     if (!pac) {
       const baseMatch = basePacientes.value.find((bp: any) => String(bp.codigo) === cod || bp.nome?.toLowerCase().trim() === s.nome_paciente?.toLowerCase().trim());
+      const nomeFinal = (baseMatch?.nome && !String(baseMatch.nome).startsWith('Paciente #')) ? baseMatch.nome : s.nome_paciente;
       pac = {
         codigo: cod,
-        nome: s.nome_paciente,
+        nome: nomeFinal,
+        possui_nome_social: Boolean(baseMatch?.possui_nome_social || s.possui_nome_social || isNomeSocial(nomeFinal)),
         dt_nascimento: s.dt_nascimento || s.data_nascimento || baseMatch?.dt_nascimento || '—',
         nome_mae: s.nome_mae || baseMatch?.nome_mae || '—',
         procedimentos: []
@@ -1153,8 +1175,9 @@ const todosPacientesMap = computed(() => {
       if ((!pac.nome_mae || pac.nome_mae === '—') && s.nome_mae) {
         pac.nome_mae = s.nome_mae;
       }
-      if (s.nome_paciente && pac.nome.startsWith('Paciente #')) {
+      if (s.nome_paciente && (pac.nome.startsWith('Paciente #') || (!pac.possui_nome_social && (s.possui_nome_social || isNomeSocial(s.nome_paciente))))) {
         pac.nome = s.nome_paciente;
+        pac.possui_nome_social = Boolean(s.possui_nome_social || isNomeSocial(s.nome_paciente));
       }
     }
 
@@ -1985,6 +2008,7 @@ const procedimentosFlat = computed(() => {
       list.push({
         codigo: pac.codigo,
         nome: pac.nome,
+        possui_nome_social: pac.possui_nome_social,
         dt_nascimento: pac.dt_nascimento,
         nome_mae: pac.nome_mae,
         especialidade: proc.especialidade,

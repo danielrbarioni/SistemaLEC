@@ -13,7 +13,12 @@ from ..models.user import User
 from ..models.profile import Profile
 from ..models.paciente import Paciente
 from ..models.solicitacao import Solicitacao
-from ..helpers.string_helper import generate_profile_id, remove_accents, normalize_specialty_name
+from ..helpers.string_helper import (
+    generate_profile_id,
+    remove_accents,
+    normalize_specialty_name,
+    resolver_nome_paciente
+)
 
 
 def normalize_col_name(text: Any) -> str:
@@ -167,7 +172,6 @@ async def process_excel_pacientes_import(
         id_especialidade_int = int(raw_id_especialidade) if raw_id_especialidade and raw_id_especialidade.isdigit() else None
 
         # Resolução de Nome do Procedimento e Especialidade no AGHU ou Fallback (sempre padronizado em CAIXA ALTA)
-        # Resolução de Nome do Procedimento e Especialidade no AGHU ou Fallback (sempre padronizado em CAIXA ALTA)
         if especialidade_override:
             nome_especialidade = normalize_specialty_name(especialidade_override)
         else:
@@ -254,32 +258,37 @@ async def process_excel_pacientes_import(
 
         # Garantir registro do Paciente (AGHU ou SQLite Local)
         nome_paciente = f"PACIENTE {prontuario_int}"
+        nome_social_pac = None
         if prontuario_int not in existing_pacientes:
             if aghu_db:
                 try:
                     query_pac = text("""
-                        SELECT nome 
+                        SELECT nome, nome_social 
                         FROM agh.aip_pacientes 
                         WHERE prontuario = :prontuario
                         LIMIT 1
                     """)
                     res_pac = await aghu_db.execute(query_pac, {"prontuario": prontuario_int})
                     row_pac = res_pac.mappings().first()
-                    if row_pac and row_pac.get("nome"):
-                        nome_paciente = row_pac["nome"]
+                    if row_pac:
+                        nome_social_pac = row_pac.get("nome_social")
+                        if row_pac.get("nome") or nome_social_pac:
+                            nome_paciente = resolver_nome_paciente(row_pac.get("nome"), nome_social_pac)
                 except Exception as e:
                     print(f"Erro ao buscar paciente {prontuario_int} no AGHU: {e}")
 
             new_pac = Paciente(
                 codigo=prontuario_int,
                 nome=nome_paciente,
+                nome_social=str(nome_social_pac).strip() if nome_social_pac else None,
                 especialidade=nome_especialidade,
                 procedimento=nome_procedimento
             )
             app_db.add(new_pac)
             existing_pacientes[prontuario_int] = new_pac
         else:
-            nome_paciente = existing_pacientes[prontuario_int].nome or nome_paciente
+            pac_obj = existing_pacientes[prontuario_int]
+            nome_paciente = resolver_nome_paciente(pac_obj.nome or nome_paciente, getattr(pac_obj, "nome_social", None))
 
         # Tratar judicialização
         is_judicializado = "Não"
