@@ -3,6 +3,7 @@
 import os
 from typing import AsyncGenerator
 from fastapi import Request
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, AsyncEngine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -15,7 +16,38 @@ class DatabaseManager:
     Manages asynchronous database connections and sessions for a specific DSN.
     """
     def __init__(self, dsn: str):
-        self.engine: AsyncEngine = create_async_engine(dsn, echo=False)
+        is_sqlite = dsn.startswith("sqlite")
+        if is_sqlite:
+            self.engine: AsyncEngine = create_async_engine(
+                dsn,
+                echo=False,
+                connect_args={"timeout": 30},
+                pool_size=30,
+                max_overflow=50,
+                pool_timeout=60,
+            )
+
+            @event.listens_for(self.engine.sync_engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                try:
+                    cursor.execute("PRAGMA journal_mode=WAL;")
+                    cursor.execute("PRAGMA synchronous=NORMAL;")
+                    cursor.execute("PRAGMA busy_timeout=30000;")
+                except Exception:
+                    pass
+                finally:
+                    cursor.close()
+        else:
+            self.engine: AsyncEngine = create_async_engine(
+                dsn,
+                echo=False,
+                pool_size=20,
+                max_overflow=30,
+                pool_timeout=30,
+                pool_pre_ping=True,
+                pool_recycle=1800,
+            )
         self.async_session_maker = sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
         )

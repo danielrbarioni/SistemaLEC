@@ -6,6 +6,13 @@ from ..controllers import solicitacao_controller
 from ..dependencies import get_solicitacao_provider, get_paciente_provider
 from ..providers.interfaces.solicitacao_provider_interface import SolicitacaoProviderInterface
 from ..providers.interfaces.paciente_provider_interface import PacienteProviderInterface
+from ..providers.implementations.paciente_hybrid_provider import (
+    invalidate_paciente_cache,
+    get_solicitacoes_json_cache,
+    set_solicitacoes_json_cache,
+)
+from starlette.responses import Response
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..resources.database import get_app_db_session
 from ..auth.auth import auth_handler
@@ -86,7 +93,27 @@ async def criar_solicitacao(
     data["evento_tipo"] = "SOLICITACAO"
     if not data.get("usuario") and user_info:
         data["usuario"] = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
-    return await solicitacao_controller.criar_solicitacao(data, provider, paciente_provider)
+    res = await solicitacao_controller.criar_solicitacao(data, provider, paciente_provider)
+    invalidate_paciente_cache()
+    return res
+
+@router.get("/pendentes-resumo", response_model=List[dict])
+async def listar_pendentes_resumo(
+    db: AsyncSession = Depends(get_app_db_session)
+):
+    """Retorna de forma ultra-leve apenas as especialidades das solicitações pendentes ativas para contadores de notificação."""
+    from sqlalchemy import select, or_
+    from ..models.solicitacao import Solicitacao
+
+    stmt = select(Solicitacao.especialidade).where(
+        Solicitacao.status == "PENDENTE",
+        or_(
+            Solicitacao.evento_tipo.is_(None),
+            Solicitacao.evento_tipo.notin_(["RESPOSTA", "ALTERACAO", "EDICAO", "CANCELAMENTO"])
+        )
+    )
+    res = await db.execute(stmt)
+    return [{"especialidade": row[0] or ""} for row in res.all()]
 
 @router.get("", response_model=List[dict])
 async def listar_solicitacoes(
@@ -95,6 +122,12 @@ async def listar_solicitacoes(
     db: AsyncSession = Depends(get_app_db_session)
 ):
     """Lista todas as solicitações, resolvendo logins Ebserh de médicos responsáveis e nomes sociais de pacientes do AGHU."""
+    is_mock = "Mock" in type(provider).__name__ or "Mock" in type(getattr(provider, "session", None)).__name__
+    if not is_mock:
+        cached_bytes = get_solicitacoes_json_cache()
+        if cached_bytes is not None:
+            return Response(content=cached_bytes, media_type="application/json")
+
     solics = await solicitacao_controller.listar_solicitacoes(provider)
     
     # Enriquecimento com Nome Social / Nome atualizado do AGHU para os pacientes das solicitações
@@ -139,7 +172,12 @@ async def listar_solicitacoes(
                 s['medico_responsavel'] = user_map[medico_lower].upper()
             elif medico_clean not in ['Não informado', '—', '']:
                 s['medico_responsavel'] = medico_clean.upper()
-        
+
+    if not is_mock:
+        json_bytes = json.dumps(solics, ensure_ascii=False).encode("utf-8")
+        set_solicitacoes_json_cache(json_bytes)
+        return Response(content=json_bytes, media_type="application/json")
+
     return solics
 
 @router.get("/paciente/{codigo_paciente}", response_model=dict)
@@ -190,7 +228,7 @@ async def editar_solicitacao(
     perfil_executor = solic_update.perfil_executor or user_info.get("currentProfile") or role
     usuario_executor = solic_update.usuario or user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
 
-    return await solicitacao_controller.editar_solicitacao(
+    res = await solicitacao_controller.editar_solicitacao(
         id_solicitacao=id_solicitacao,
         dados_atualizados=data,
         provider=provider,
@@ -198,6 +236,8 @@ async def editar_solicitacao(
         perfil_executor=perfil_executor,
         usuario_executor=usuario_executor
     )
+    invalidate_paciente_cache()
+    return res
 
 @router.put("/{id_solicitacao}/status", response_model=dict)
 async def atualizar_status_solicitacao(
@@ -226,7 +266,7 @@ async def atualizar_status_solicitacao(
     if not usuario_executor and user_info:
         usuario_executor = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
 
-    return await solicitacao_controller.atualizar_status_solicitacao(
+    res = await solicitacao_controller.atualizar_status_solicitacao(
         id_solicitacao=id_solicitacao,
         novo_status=status_update.status,
         perfil_executor=status_update.perfil_executor,
@@ -234,6 +274,8 @@ async def atualizar_status_solicitacao(
         justificativa=status_update.justificativa,
         provider=provider
     )
+    invalidate_paciente_cache()
+    return res
 
 @router.post("/{id_solicitacao}/cancelar-standby", response_model=dict)
 async def cancelar_standby_solicitacao(

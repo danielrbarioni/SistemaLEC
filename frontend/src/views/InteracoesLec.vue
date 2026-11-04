@@ -923,14 +923,15 @@
                       @click="iniciarEdicaoSolicitacao(solic)" 
                       variant="secondary" 
                       size="sm" 
+                      :disabled="!!processandoStatusIds[solic.id]"
                       title="Editar dados desta solicitação pendente"
                     >
                       ✏️ Editar
                     </Button>
-                    <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm">
-                      Aprovar
+                    <Button @click="atualizarStatus(solic.id, 'APROVADO')" variant="success" size="sm" :disabled="!!processandoStatusIds[solic.id]">
+                      {{ processandoStatusIds[solic.id] ? 'Processando...' : 'Aprovar' }}
                     </Button>
-                    <Button @click="abrirModalRejeicao(solic)" variant="danger" size="sm">
+                    <Button @click="abrirModalRejeicao(solic)" variant="danger" size="sm" :disabled="!!processandoStatusIds[solic.id]">
                       Rejeitar
                     </Button>
                   </div>
@@ -940,12 +941,13 @@
                       @click="iniciarEdicaoSolicitacao(solic)" 
                       variant="secondary" 
                       size="sm" 
+                      :disabled="!!processandoStatusIds[solic.id]"
                       title="Editar dados desta solicitação pendente"
                     >
                       ✏️ Editar
                     </Button>
-                    <Button @click="solicitarCancelamento(solic)" variant="danger" size="sm">
-                      Cancelar
+                    <Button @click="solicitarCancelamento(solic)" variant="danger" size="sm" :disabled="!!processandoStatusIds[solic.id]">
+                      {{ processandoStatusIds[solic.id] ? 'Processando...' : 'Cancelar' }}
                     </Button>
                   </div>
                   <div v-else-if="solic.status === 'PENDENTE' && solic.tipo !== 'EXCLUIR' && (perfisStore.perfilAtivo?.tipo as string) !== 'OBSERVADOR'" class="flex justify-center">
@@ -2651,13 +2653,18 @@ const enviarSolicitacao = async () => {
   }
 };
 
+const processandoStatusIds = ref<Record<string, boolean>>({});
+
 const atualizarStatus = async (id: string, status: string, skipConfirm: boolean = false, justificativa: string = "") => {
+  if (processandoStatusIds.value[id]) return;
+
   if (!skipConfirm) {
     const acaoText = status === 'APROVADO' ? 'aprovar (dar baixa na)' : (status === 'CANCELADO' ? 'cancelar a' : 'rejeitar a');
     const confirmacao = window.confirm(`Tem certeza que deseja ${acaoText} solicitação?`);
     if (!confirmacao) return;
   }
 
+  processandoStatusIds.value[id] = true;
   try {
     const perfil_executor = perfisStore.perfilAtivo?.tipo || 'GESTAO_LEC';
     const usuario = authStore.user?.username || 'Usuário Sistema';
@@ -2667,12 +2674,19 @@ const atualizarStatus = async (id: string, status: string, skipConfirm: boolean 
       usuario, 
       justificativa 
     });
+    // Atualização otimista imediata na lista local para remover da fila de pendentes instantaneamente
+    const idx = solicitacoes.value.findIndex((s: any) => s.id === id);
+    if (idx !== -1) {
+      solicitacoes.value[idx].status = status;
+    }
     const statusMsg = status === 'CANCELADO' ? 'cancelada' : status.toLowerCase();
     toast.success(`Solicitação ${statusMsg} com sucesso!`);
     await carregarSolicitacoes();
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || 'Erro ao atualizar status.';
     toast.error(errorMsg);
+  } finally {
+    delete processandoStatusIds.value[id];
   }
 };
 

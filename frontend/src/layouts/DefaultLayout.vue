@@ -146,15 +146,8 @@ const isSameSpecialty = (e1?: string, e2?: string) => {
 const carregarCountPendentes = async () => {
   if (!authStore.isAuthenticated) return;
   try {
-    const { data } = await api.get('/api/solicitacoes');
-    let list = data.filter((s: any) => 
-      s.status === 'PENDENTE' &&
-      s.evento_tipo !== 'RESPOSTA' &&
-      !s.is_resposta &&
-      s.evento_tipo !== 'ALTERACAO' &&
-      s.evento_tipo !== 'EDICAO' &&
-      s.evento_tipo !== 'CANCELAMENTO'
-    );
+    const { data } = await api.get('/api/solicitacoes/pendentes-resumo');
+    let list = Array.isArray(data) ? data : [];
     
     const pAtivo = perfisStore.perfilAtivo;
     if (pAtivo && pAtivo.tipo === 'ESPECIALIDADE' && pAtivo.especialidade) {

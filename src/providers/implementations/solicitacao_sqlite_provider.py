@@ -102,6 +102,38 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada no SQLite")
             
         status_upper = novo_status.upper()
+        status_atual = (solic.status or "").upper()
+
+        # Idempotência contra cliques duplicados: se já está no mesmo status final, retorna sem duplicar histórico
+        if status_atual == status_upper and status_upper != "PENDENTE":
+            return {
+                'id': solic.id,
+                'tipo': solic.tipo,
+                'especialidade': solic.especialidade,
+                'procedimento': solic.procedimento,
+                'codigo_paciente': solic.codigo_paciente,
+                'nome_paciente': solic.nome_paciente,
+                'judicializado': solic.judicializado,
+                'swallis': solic.swallis,
+                'medico_responsavel': solic.medico_responsavel,
+                'detalhes': solic.detalhes,
+                'tempo_standby': solic.tempo_standby,
+                'status': solic.status,
+                'data_criacao': solic.data_criacao,
+                'perfil_executor': solic.perfil_executor,
+                'procedimento_anterior': solic.procedimento_anterior,
+                'evento_tipo': 'SOLICITACAO',
+                'categorizacao': solic.categorizacao or '',
+                'lateralidade': solic.lateralidade or 'Indefinida',
+                'detalhes_resposta': ''
+            }
+
+        if status_atual and status_atual != "PENDENTE":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Esta solicitação já foi processada anteriormente (status atual: {solic.status})."
+            )
+
         solic.status = status_upper
         
         # Sincroniza alteração diretamente na tabela de pacientes se aprovado

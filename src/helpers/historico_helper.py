@@ -44,4 +44,9 @@ async def registrar_evento_historico(
         categorizacao=categorizacao or None
     )
     db.add(novo_evento)
+    try:
+        from ..providers.implementations.paciente_hybrid_provider import invalidate_paciente_cache
+        invalidate_paciente_cache()
+    except Exception:
+        pass
     return novo_evento
