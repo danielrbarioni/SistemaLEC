@@ -17,6 +17,7 @@ from .models.status_local import StatusLocal
 from .models.refresh_token import RefreshToken
 from .models.user import User
 from .models.profile import Profile
+from .models.diagnostico_lec import DiagnosticoLec
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,9 +61,10 @@ async def lifespan(app: FastAPI):
             pass
 
         # Migração segura e unificação de CIRURGIA GERAL -> GERAL
-        from .helpers.database_migration_helper import migrate_cirurgia_geral_to_geral, migrate_bucomaxilofacial_medico_to_dentista
+        from .helpers.database_migration_helper import migrate_cirurgia_geral_to_geral, migrate_bucomaxilofacial_medico_to_dentista, ensure_diagnosticos_lec_table
         await migrate_cirurgia_geral_to_geral(conn)
         await migrate_bucomaxilofacial_medico_to_dentista(conn)
+        await ensure_diagnosticos_lec_table(conn)
 
     print("App SQLite tables checked/created/migrated.")
 

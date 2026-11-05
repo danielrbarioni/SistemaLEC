@@ -185,3 +185,25 @@ async def migrate_bucomaxilofacial_medico_to_dentista(conn):
         logger.info("Migração segura de BUCOMAXILOFACIAL Médico -> Dentista concluída com sucesso.")
     except Exception as e:
         logger.error(f"Erro na migração de BUCOMAXILOFACIAL Médico -> Dentista: {e}")
+
+async def ensure_diagnosticos_lec_table(conn):
+    """
+    Garante a criação da tabela diagnosticos_lec para armazenar o histórico de
+    diagnósticos de sincronia entre o Comunicação Cirúrgica e o Sistema LEC.
+    """
+    try:
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS diagnosticos_lec (
+                id VARCHAR PRIMARY KEY,
+                data_criacao VARCHAR NOT NULL,
+                usuario VARCHAR NOT NULL,
+                arquivos_json TEXT,
+                resumo_json TEXT NOT NULL,
+                detalhes_json TEXT NOT NULL
+            );
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_diagnosticos_lec_data_criacao ON diagnosticos_lec (data_criacao);"
+        ))
+    except Exception as e:
+        logger.error(f"Erro ao garantir tabela diagnosticos_lec: {e}")

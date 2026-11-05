@@ -5,8 +5,16 @@
       <div class="flex items-center space-x-3">
         <button 
           v-if="podeImportarPlanilha"
+          @click="modalDiagnosticoLecAberto = true"
+          class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm cursor-pointer"
+        >
+          <ArrowsRightLeftIcon class="h-4 w-4" />
+          <span>Diagnóstico Comunicação Cirúrgica x Sistema LEC</span>
+        </button>
+        <button 
+          v-if="podeImportarPlanilha"
           @click="modalImportarAberto = true"
-          class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm"
+          class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm cursor-pointer"
         >
           <DocumentArrowUpIcon class="h-4 w-4" />
           <span>Importar Planilha</span>
@@ -622,6 +630,13 @@
       @close="modalImportarAberto = false"
       @sucesso="onImportacaoSucesso"
     />
+
+    <!-- Modal de Diagnóstico Comunicação Cirúrgica x Sistema LEC -->
+    <DiagnosticoSincroniaLecModal
+      :show="modalDiagnosticoLecAberto"
+      @close="modalDiagnosticoLecAberto = false"
+      @sincronizado="carregarDados"
+    />
   </div>
 </template>
 
@@ -632,6 +647,7 @@ import {
   UserGroupIcon, 
   ClipboardDocumentListIcon, 
   DocumentArrowUpIcon,
+  ArrowsRightLeftIcon,
   ClockIcon,
   ChevronDownIcon,
   ChevronUpIcon
@@ -641,6 +657,7 @@ import Card from '../components/Card.vue';
 import LoadingIndicator from '../components/LoadingIndicator.vue';
 import { usePerfisStore } from '../stores/perfis';
 import ImportarPlanilhaPacientesModal from '../components/ImportarPlanilhaPacientesModal.vue';
+import DiagnosticoSincroniaLecModal from '../components/DiagnosticoSincroniaLecModal.vue';
 import Pagination from '../components/Pagination.vue';
 import { formatarNomeProcedimento, extrairNomeBaseProcedimento, desduplicarProcedimentos } from '../utils/procedimentoHelper';
 import { fetchProcedimentosAghuPorEspecialidade } from '../utils/especialidadeAghuMap';
@@ -654,12 +671,13 @@ const itensPorPagina = ref(50);
 const podeImportarPlanilha = computed(() => {
   const p = perfisStore.perfilAtivo;
   if (!p) return false;
-  // Apenas perfis ADMIN ou GESTÃO LEC podem importar planilhas (nenhuma especialidade pode)
+  // Apenas perfis ADMIN ou GESTÃO LEC podem importar planilhas ou acessar o diagnóstico (nenhuma especialidade pode)
   if (p.tipo === 'ESPECIALIDADE') return false;
   return p.tipo === 'ADMIN' || p.tipo === 'GESTAO_LEC' || p.nome === 'Gestão LEC' || p.nome === 'GESTAO_LEC' || p.id === 'GESTAO_LEC';
 });
 
 const modalImportarAberto = ref(false);
+const modalDiagnosticoLecAberto = ref(false);
 
 function onImportacaoSucesso(resultado: any) {
   toast.success(`Planilha importada com sucesso! ${resultado.solicitacoes_criadas} solicitações criadas.`);
