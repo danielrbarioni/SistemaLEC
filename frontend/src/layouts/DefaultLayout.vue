@@ -55,6 +55,21 @@
             {{ countUsuarioSolicitacoesPendentes }}
           </span>
         </router-link>
+
+        <div v-if="authStore.isAuthenticated" class="pt-3 mt-3 border-t border-white/20">
+          <a
+            href="http://10.34.3.49:8080/lec/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center space-x-2.5 py-2.5 px-3 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full"
+            title="Abrir o Sistema LEC em nova aba"
+          >
+            <div class="bg-white rounded px-1.5 py-0.5 shrink-0 shadow-xs flex items-center justify-center">
+              <img :src="logoSistemaLec" alt="Sistema LEC" class="h-5 w-auto object-contain" />
+            </div>
+            <span class="text-sm font-semibold whitespace-nowrap">Acesso Sistema LEC</span>
+          </a>
+        </div>
       </nav>
     </aside>
 
@@ -121,6 +136,7 @@ import api from '../services/api';
 import { useAuthStore } from '../stores/auth';
 import { usePerfisStore } from '../stores/perfis';
 import HospitalIcon from '../components/HospitalIcon.vue';
+import logoSistemaLec from '../assets/logo-sistema-lec.png';
 
 const sidebarOpen = ref(false);
 const route = useRoute();
