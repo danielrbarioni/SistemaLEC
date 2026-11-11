@@ -251,6 +251,18 @@ async def criar_solicitacao(
                 else:
                     raise e
     else:
+        especialidade = str(solicitacao.get("especialidade", "")).strip()
+        procedimento = str(solicitacao.get("procedimento", "")).strip()
+        if not codigo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Número de prontuário é obrigatório."
+            )
+        if not especialidade or not procedimento:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Por favor, clique em 'Buscar' para carregar a especialidade e o procedimento ativo do paciente antes de enviar a solicitação."
+            )
         if paciente_provider and codigo and codigo != "0":
             try:
                 codigo_int = int(codigo) if codigo.isdigit() else codigo

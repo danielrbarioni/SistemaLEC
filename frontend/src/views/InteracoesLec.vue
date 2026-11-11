@@ -552,7 +552,7 @@
           </Button>
           <Button 
             type="submit" 
-            :disabled="submitting || (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' || (abaAtiva === 'INSERIR' && !pacienteValidadoNoAghu)" 
+            :disabled="submitting || (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' || (abaAtiva === 'INSERIR' && !pacienteValidadoNoAghu) || (abaAtiva !== 'INSERIR' && !formCarregadoDaSede)" 
             :variant="modoEdicaoSolicitacao ? 'warning' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'danger' : 'primary')"
           >
             {{ (perfisStore.perfilAtivo.tipo as string) === 'OBSERVADOR' ? 'Somente Leitura' : (submitting ? 'Salvando...' : (modoEdicaoSolicitacao ? 'Salvar Alterações da Solicitação' : (abaAtiva === 'STANDBY' && standbyVigenteAtual && opcaoStandbyVigente === 'CANCELAR' ? 'Solicitar Cancelamento' : 'Enviar Solicitação'))) }}
@@ -2361,6 +2361,24 @@ const enviarSolicitacao = async () => {
     const nomePac = (form.value.nome_paciente || '').trim();
     if (!pacienteValidadoNoAghu.value || !nomePac) {
       toast.error('Por favor, clique no botão "Buscar" e confirme a localização ou identificação do prontuário antes de enviar a solicitação.');
+      return;
+    }
+  } else {
+    // Validação para Edição, Standby e Exclusão: obriga que o usuário tenha clicado em "Buscar" e carregado os dados do procedimento ativo
+    if (!formCarregadoDaSede.value) {
+      toast.error('Por favor, clique no botão "Buscar" para carregar os dados e o procedimento ativo do paciente antes de enviar a solicitação.');
+      return;
+    }
+    if (procedimentosPaciente.value.length > 1 && procedimentoSelecionadoParaEdicao.value === null) {
+      const acaoTexto = abaAtiva.value === 'EDITAR' ? 'editar' : abaAtiva.value === 'EXCLUIR' ? 'excluir' : 'colocar em standby';
+      toast.error(`Selecione qual procedimento deseja ${acaoTexto}.`);
+      return;
+    }
+    const nomePac = (form.value.nome_paciente || '').trim();
+    const espPac = (form.value.especialidade || '').trim();
+    const procPac = (form.value.procedimento || form.value.procedimento_anterior || '').trim();
+    if (!nomePac || !espPac || !procPac) {
+      toast.error('Dados incompletos: clique no botão "Buscar" para carregar a especialidade e o procedimento ativo do paciente.');
       return;
     }
   }
