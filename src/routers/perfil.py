@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from ..helpers.string_helper import generate_profile_id, remove_accents, normalize_specialty_name
 
 from ..auth.auth import auth_handler
@@ -79,6 +79,17 @@ async def get_perfis(
         )
         perfis.append(epo_profile)
 
+    # Se o perfil BLOCO CIRÚRGICO não estiver no banco, inclui virtualmente para alternância no frontend
+    if not any(p.id == "BLOCO_CIRURGICO" or p.tipo == "BLOCO_CIRURGICO" for p in perfis):
+        bloco_profile = Profile(
+            id="BLOCO_CIRURGICO",
+            nome="BLOCO CIRÚRGICO",
+            tipo="BLOCO_CIRURGICO",
+            cor="lilas",
+            especialidade=None
+        )
+        perfis.append(bloco_profile)
+
     # Se o perfil NENHUM não estiver no banco, inclui virtualmente para alternância de perfil no frontend
     if not any(p.id == "NENHUM" or p.id == "OBSERVADOR" for p in perfis):
         nenhum_profile = Profile(
@@ -127,7 +138,7 @@ async def ativar_perfil(
     res = await db.execute(stmt)
     target_profile = res.scalar_one_or_none()
     
-    if not target_profile and req.perfil_id not in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+    if not target_profile and req.perfil_id not in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA", "BLOCO_CIRURGICO"]:
         raise HTTPException(status_code=404, detail="Perfil não encontrado.")
 
     # Se não for ADMIN, verifica se o usuário tem este perfil associado na tabela usuarios
@@ -163,7 +174,7 @@ async def ativar_perfil(
         groups = ["GLO-SEC-HCPE-SETISD", "Users"]
     elif perfil_tipo == "GESTAO_LEC":
         groups = ["GESTAO_LEC", "Users"]
-    elif perfil_tipo in ["NENHUM", "OBSERVADOR"]:
+    elif perfil_tipo in ["NENHUM", "OBSERVADOR", "BLOCO_CIRURGICO"]:
         groups = ["NENHUM", "Users"]
     else:
         groups = ["ESPECIALIDADE", "Users"]
@@ -329,12 +340,52 @@ async def update_perfil(
                     detail=f"Já existe um perfil cadastrado para a especialidade '{new_spec}'."
                 )
 
+    old_esp = (existing.especialidade or existing.nome or "").strip()
+    old_nome = (existing.nome or "").strip()
+
     # Atualiza campos
     if existing.tipo == "ESPECIALIDADE":
-        existing.especialidade = normalize_specialty_name(perfil_in.especialidade) if perfil_in.especialidade else None
-        existing.nome = normalize_specialty_name(perfil_in.nome) if perfil_in.nome else (existing.especialidade or existing.nome)
+        new_esp = normalize_specialty_name(perfil_in.especialidade) if perfil_in.especialidade else None
+        new_nome = normalize_specialty_name(perfil_in.nome) if perfil_in.nome else (new_esp or existing.nome)
+        existing.especialidade = new_esp
+        existing.nome = new_nome
+
+        if new_esp:
+            await db.execute(
+                text("UPDATE usuarios SET especialidade = :new_esp WHERE perfil_id = :pid"),
+                {"new_esp": new_esp, "pid": perfil_id},
+            )
+            old_variants = {v.upper() for v in (old_esp, old_nome) if v}
+            old_variants.discard(new_esp.upper())
+            for old_val in old_variants:
+                for tbl in ("usuarios", "solicitacoes", "pacientes", "categorizacoes_profissionais"):
+                    try:
+                        await db.execute(
+                            text(f"UPDATE {tbl} SET especialidade = :new_esp WHERE UPPER(TRIM(especialidade)) = :old_val"),
+                            {"new_esp": new_esp, "old_val": old_val},
+                        )
+                    except Exception:
+                        pass
     else:
         existing.nome = perfil_in.nome.strip().upper()
+
+    detalhes_edicao = (
+        f'Perfil "{existing.nome}" editado (anterior: "{old_nome}")'
+        if old_nome and old_nome != existing.nome
+        else f'Perfil "{existing.nome}" editado'
+    )
+    await registrar_evento_historico(
+        db=db,
+        tipo="EDITAR_PERFIL",
+        origem_menu="Usuários",
+        evento_tipo="EXECUCAO",
+        detalhes=detalhes_edicao,
+        status="CONCLUIDO",
+        especialidade=existing.especialidade or "—",
+        procedimento="—",
+        perfil_executor=current_user.get("perfil_tipo") or role,
+        usuario=current_user.get("username", "")
+    )
 
     await db.commit()
     await db.refresh(existing)

@@ -16,7 +16,7 @@
       <!-- Seção Superior: Perfis Disponíveis (Esquerda) e Formulários de Criação (Direita) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Coluna Esquerda: Perfis Disponíveis + Detalhes do Perfil Ativo -->
-        <div :class="[perfisStore.perfilAtivo.tipo === 'NENHUM' || perfisStore.perfilAtivo.tipo === 'OBSERVADOR' || perfisStore.perfilAtivo.tipo === 'EPO_GENERALISTA' ? 'lg:col-span-12' : 'lg:col-span-7', 'space-y-6']">
+        <div :class="[perfisStore.perfilAtivo.tipo === 'NENHUM' || perfisStore.perfilAtivo.tipo === 'OBSERVADOR' || perfisStore.perfilAtivo.tipo === 'EPO_GENERALISTA' || perfisStore.perfilAtivo.tipo === 'BLOCO_CIRURGICO' ? 'lg:col-span-12' : 'lg:col-span-7', 'space-y-6']">
           <!-- Perfis Disponíveis -->
           <Card>
             <template #header>
@@ -95,6 +95,9 @@
               <p v-else-if="perfisStore.perfilAtivo.tipo === 'NENHUM' || perfisStore.perfilAtivo.tipo === 'OBSERVADOR'">
                 <strong>NENHUM (Sem Perfil Atribuído):</strong> Possui acesso exclusivamente ao menu Perfis. Para ter acesso aos demais menus e funcionalidades do sistema, solicite a criação de usuário e vinculação a um perfil de acesso.
               </p>
+              <p v-else-if="perfisStore.perfilAtivo.tipo === 'BLOCO_CIRURGICO'">
+                <strong>BLOCO CIRÚRGICO:</strong> Possui acesso exclusivamente ao menu Usuários, sem ações permitidas no momento.
+              </p>
               <p v-else>
                 <strong>ESPECIALIDADE ({{ perfisStore.perfilAtivo.especialidade }}):</strong> Responsável por criar solicitações (inclusão, edição, exclusão, standby) apenas para a especialidade <strong>{{ perfisStore.perfilAtivo.especialidade }}</strong>. Visualiza no acompanhamento apenas as solicitações desta especialidade. Não pode aprovar/rejeitar registros. Tem permissão para criar usuários unicamente vinculados à sua própria especialidade.
               </p>
@@ -103,7 +106,7 @@
         </div>
 
         <!-- Coluna Direita: Formulários de Criação (5 colunas) -->
-        <div v-if="perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'EPO_GENERALISTA'" class="lg:col-span-5 space-y-6">
+        <div v-if="perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'EPO_GENERALISTA' && perfisStore.perfilAtivo.tipo !== 'BLOCO_CIRURGICO'" class="lg:col-span-5 space-y-6">
           <!-- Formulário: Criar Novo Perfil / Editar Perfil -->
           <Card v-if="podeCriarPerfil">
             <template #header>
@@ -319,7 +322,7 @@
       </div>
 
       <!-- Seção Inferior: Tabela de Usuários Cadastrados Localmente (100% Largura total, sem rolagem horizontal) -->
-      <Card v-if="perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" class="w-full">
+      <Card v-if="perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'BLOCO_CIRURGICO'" class="w-full">
         <template #header>
           <div class="flex justify-between items-center">
             <h2 class="text-lg font-bold text-gray-800">
@@ -837,9 +840,10 @@ const perfisOrdenados = computed(() => {
       if (p.tipo === 'ADMIN') return 1;
       if (p.tipo === 'GESTAO_LEC') return 2;
       if (p.tipo === 'EPO_GENERALISTA' || p.id === 'EPO_GENERALISTA') return 3;
-      if (p.tipo === 'ESPECIALIDADE') return 4;
-      if (p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR') return 5;
-      return 6;
+      if (p.tipo === 'BLOCO_CIRURGICO' || p.id === 'BLOCO_CIRURGICO') return 4;
+      if (p.tipo === 'ESPECIALIDADE') return 5;
+      if (p.tipo === 'NENHUM' || p.tipo === 'OBSERVADOR') return 6;
+      return 7;
     };
     const pesoA = getPeso(a);
     const pesoB = getPeso(b);
@@ -939,9 +943,11 @@ const usuariosFiltrados = computed(() => {
     const getPeso = (p: any) => {
       if (p.tipo === 'ADMIN') return 1;
       if (p.tipo === 'GESTAO_LEC') return 2;
-      if (p.tipo === 'ESPECIALIDADE') return 3;
-      if (p.tipo === 'OBSERVADOR') return 4;
-      return 5;
+      if (p.tipo === 'EPO_GENERALISTA') return 3;
+      if (p.tipo === 'BLOCO_CIRURGICO') return 4;
+      if (p.tipo === 'ESPECIALIDADE') return 5;
+      if (p.tipo === 'OBSERVADOR') return 6;
+      return 7;
     };
 
     const pesoA = getPeso(perfA);
@@ -949,8 +955,8 @@ const usuariosFiltrados = computed(() => {
 
     if (pesoA !== pesoB) return pesoA - pesoB;
 
-    // Se ambos forem ADMIN ou GESTÃO LEC, ordena por nome do usuário
-    if (pesoA === 1 || pesoA === 2) {
+    // Se ambos forem ADMIN, GESTÃO LEC, EPO GENERALISTA ou BLOCO CIRÚRGICO, ordena por nome do usuário
+    if (pesoA <= 4) {
       return (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
     }
 
@@ -1024,7 +1030,7 @@ const podeEditarUsuario = (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
-  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM' || tipoAtivo === 'EPO_GENERALISTA') {
+  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM' || tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'BLOCO_CIRURGICO') {
     return false;
   }
   if (tipoAtivo === 'ADMIN') {
@@ -1043,7 +1049,7 @@ const podeExcluirUsuario = (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
   const espAtivo = perfisStore.perfilAtivo.especialidade;
 
-  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM' || tipoAtivo === 'EPO_GENERALISTA') {
+  if (tipoAtivo === 'OBSERVADOR' || tipoAtivo === 'NENHUM' || tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'BLOCO_CIRURGICO') {
     return false;
   }
   if (tipoAtivo === 'ADMIN') {
@@ -1217,7 +1223,7 @@ const salvarUsuario = async () => {
 const excluirUsuario = async (user: any) => {
   const tipoAtivo = perfisStore.perfilAtivo.tipo;
 
-  if (tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'NENHUM' || tipoAtivo === 'OBSERVADOR') {
+  if (tipoAtivo === 'EPO_GENERALISTA' || tipoAtivo === 'BLOCO_CIRURGICO' || tipoAtivo === 'NENHUM' || tipoAtivo === 'OBSERVADOR') {
     return;
   }
 
@@ -1304,6 +1310,7 @@ const getCorClass = (tipo: string) => {
     case 'ADMIN': return 'bg-gray-400 ring-gray-400';
     case 'GESTAO_LEC': return 'bg-blue-500 ring-blue-500';
     case 'EPO_GENERALISTA': return 'bg-orange-500 ring-orange-500';
+    case 'BLOCO_CIRURGICO': return 'bg-purple-400 ring-purple-400';
     case 'ESPECIALIDADE': return 'bg-green-500 ring-green-500';
     case 'NENHUM':
     case 'OBSERVADOR': return 'bg-white ring-gray-300 border border-gray-300';
@@ -1316,6 +1323,7 @@ const getTipoLabel = (tipo: string) => {
     case 'ADMIN': return 'ADMIN';
     case 'GESTAO_LEC': return 'Gestão da LEC';
     case 'EPO_GENERALISTA': return 'EPO Generalista';
+    case 'BLOCO_CIRURGICO': return 'Bloco Cirúrgico';
     case 'ESPECIALIDADE': return 'Especialidade Cirúrgica';
     case 'NENHUM':
     case 'OBSERVADOR': return 'Nenhum';

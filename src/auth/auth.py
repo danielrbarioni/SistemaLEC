@@ -235,7 +235,9 @@ class AuthHandler:
                             groups = ["GLO-SEC-HCPE-SETISD", "Users"]
                         elif active_prof["tipo"] == "GESTAO_LEC":
                             groups = ["GESTAO_LEC", "Users"]
-                        elif active_prof["tipo"] in ["NENHUM", "OBSERVADOR"]:
+                        elif active_prof["tipo"] == "EPO_GENERALISTA":
+                            groups = ["EPO_GENERALISTA", "Users"]
+                        elif active_prof["tipo"] in ["NENHUM", "OBSERVADOR", "BLOCO_CIRURGICO"]:
                             groups = ["NENHUM", "Users"]
                         else:
                             groups = ["ESPECIALIDADE", "Users"]

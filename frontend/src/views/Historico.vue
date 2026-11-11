@@ -82,10 +82,10 @@
                 <option value="EDITAR">Edição de Procedimento</option>
                 <option value="STANDBY">Standby de Procedimento</option>
                 <option value="EXCLUIR">Exclusão de Procedimento</option>
-                <option value="SOLICITAR_APA">Solicitação APA</option>
               </optgroup>
               <optgroup label="Menu Usuários">
                 <option value="CRIAR_PERFIL">Criação de Perfil</option>
+                <option value="EDITAR_PERFIL">Edição de Perfil</option>
                 <option value="EXCLUIR_PERFIL">Exclusão de Perfil</option>
                 <option value="CRIAR_USUARIO">Criação de Usuário</option>
                 <option value="EDITAR_USUARIO">Edição de Usuário</option>
@@ -1358,6 +1358,7 @@ const formatarTipo = (tipo: string) => {
     
     // Ações do menu Perfis
     case 'CRIAR_PERFIL': return 'Criação de Perfil';
+    case 'EDITAR_PERFIL': return 'Edição de Perfil';
     case 'EXCLUIR_PERFIL': return 'Exclusão de Perfil';
     case 'CRIAR_USUARIO': return 'Criação de Usuário';
     case 'EDITAR_USUARIO': return 'Edição de Usuário';
@@ -1386,6 +1387,7 @@ const getTipoBadgeClass = (tipo: string) => {
     
     // Perfis (Lilás)
     case 'CRIAR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300';
+    case 'EDITAR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-blue-800 border border-purple-300';
     case 'EXCLUIR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-red-700 border border-purple-300';
     
     // Usuários (Laranja Claro)
@@ -1797,7 +1799,7 @@ const solicitacoesFiltradas = computed(() => {
 
       // Ambos sem data: Ordem: Categorizações (topo do bloco sem data) -> Usuários -> Perfis (fundo absoluto)
       const getPriority = (item: any) => {
-        if (item.tipo === 'CRIAR_PERFIL') return 3;
+        if (item.tipo === 'CRIAR_PERFIL' || item.tipo === 'EDITAR_PERFIL') return 3;
         if (item.tipo === 'CRIAR_USUARIO' || item.tipo === 'EDITAR_USUARIO') return 2;
         if (item.tipo === 'CRIAR_CATEGORIZACAO' || item.tipo === 'EDITAR_CATEGORIZACAO') return 1;
         return 0;

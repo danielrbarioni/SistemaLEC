@@ -4,8 +4,8 @@
       <h1 class="text-xl font-bold text-gray-800">Interações com o Sistema LEC da Rede HU Brasil</h1>
       <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Assistencial → Gestão da LEC</span>
     </div>
-    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR e NENHUM) -->
-    <Card v-if="perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM'" class="overflow-hidden">
+    <!-- Formulário e Abas de Solicitação Unidos (Oculto para perfil OBSERVADOR, NENHUM e BLOCO_CIRURGICO) -->
+    <Card v-if="perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'BLOCO_CIRURGICO'" class="overflow-hidden">
       <template #header>
         <div class="flex justify-between items-center w-full">
           <div class="flex items-center space-x-3">

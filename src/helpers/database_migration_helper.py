@@ -205,5 +205,11 @@ async def ensure_diagnosticos_lec_table(conn):
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_diagnosticos_lec_data_criacao ON diagnosticos_lec (data_criacao);"
         ))
+        await conn.execute(text(
+            "INSERT OR IGNORE INTO perfis (id, nome, tipo, cor, especialidade) VALUES ('EPO_GENERALISTA', 'EPO GENERALISTA', 'EPO_GENERALISTA', 'azul_claro', NULL);"
+        ))
+        await conn.execute(text(
+            "INSERT OR IGNORE INTO perfis (id, nome, tipo, cor, especialidade) VALUES ('BLOCO_CIRURGICO', 'BLOCO CIRÚRGICO', 'BLOCO_CIRURGICO', 'lilas', NULL);"
+        ))
     except Exception as e:
         logger.error(f"Erro ao garantir tabela diagnosticos_lec: {e}")

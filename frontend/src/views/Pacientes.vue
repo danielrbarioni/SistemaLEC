@@ -748,19 +748,13 @@ const especialidades = computed(() => {
     if (normAtivo) listaSet.add(normAtivo);
   }
 
-  // 3. Pacientes base cadastrados
-  for (const p of basePacientes.value) {
-    if (p.especialidade) {
-      const norm = normalizeEsp(p.especialidade);
-      if (norm) listaSet.add(norm);
-    }
-  }
-
-  // 4. Solicitações cadastradas
-  for (const s of solicitacoes.value) {
-    if (s.especialidade && s.especialidade !== '—' && s.especialidade !== 'Não informado') {
-      const norm = normalizeEsp(s.especialidade);
-      if (norm) listaSet.add(norm);
+  // 3. Especialidades presentes nos procedimentos ativos dos pacientes
+  for (const pac of todosPacientesMap.value.values()) {
+    for (const proc of pac.procedimentos || []) {
+      if (proc.especialidade && proc.especialidade !== '—' && proc.especialidade !== 'Não informado') {
+        const norm = normalizeEsp(proc.especialidade);
+        if (norm) listaSet.add(norm);
+      }
     }
   }
 
@@ -891,6 +885,11 @@ watch(filtroApenasMultiplasEspecialidades, (val) => {
   if (val) filtroApenasUmaEspecialidade.value = false;
 });
 
+const isGenericPlaceholderProc = (procName?: string) => {
+  if (!procName) return true;
+  return /^PROCEDIMENTO\s+\d+(\s*\(ID\s*\d+\))?$/i.test(procName.trim());
+};
+
 const procedimentosOpcoes = computed(() => {
   const esp = espSelecionada.value;
   if (!esp) return [];
@@ -905,18 +904,15 @@ const procedimentosOpcoes = computed(() => {
 
   const extraProcs: string[] = [];
 
-  for (const p of basePacientes.value) {
-    if (isSameSpecialty(p.especialidade, esp) && p.procedimento) {
-      extraProcs.push(p.procedimento);
-    }
-  }
-  for (const s of solicitacoes.value) {
-    if (isSameSpecialty(s.especialidade, esp) && s.procedimento) {
-      extraProcs.push(s.procedimento);
+  for (const pac of todosPacientesMap.value.values()) {
+    for (const proc of pac.procedimentos || []) {
+      if (isSameSpecialty(proc.especialidade, esp) && proc.procedimento && !isGenericPlaceholderProc(proc.procedimento)) {
+        extraProcs.push(proc.procedimento);
+      }
     }
   }
 
-  const raw = [...listFromAghu, ...extraProcs];
+  const raw = [...listFromAghu.filter(p => !isGenericPlaceholderProc(p)), ...extraProcs];
   return desduplicarProcedimentos(raw);
 });
 
@@ -940,10 +936,21 @@ const carregarDados = async () => {
     ]);
     basePacientes.value = pacRes.data;
     solicitacoes.value = (solRes.data || []).filter((s: any) => {
-      const codStr = String(s.codigo_paciente || s.codigo || s.prontuario || '').trim();
+      const rawCod = s.codigo_paciente ?? s.codigo ?? s.prontuario ?? '';
+      const codStr = String(rawCod).trim();
       const procStr = String(s.procedimento || '').toLowerCase().trim();
       const origStr = String(s.origem_menu || '').toLowerCase().trim();
-      if (codStr === '0' || procStr.startsWith('perfil:') || origStr === 'perfis') {
+      const tipoStr = String(s.tipo || '').toUpperCase().trim();
+      if (
+        codStr === '0' ||
+        codStr === '' ||
+        procStr.startsWith('perfil:') ||
+        origStr === 'perfis' ||
+        origStr === 'usuários' ||
+        origStr === 'usuarios' ||
+        tipoStr.includes('PERFIL') ||
+        tipoStr.includes('USUARIO')
+      ) {
         return false;
       }
       return true;

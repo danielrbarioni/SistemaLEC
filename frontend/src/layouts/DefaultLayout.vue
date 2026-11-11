@@ -24,7 +24,7 @@
       </div>
 
       <nav class="space-y-1">
-        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
+        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'BLOCO_CIRURGICO'" to="/interacoes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white w-full">
           <ComputerDesktopIcon class="h-6 w-6" />
           <span>Solicitações LEC</span>
           <span v-if="mostrarBadgeSistemaLec" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -38,12 +38,12 @@
           <ClockIcon class="h-4 w-4 text-amber-400 animate-pulse ml-auto" title="Aguardando liberação / Em desenvolvimento" />
         </router-link>
 
-        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" to="/pacientes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'BLOCO_CIRURGICO'" to="/pacientes" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
           <UsersIcon class="h-6 w-6" />
           <span>Pacientes</span>
         </router-link>
 
-        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR'" to="/historico" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
+        <router-link v-if="authStore.isAuthenticated && perfisStore.perfilAtivo.tipo !== 'NENHUM' && perfisStore.perfilAtivo.tipo !== 'OBSERVADOR' && perfisStore.perfilAtivo.tipo !== 'BLOCO_CIRURGICO'" to="/historico" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-paper-active-link hover:text-white">
           <ClockIcon class="h-6 w-6" />
           <span>Histórico</span>
         </router-link>

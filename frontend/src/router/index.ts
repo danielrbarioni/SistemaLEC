@@ -70,11 +70,13 @@ router.beforeEach((to, _from, next: NavigationGuardNext) => {
     const perfisStore = usePerfisStore();
     const perfilTipo = perfisStore.perfilAtivo?.tipo;
 
-    if (perfilTipo === 'NENHUM' || perfilTipo === 'OBSERVADOR') {
+    if (perfilTipo === 'NENHUM' || perfilTipo === 'OBSERVADOR' || perfilTipo === 'BLOCO_CIRURGICO') {
       if (to.path !== '/perfis' && to.name !== 'Login' && to.name !== 'Usuários' && to.name !== 'Perfis') {
         try {
-          const toast = useToast();
-          toast.error('Solicite criação de usuário e associação a um perfil, no menu Usuários');
+          if (perfilTipo !== 'BLOCO_CIRURGICO') {
+            const toast = useToast();
+            toast.error('Solicite criação de usuário e associação a um perfil, no menu Usuários');
+          }
         } catch {
           // Fallback silencioso ou alert se toast falhar
         }

@@ -106,7 +106,7 @@ async def create_usuario(
             detail="Perfil especificado não existe."
         )
 
-    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA", "BLOCO_CIRURGICO"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuários com este perfil não possuem permissão para criar usuários."
@@ -206,7 +206,7 @@ async def update_usuario(
     creator_role = get_current_user_role(current_user)
     creator_specialty = current_user.get("especialidade")
 
-    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA", "BLOCO_CIRURGICO"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Você não tem permissão para editar usuários."
@@ -369,7 +369,7 @@ async def delete_usuario(
     creator_role = get_current_user_role(current_user)
     creator_specialty = current_user.get("especialidade")
 
-    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA", "BLOCO_CIRURGICO"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Você não tem permissão para excluir usuários."
@@ -487,7 +487,7 @@ async def create_solicitacao(
             detail="Perfil especificado não existe."
         )
 
-    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA"]:
+    if creator_role in ["NENHUM", "OBSERVADOR", "EPO_GENERALISTA", "BLOCO_CIRURGICO"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuários com este perfil não possuem permissão para solicitar ações de usuários."
