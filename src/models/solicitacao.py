@@ -24,3 +24,5 @@ class Solicitacao(Base):
     evento_tipo = Column(String, nullable=True, default='SOLICITACAO')
     categorizacao = Column(String, nullable=True)
     lateralidade = Column(String, nullable=True, default="Indefinida")
+    especialidade_anterior = Column(String, nullable=True)
+    procedimento_alvo_id = Column(String, nullable=True)

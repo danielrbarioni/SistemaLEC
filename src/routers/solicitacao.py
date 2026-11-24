@@ -42,6 +42,8 @@ class SolicitacaoCreate(BaseModel):
     perfil_executor: str = ""
     usuario: str = ""
     procedimento_anterior: str = ""
+    especialidade_anterior: str = ""
+    procedimento_alvo_id: str = ""
     origem_menu: str = "Solicitações LEC"
     categorizacao: str = ""
     lateralidade: str = "Indefinida"
@@ -60,6 +62,8 @@ class SolicitacaoUpdate(BaseModel):
     perfil_executor: str = ""
     usuario: str = ""
     procedimento_anterior: str = ""
+    especialidade_anterior: str = ""
+    procedimento_alvo_id: str = ""
     origem_menu: str = "Solicitações LEC"
     categorizacao: str = ""
     lateralidade: str = "Indefinida"
@@ -93,7 +97,7 @@ async def criar_solicitacao(
     data["evento_tipo"] = "SOLICITACAO"
     if not data.get("usuario") and user_info:
         data["usuario"] = user_info.get("username") or user_info.get("sub") or user_info.get("name", "")
-    res = await solicitacao_controller.criar_solicitacao(data, provider, paciente_provider)
+    res = await solicitacao_controller.criar_solicitacao(data, provider, paciente_provider, user_info=user_info)
     invalidate_paciente_cache()
     return res
 
@@ -234,7 +238,8 @@ async def editar_solicitacao(
         provider=provider,
         paciente_provider=paciente_provider,
         perfil_executor=perfil_executor,
-        usuario_executor=usuario_executor
+        usuario_executor=usuario_executor,
+        user_info=user_info
     )
     invalidate_paciente_cache()
     return res

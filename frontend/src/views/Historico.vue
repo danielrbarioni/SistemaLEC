@@ -216,7 +216,12 @@
 
               <!-- 4. Especialidade/Procedimento -->
               <td class="px-2.5 py-2.5 text-[11px] text-gray-700 max-w-[210px] break-words leading-tight">
-                <div class="font-bold text-gray-800">{{ solic.especialidade || '—' }}</div>
+                <div v-if="solic.especialidade_anterior && !isSameSpecialty(solic.especialidade_anterior, solic.especialidade)" class="font-bold text-gray-800">
+                  <span class="text-gray-400 line-through mr-1 text-[10px]">{{ solic.especialidade_anterior }}</span>
+                  <span class="text-blue-700 mr-1 text-[10px]">➔</span>
+                  <span class="text-blue-800">{{ solic.especialidade }}</span>
+                </div>
+                <div v-else class="font-bold text-gray-800">{{ solic.especialidade || '—' }}</div>
                 <div v-if="solic.procedimento && solic.procedimento !== '—'" class="text-gray-600 mt-0.5">
                   <span v-if="solic.procedimento_anterior && solic.procedimento_anterior !== solic.procedimento" class="text-gray-400 line-through mr-1 text-[10px]">
                     {{ solic.procedimento_anterior }}
@@ -434,7 +439,13 @@
             >
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Especialidade:</span>
-                <span class="font-semibold text-gray-800">{{ modalDetalhes.solic.especialidade || '—' }}</span>
+                <div v-if="modalDetalhes.solic.especialidade_anterior && !isSameSpecialty(modalDetalhes.solic.especialidade_anterior, modalDetalhes.solic.especialidade)" class="space-y-0.5">
+                  <div class="text-[11px] text-gray-400 line-through">{{ modalDetalhes.solic.especialidade_anterior }}</div>
+                  <div class="font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block text-xs">
+                    ➔ {{ modalDetalhes.solic.especialidade }}
+                  </div>
+                </div>
+                <span v-else class="font-semibold text-gray-800">{{ modalDetalhes.solic.especialidade || '—' }}</span>
               </div>
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Procedimento:</span>
@@ -1544,6 +1555,9 @@ const obterEstadoAnterior = (solic: any) => {
   if (solic.procedimento_anterior) {
     estado.procedimento = solic.procedimento_anterior;
   }
+  if (solic.especialidade_anterior) {
+    estado.especialidade = solic.especialidade_anterior;
+  }
   
   return estado;
 };
@@ -1719,10 +1733,10 @@ const solicitacoesFiltradas = computed(() => {
       // 1. Especialidade
       if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)) {
         const espAtiva = perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome;
-        if (!(s.especialidade && isSameSpecialty(s.especialidade, espAtiva))) {
+        if (!((s.especialidade && isSameSpecialty(s.especialidade, espAtiva)) || (s.especialidade_anterior && isSameSpecialty(s.especialidade_anterior, espAtiva)))) {
           return false;
         }
-      } else if (filtroEspecialidade.value && !(s.especialidade && isSameSpecialty(s.especialidade, filtroEspecialidade.value))) {
+      } else if (filtroEspecialidade.value && !((s.especialidade && isSameSpecialty(s.especialidade, filtroEspecialidade.value)) || (s.especialidade_anterior && isSameSpecialty(s.especialidade_anterior, filtroEspecialidade.value)))) {
         return false;
       }
 

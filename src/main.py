@@ -59,6 +59,14 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("UPDATE solicitacoes SET lateralidade = 'Indefinida' WHERE lateralidade IS NULL;"))
         except Exception:
             pass
+        try:
+            await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN especialidade_anterior TEXT;"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE solicitacoes ADD COLUMN procedimento_alvo_id TEXT;"))
+        except Exception:
+            pass
 
         # Migração segura e unificação de CIRURGIA GERAL -> GERAL
         from .helpers.database_migration_helper import migrate_cirurgia_geral_to_geral, migrate_bucomaxilofacial_medico_to_dentista, ensure_diagnosticos_lec_table

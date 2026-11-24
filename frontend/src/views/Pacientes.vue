@@ -1222,7 +1222,12 @@ const todosPacientesMap = computed(() => {
       });
     } else if (s.tipo === 'EDITAR') {
       const targetProcName = s.procedimento_anterior || s.procedimento;
-      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === targetProcName));
+      const targetEspName = s.especialidade_anterior || s.especialidade;
+      const sAlvoId = s.procedimento_alvo_id ? String(s.procedimento_alvo_id).trim() : '';
+      let proc = sAlvoId ? pac.procedimentos.find((p: any) => String(p.id) === sAlvoId) : null;
+      if (!proc) {
+        proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, targetEspName) && p.procedimento === targetProcName));
+      }
       if (proc) {
         proc.procedimento = s.procedimento;
         proc.especialidade = normalizeEsp(s.especialidade) || proc.especialidade;
@@ -1237,15 +1242,33 @@ const todosPacientesMap = computed(() => {
         }
       }
     } else if (s.tipo === 'EXCLUIR') {
-      pac.procedimentos = pac.procedimentos.filter((p: any) => !( (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === s.procedimento) ));
+      const targetEspName = s.especialidade_anterior || s.especialidade;
+      const sAlvoId = s.procedimento_alvo_id ? String(s.procedimento_alvo_id).trim() : '';
+      let idx = sAlvoId ? pac.procedimentos.findIndex((p: any) => String(p.id) === sAlvoId) : -1;
+      if (idx === -1) {
+        idx = pac.procedimentos.findIndex((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, targetEspName) && p.procedimento === s.procedimento));
+      }
+      if (idx !== -1) {
+        pac.procedimentos.splice(idx, 1);
+      }
     } else if (s.tipo === 'STANDBY') {
-      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === s.procedimento));
+      const targetEspName = s.especialidade_anterior || s.especialidade;
+      const sAlvoId = s.procedimento_alvo_id ? String(s.procedimento_alvo_id).trim() : '';
+      let proc = sAlvoId ? pac.procedimentos.find((p: any) => String(p.id) === sAlvoId) : null;
+      if (!proc) {
+        proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, targetEspName) && p.procedimento === s.procedimento));
+      }
       if (proc) {
         proc.status = 'STANDBY';
         proc.tempo_standby = calcularTempoStandbyRestante(s.tempo_standby || null, s.data_acao || s.data_criacao);
       }
     } else if (s.tipo === 'CANCELAR_STANDBY') {
-      const proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, s.especialidade) && p.procedimento === s.procedimento));
+      const targetEspName = s.especialidade_anterior || s.especialidade;
+      const sAlvoId = s.procedimento_alvo_id ? String(s.procedimento_alvo_id).trim() : '';
+      let proc = sAlvoId ? pac.procedimentos.find((p: any) => String(p.id) === sAlvoId) : null;
+      if (!proc) {
+        proc = pac.procedimentos.find((p: any) => (s.id && p.id === s.id) || (isSameSpecialty(p.especialidade, targetEspName) && p.procedimento === s.procedimento));
+      }
       if (proc) {
         proc.status = 'ATIVO';
         proc.tempo_standby = null;
@@ -1512,6 +1535,9 @@ function obterMudancasEdicao(
 
   if (s.procedimento_anterior) {
     estadoAnt.procedimento = s.procedimento_anterior;
+  }
+  if (s.especialidade_anterior) {
+    estadoAnt.especialidade = s.especialidade_anterior;
   }
 
   // Procedimento

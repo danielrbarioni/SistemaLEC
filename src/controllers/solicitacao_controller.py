@@ -1,4 +1,6 @@
 from typing import List, Dict, Any, Optional, Set
+import os
+import sqlite3
 from ..providers.interfaces.solicitacao_provider_interface import SolicitacaoProviderInterface
 from ..providers.interfaces.paciente_provider_interface import PacienteProviderInterface
 from ..helpers.string_helper import normalizar_nome_base_procedimento, normalize_specialty_name
@@ -9,6 +11,84 @@ from fastapi import HTTPException, status
 def _is_evento_log(s: Dict[str, Any]) -> bool:
     evento = str(s.get("evento_tipo") or "SOLICITACAO").strip().upper()
     return evento in ("RESPOSTA", "ALTERACAO", "EDICAO", "CANCELAMENTO") or bool(s.get("is_resposta"))
+
+
+def _validar_permissao_edicao_especialidade(
+    especialidade_anterior: str,
+    especialidade_nova: str,
+    user_info: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    Valida se o usuário possui permissão para alterar a especialidade de um procedimento
+    na solicitação de edição:
+    - ADMIN e GESTAO_LEC podem alterar para qualquer especialidade.
+    - Usuários de ESPECIALIDADE devem possuir perfil tanto na especialidade atual do procedimento
+      (especialidade_anterior) quanto na especialidade de destino (especialidade_nova).
+    """
+    esp_ant_norm = normalize_specialty_name(str(especialidade_anterior or ""))
+    esp_nova_norm = normalize_specialty_name(str(especialidade_nova or ""))
+    if not esp_ant_norm or not esp_nova_norm or esp_ant_norm == esp_nova_norm:
+        return
+
+    if not user_info:
+        return
+
+    from ..routers.perfil import get_current_user_role
+    role = get_current_user_role(user_info)
+    groups = user_info.get("groups") or []
+    username = str(user_info.get("username") or user_info.get("sub") or "").strip()
+
+    if (
+        role in ("ADMIN", "GESTAO_LEC")
+        or "GLO-SEC-HCPE-SETISD" in groups
+        or "GESTAO_LEC" in groups
+        or username.lower() == "admin"
+    ):
+        return
+
+    especialidades_usuario: Set[str] = set()
+    for ap in (user_info.get("available_profiles") or []):
+        if isinstance(ap, dict):
+            if ap.get("tipo") in ("ADMIN", "GESTAO_LEC"):
+                return
+            esp_ap = normalize_specialty_name(str(ap.get("especialidade") or ap.get("perfil_id") or ap.get("perfil_nome") or ""))
+            if esp_ap:
+                especialidades_usuario.add(esp_ap)
+
+    if user_info.get("especialidade"):
+        especialidades_usuario.add(normalize_specialty_name(str(user_info.get("especialidade"))))
+
+    if username:
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            root_dir = os.path.dirname(os.path.dirname(current_dir))
+            db_path = os.path.join(root_dir, "data", "app.db")
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT perfil_id, especialidade FROM usuarios WHERE LOWER(username) = LOWER(?)",
+                    (username,)
+                )
+                for row in cursor.fetchall():
+                    p_id = str(row[0] or "").strip().upper()
+                    p_esp = str(row[1] or "").strip()
+                    if p_id in ("ADMIN", "GESTAO_LEC"):
+                        conn.close()
+                        return
+                    for candidate in (p_esp, p_id):
+                        norm_c = normalize_specialty_name(candidate)
+                        if norm_c:
+                            especialidades_usuario.add(norm_c)
+                conn.close()
+        except Exception:
+            pass
+
+    if esp_ant_norm not in especialidades_usuario or esp_nova_norm not in especialidades_usuario:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Para alterar a especialidade do procedimento de '{especialidade_anterior}' para '{especialidade_nova}', o usuário deve possuir perfil cadastrado em ambas as especialidades."
+        )
 
 
 def _obter_procedimentos_ativos_normalizados(
@@ -22,12 +102,6 @@ def _obter_procedimentos_ativos_normalizados(
     """
     ativos: List[Dict[str, str]] = []
 
-    if pac_data and pac_data.get("procedimento"):
-        p_norm = normalizar_nome_base_procedimento(pac_data.get("procedimento"))
-        e_norm = normalize_specialty_name(str(pac_data.get("especialidade") or ""))
-        if p_norm:
-            ativos.append({"esp": e_norm, "proc": p_norm})
-
     approved_solics = sorted(
         [
             s for s in solics_paciente
@@ -37,8 +111,11 @@ def _obter_procedimentos_ativos_normalizados(
     )
 
     for s in approved_solics:
+        s_id = str(s.get("id") or "").strip()
+        s_alvo_id = str(s.get("procedimento_alvo_id") or "").strip()
         s_tipo = str(s.get("tipo") or "").upper()
         s_esp = normalize_specialty_name(str(s.get("especialidade") or ""))
+        s_esp_ant = normalize_specialty_name(str(s.get("especialidade_anterior") or s.get("especialidade") or ""))
         s_proc = normalizar_nome_base_procedimento(s.get("procedimento"))
         s_proc_ant = normalizar_nome_base_procedimento(s.get("procedimento_anterior") or s.get("procedimento"))
 
@@ -46,26 +123,65 @@ def _obter_procedimentos_ativos_normalizados(
             continue
 
         if s_tipo == "INSERIR":
-            if not any(item["proc"] == s_proc and item["esp"] == s_esp for item in ativos):
-                ativos.append({"esp": s_esp, "proc": s_proc})
+            ativos.append({"id": s_id, "esp": s_esp, "proc": s_proc})
         elif s_tipo in ("EDITAR", "EDICAO"):
             replaced = False
-            for item in ativos:
-                if item["proc"] == s_proc_ant and (not s_esp or not item["esp"] or item["esp"] == s_esp):
-                    item["proc"] = s_proc
-                    if s_esp:
-                        item["esp"] = s_esp
-                    replaced = True
-                    break
+            if s_alvo_id:
+                for item in ativos:
+                    if item.get("id") == s_alvo_id:
+                        item["proc"] = s_proc
+                        if s_esp:
+                            item["esp"] = s_esp
+                        replaced = True
+                        break
             if not replaced:
-                ativos.append({"esp": s_esp, "proc": s_proc})
+                for item in ativos:
+                    if item["proc"] == s_proc_ant and (not s_esp_ant or not item["esp"] or item["esp"] == s_esp_ant):
+                        item["proc"] = s_proc
+                        if s_esp:
+                            item["esp"] = s_esp
+                        replaced = True
+                        break
+            if not replaced:
+                ativos.append({"id": s_id, "esp": s_esp, "proc": s_proc})
         elif s_tipo == "EXCLUIR":
-            for idx, item in enumerate(ativos):
-                if item["proc"] == s_proc and (not s_esp or not item["esp"] or item["esp"] == s_esp):
-                    ativos.pop(idx)
-                    break
+            removed = False
+            if s_alvo_id:
+                for idx, item in enumerate(ativos):
+                    if item.get("id") == s_alvo_id:
+                        ativos.pop(idx)
+                        removed = True
+                        break
+            if not removed:
+                for idx, item in enumerate(ativos):
+                    if item["proc"] == s_proc and (not s_esp_ant or not item["esp"] or item["esp"] == s_esp_ant):
+                        ativos.pop(idx)
+                        break
+
+    if not ativos and not approved_solics and pac_data and pac_data.get("procedimento"):
+        p_norm = normalizar_nome_base_procedimento(pac_data.get("procedimento"))
+        e_norm = normalize_specialty_name(str(pac_data.get("especialidade") or ""))
+        if p_norm:
+            ativos.append({"id": "", "esp": e_norm, "proc": p_norm})
 
     return {item["proc"] for item in ativos if item.get("proc")}
+
+
+def _mesmo_procedimento_alvo(
+    s: Dict[str, Any],
+    procedimento_alvo_id: str,
+    proc_norm: str,
+    proc_ant_norm: str = ""
+) -> bool:
+    s_alvo = str(s.get("procedimento_alvo_id") or "").strip()
+    alvo_atual = str(procedimento_alvo_id or "").strip()
+    if s_alvo and alvo_atual:
+        return s_alvo == alvo_atual
+    s_proc = normalizar_nome_base_procedimento(s.get("procedimento"))
+    s_proc_ant = normalizar_nome_base_procedimento(s.get("procedimento_anterior") or s.get("procedimento"))
+    if proc_ant_norm:
+        return s_proc_ant in (proc_ant_norm, proc_norm) or s_proc in (proc_ant_norm, proc_norm)
+    return s_proc == proc_norm
 
 
 def _validar_duplicidade_paciente_procedimento(
@@ -75,7 +191,8 @@ def _validar_duplicidade_paciente_procedimento(
     procedimento_anterior: str,
     solics: List[Dict[str, Any]],
     pac_data: Optional[Dict[str, Any]] = None,
-    ignore_solic_id: Optional[str] = None
+    ignore_solic_id: Optional[str] = None,
+    procedimento_alvo_id: str = ""
 ) -> None:
     """
     Valida e bloqueia (com HTTPException 400) solicitações duplicadas para a mesma dupla
@@ -124,10 +241,7 @@ def _validar_duplicidade_paciente_procedimento(
         proc_exibicao = procedimento_anterior or procedimento
         pendente_editar = any(
             str(s.get("tipo") or "").upper() in ("EDITAR", "EDICAO")
-            and (
-                normalizar_nome_base_procedimento(s.get("procedimento_anterior") or s.get("procedimento")) in (proc_ant_norm, proc_norm)
-                or normalizar_nome_base_procedimento(s.get("procedimento")) in (proc_ant_norm, proc_norm)
-            )
+            and _mesmo_procedimento_alvo(s, procedimento_alvo_id, proc_norm, proc_ant_norm)
             for s in pendentes_reais
         )
         if pendente_editar:
@@ -157,7 +271,7 @@ def _validar_duplicidade_paciente_procedimento(
     elif tipo_upper in ("STANDBY", "CANCELAR_STANDBY"):
         pendente_standby = any(
             str(s.get("tipo") or "").upper() in ("STANDBY", "CANCELAR_STANDBY")
-            and normalizar_nome_base_procedimento(s.get("procedimento")) == proc_norm
+            and _mesmo_procedimento_alvo(s, procedimento_alvo_id, proc_norm)
             for s in pendentes_reais
         )
         if pendente_standby:
@@ -169,7 +283,7 @@ def _validar_duplicidade_paciente_procedimento(
     elif tipo_upper == "EXCLUIR":
         pendente_excluir = any(
             str(s.get("tipo") or "").upper() == "EXCLUIR"
-            and normalizar_nome_base_procedimento(s.get("procedimento")) == proc_norm
+            and _mesmo_procedimento_alvo(s, procedimento_alvo_id, proc_norm)
             for s in pendentes_reais
         )
         if pendente_excluir:
@@ -182,7 +296,8 @@ def _validar_duplicidade_paciente_procedimento(
 async def criar_solicitacao(
     solicitacao: Dict[str, Any],
     provider: SolicitacaoProviderInterface,
-    paciente_provider: Optional[PacienteProviderInterface] = None
+    paciente_provider: Optional[PacienteProviderInterface] = None,
+    user_info: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     tipo = solicitacao.get("tipo", "INSERIR")
     
@@ -272,6 +387,13 @@ async def criar_solicitacao(
             except Exception:
                 pass
 
+    if tipo in ("EDITAR", "EDICAO"):
+        _validar_permissao_edicao_especialidade(
+            especialidade_anterior=str(solicitacao.get("especialidade_anterior") or solicitacao.get("especialidade") or "").strip(),
+            especialidade_nova=str(solicitacao.get("especialidade") or "").strip(),
+            user_info=user_info
+        )
+
     solics = await provider.listar_solicitacoes()
     _validar_duplicidade_paciente_procedimento(
         tipo=tipo,
@@ -279,7 +401,8 @@ async def criar_solicitacao(
         procedimento=str(solicitacao.get("procedimento", "")).strip(),
         procedimento_anterior=str(solicitacao.get("procedimento_anterior", "")).strip(),
         solics=solics,
-        pac_data=pac_data
+        pac_data=pac_data,
+        procedimento_alvo_id=str(solicitacao.get("procedimento_alvo_id", "")).strip()
     )
 
     return await provider.criar_solicitacao(solicitacao)
@@ -314,7 +437,8 @@ async def editar_solicitacao(
     provider: SolicitacaoProviderInterface,
     paciente_provider: Optional[PacienteProviderInterface] = None,
     perfil_executor: str = "",
-    usuario_executor: str = ""
+    usuario_executor: str = "",
+    user_info: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     # 1. Busca a solicitação para validar existência e status
     solics = await provider.listar_solicitacoes()
@@ -368,6 +492,16 @@ async def editar_solicitacao(
     tipo_solic = str(solic_original.get("tipo") or "INSERIR")
     procedimento_final = str(dados_atualizados.get("procedimento", solic_original.get("procedimento", ""))).strip()
     procedimento_ant_final = str(dados_atualizados.get("procedimento_anterior", solic_original.get("procedimento_anterior", ""))).strip()
+    procedimento_alvo_id_final = str(dados_atualizados.get("procedimento_alvo_id", solic_original.get("procedimento_alvo_id", ""))).strip()
+
+    if tipo_solic in ("EDITAR", "EDICAO"):
+        esp_ant_final = str(dados_atualizados.get("especialidade_anterior") or solic_original.get("especialidade_anterior") or solic_original.get("especialidade") or "").strip()
+        esp_nova_final = str(dados_atualizados.get("especialidade") or solic_original.get("especialidade") or "").strip()
+        _validar_permissao_edicao_especialidade(
+            especialidade_anterior=esp_ant_final,
+            especialidade_nova=esp_nova_final,
+            user_info=user_info
+        )
 
     _validar_duplicidade_paciente_procedimento(
         tipo=tipo_solic,
@@ -376,7 +510,8 @@ async def editar_solicitacao(
         procedimento_anterior=procedimento_ant_final,
         solics=solics,
         pac_data=pac_data,
-        ignore_solic_id=id_solicitacao
+        ignore_solic_id=id_solicitacao,
+        procedimento_alvo_id=procedimento_alvo_id_final
     )
 
     return await provider.editar_solicitacao(

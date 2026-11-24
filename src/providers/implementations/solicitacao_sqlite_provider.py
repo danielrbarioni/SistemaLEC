@@ -31,6 +31,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=solicitacao.get('perfil_executor', ''),
             usuario=solicitacao.get('usuario', ''),
             procedimento_anterior=solicitacao.get('procedimento_anterior', ''),
+            especialidade_anterior=solicitacao.get('especialidade_anterior', '') or None,
+            procedimento_alvo_id=solicitacao.get('procedimento_alvo_id', '') or None,
             origem_menu=solicitacao.get('origem_menu', 'Solicitações LEC'),
             categorizacao=solicitacao.get('categorizacao', '') or None,
             lateralidade=solicitacao.get('lateralidade', 'Indefinida') or 'Indefinida'
@@ -57,6 +59,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'perfil_executor': nova_solic.perfil_executor,
             'usuario': nova_solic.usuario,
             'procedimento_anterior': nova_solic.procedimento_anterior,
+            'especialidade_anterior': getattr(nova_solic, 'especialidade_anterior', '') or '',
+            'procedimento_alvo_id': getattr(nova_solic, 'procedimento_alvo_id', '') or '',
             'origem_menu': nova_solic.origem_menu,
             'categorizacao': nova_solic.categorizacao or '',
             'lateralidade': nova_solic.lateralidade or 'Indefinida'
@@ -85,6 +89,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'perfil_executor': s.perfil_executor,
                 'usuario': getattr(s, 'usuario', '') or '',
                 'procedimento_anterior': s.procedimento_anterior,
+                'especialidade_anterior': getattr(s, 'especialidade_anterior', '') or '',
+                'procedimento_alvo_id': getattr(s, 'procedimento_alvo_id', '') or '',
                 'origem_menu': getattr(s, 'origem_menu', 'Solicitações LEC') or 'Solicitações LEC',
                 'evento_tipo': getattr(s, 'evento_tipo', 'SOLICITACAO') or 'SOLICITACAO',
                 'categorizacao': getattr(s, 'categorizacao', '') or '',
@@ -122,6 +128,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'data_criacao': solic.data_criacao,
                 'perfil_executor': solic.perfil_executor,
                 'procedimento_anterior': solic.procedimento_anterior,
+                'especialidade_anterior': getattr(solic, 'especialidade_anterior', '') or '',
+                'procedimento_alvo_id': getattr(solic, 'procedimento_alvo_id', '') or '',
                 'evento_tipo': 'SOLICITACAO',
                 'categorizacao': solic.categorizacao or '',
                 'lateralidade': solic.lateralidade or 'Indefinida',
@@ -140,9 +148,10 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         if status_upper == "APROVADO":
             from ...models.paciente import Paciente
             target_proc = solic.procedimento_anterior or solic.procedimento
+            target_esp = getattr(solic, 'especialidade_anterior', None) or solic.especialidade
             stmt_pac = select(Paciente).where(
                 Paciente.codigo == solic.codigo_paciente,
-                Paciente.especialidade == solic.especialidade,
+                Paciente.especialidade == target_esp,
                 Paciente.procedimento == target_proc
             )
             res_pac = await self.session.execute(stmt_pac)
@@ -155,6 +164,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             if pac_obj:
                 if solic.tipo in ["EDITAR", "EDICAO"]:
                     pac_obj.procedimento = solic.procedimento
+                    if solic.especialidade:
+                        pac_obj.especialidade = solic.especialidade
                     if solic.categorizacao is not None:
                         pac_obj.categorizacao = solic.categorizacao or None
                     if solic.lateralidade:
@@ -198,6 +209,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 perfil_executor=perfil_executor or solic.especialidade or "ESPECIALIDADE",
                 usuario=usuario_executor or solic.usuario or "ESPECIALIDADE",
                 procedimento_anterior=solic.procedimento_anterior,
+                especialidade_anterior=getattr(solic, 'especialidade_anterior', None),
+                procedimento_alvo_id=getattr(solic, 'procedimento_alvo_id', None),
                 origem_menu=solic.origem_menu or "Solicitações LEC",
                 evento_tipo="CANCELAMENTO",
                 categorizacao=solic.categorizacao,
@@ -222,6 +235,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
                 'data_criacao': solic.data_criacao,
                 'perfil_executor': solic.perfil_executor,
                 'procedimento_anterior': solic.procedimento_anterior,
+                'especialidade_anterior': getattr(solic, 'especialidade_anterior', '') or '',
+                'procedimento_alvo_id': getattr(solic, 'procedimento_alvo_id', '') or '',
                 'evento_tipo': 'SOLICITACAO',
                 'categorizacao': solic.categorizacao or '',
                 'lateralidade': solic.lateralidade or 'Indefinida',
@@ -254,6 +269,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=perfil_executor or "GESTAO_LEC",
             usuario=usuario_executor or "GESTAO_LEC",
             procedimento_anterior=solic.procedimento_anterior,
+            especialidade_anterior=getattr(solic, 'especialidade_anterior', None),
+            procedimento_alvo_id=getattr(solic, 'procedimento_alvo_id', None),
             origem_menu=solic.origem_menu or "Solicitações LEC",
             evento_tipo="RESPOSTA",
             categorizacao=solic.categorizacao,
@@ -278,6 +295,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'data_criacao': solic.data_criacao,
             'perfil_executor': solic.perfil_executor,
             'procedimento_anterior': solic.procedimento_anterior,
+            'especialidade_anterior': getattr(solic, 'especialidade_anterior', '') or '',
+            'procedimento_alvo_id': getattr(solic, 'procedimento_alvo_id', '') or '',
             'evento_tipo': 'SOLICITACAO',
             'categorizacao': solic.categorizacao or '',
             'lateralidade': solic.lateralidade or 'Indefinida',
@@ -301,6 +320,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         # Rastreia campos alterados para histórico
         campos_alterados = []
         if 'especialidade' in dados_atualizados and dados_atualizados['especialidade'] and dados_atualizados['especialidade'] != solic.especialidade:
+            if not getattr(solic, 'especialidade_anterior', None):
+                solic.especialidade_anterior = solic.especialidade
             campos_alterados.append(f"Especialidade: {solic.especialidade} -> {dados_atualizados['especialidade']}")
             solic.especialidade = dados_atualizados['especialidade']
             
@@ -348,6 +369,12 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
         if 'procedimento_anterior' in dados_atualizados:
             solic.procedimento_anterior = dados_atualizados['procedimento_anterior']
 
+        if 'especialidade_anterior' in dados_atualizados and dados_atualizados['especialidade_anterior']:
+            solic.especialidade_anterior = dados_atualizados['especialidade_anterior']
+
+        if 'procedimento_alvo_id' in dados_atualizados and dados_atualizados['procedimento_alvo_id']:
+            solic.procedimento_alvo_id = dados_atualizados['procedimento_alvo_id']
+
         if 'nome_paciente' in dados_atualizados and dados_atualizados['nome_paciente']:
             solic.nome_paciente = dados_atualizados['nome_paciente']
             
@@ -375,6 +402,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             perfil_executor=perfil_executor or solic.perfil_executor,
             usuario=usuario_executor or solic.usuario,
             procedimento_anterior=solic.procedimento_anterior,
+            especialidade_anterior=getattr(solic, 'especialidade_anterior', None),
+            procedimento_alvo_id=getattr(solic, 'procedimento_alvo_id', None),
             origem_menu=solic.origem_menu or "Solicitações LEC",
             evento_tipo="ALTERACAO",
             categorizacao=solic.categorizacao,
@@ -400,6 +429,8 @@ class SolicitacaoSqliteProvider(SolicitacaoProviderInterface):
             'perfil_executor': solic.perfil_executor,
             'usuario': solic.usuario,
             'procedimento_anterior': solic.procedimento_anterior,
+            'especialidade_anterior': getattr(solic, 'especialidade_anterior', '') or '',
+            'procedimento_alvo_id': getattr(solic, 'procedimento_alvo_id', '') or '',
             'origem_menu': solic.origem_menu,
             'evento_tipo': 'SOLICITACAO',
             'categorizacao': solic.categorizacao or '',

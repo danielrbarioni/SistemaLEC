@@ -157,10 +157,11 @@
               />
               <div class="text-sm">
                 <div class="font-semibold text-gray-800">{{ proc.procedimento }}</div>
-                <div class="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                  <span>{{ proc.especialidade }}</span>
-                  <span>· Swalis: {{ proc.swallis || '—' }}</span>
-                  <span v-if="proc.medico_responsavel && proc.medico_responsavel !== 'Não informado'">· Dr(a). {{ proc.medico_responsavel }}</span>
+                <div class="text-xs text-gray-600 flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1">
+                  <span class="font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{{ proc.especialidade }}</span>
+                  <span class="font-semibold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Swalis: {{ proc.swallis || '—' }}</span>
+                  <span class="font-medium text-gray-700">· {{ isBucoMaxiloEsp(proc.especialidade) ? 'Dentista' : 'Médico(a)' }}: <strong>{{ proc.medico_responsavel || 'Não informado' }}</strong></span>
+                  <span class="font-mono text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">📅 Inserção: {{ formatarDataHora(proc.data_insercao) }}</span>
                   <span class="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                     Lat: {{ proc.lateralidade || 'Indefinida' }}
                   </span>
@@ -183,14 +184,17 @@
               class="form-control"
               :class="{ 'bg-gray-100 cursor-not-allowed opacity-75': isEspecialidadeDisabled }"
               required
-              @change="form.procedimento = ''; form.medico_responsavel = ''; form.categorizacao = ''"
+              @change="onEspecialidadeChange"
               :disabled="isEspecialidadeDisabled"
             >
               <option value="" disabled>Selecione a especialidade...</option>
-              <option v-for="esp in especialidades" :key="esp.nome" :value="esp.nome">
+              <option v-for="esp in especialidadesFormulario" :key="esp.nome" :value="esp.nome">
                 {{ esp.nome }}
               </option>
             </select>
+            <p v-if="abaAtiva === 'EDITAR' && form.especialidade_anterior && !isSameSpecialty(form.especialidade_anterior, form.especialidade)" class="text-xs text-blue-700 font-semibold mt-1">
+              ✏️ Alterando especialidade: <span class="line-through text-gray-500">{{ form.especialidade_anterior }}</span> ➔ <strong>{{ form.especialidade }}</strong>
+            </p>
           </div>
 
           <div class="form-group">
@@ -778,7 +782,11 @@
                 
                 <!-- Especialidade -->
                 <td class="px-3 py-2.5 text-gray-700 font-semibold whitespace-nowrap">
-                  {{ solic.especialidade || '—' }}
+                  <div v-if="solic.tipo === 'EDITAR' && solic.especialidade_anterior && !isSameSpecialty(solic.especialidade_anterior, solic.especialidade)" class="flex items-center space-x-1">
+                    <span class="text-gray-400 line-through text-[11px]">{{ solic.especialidade_anterior }}</span>
+                    <span class="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 text-xs">➔ {{ solic.especialidade }}</span>
+                  </div>
+                  <span v-else>{{ solic.especialidade || '—' }}</span>
                 </td>
                 
                 <!-- Procedimento (Não EDITAR) -->
@@ -1452,6 +1460,8 @@ const especialidades = computed(() => {
 // -------------------------------------------------------
 const form = ref({
   especialidade: '',
+  especialidade_anterior: '',
+  procedimento_alvo_id: '',
   procedimento: '',
   procedimento_anterior: '', // Armazena o procedimento original antes de editar
   codigo_paciente: '',
@@ -1623,7 +1633,7 @@ const contagemPendenciasPorTipo = computed(() => {
       s.evento_tipo !== 'EDICAO' &&
       s.evento_tipo !== 'CANCELAMENTO'
     ) {
-      if (!activeSpecialty || (s.especialidade && isSameSpecialty(s.especialidade, activeSpecialty))) {
+      if (!activeSpecialty || (s.especialidade && isSameSpecialty(s.especialidade, activeSpecialty)) || (s.especialidade_anterior && isSameSpecialty(s.especialidade_anterior, activeSpecialty))) {
         if (counts[s.tipo] !== undefined) {
           counts[s.tipo]++;
         }
@@ -1702,16 +1712,96 @@ watch(desejaAlterarProcedimento, (val) => {
   }
 });
 
+const especialidadesDoUsuarioLogado = computed<string[]>(() => {
+  const tipoAtivo = perfisStore.perfilAtivo?.tipo;
+  if (tipoAtivo === 'ADMIN' || tipoAtivo === 'GESTAO_LEC') {
+    return especialidades.value.map(e => e.nome);
+  }
+  const setEsp = new Set<string>();
+  const currentUsername = (authStore.user?.username || '').trim().toLowerCase();
+  if (currentUsername) {
+    for (const u of usuariosLocais.value || []) {
+      if ((u.username || '').trim().toLowerCase() === currentUsername) {
+        const pId = String(u.perfil_id || '').trim().toUpperCase();
+        if (pId === 'ADMIN' || pId === 'GESTAO_LEC') {
+          continue;
+        }
+        const nEsp = normalizeEsp(u.especialidade || u.perfil_id);
+        if (nEsp && nEsp !== 'NENHUM' && nEsp !== 'EPO_GENERALISTA' && nEsp !== 'BLOCO_CIRURGICO') {
+          setEsp.add(nEsp);
+        }
+      }
+    }
+  }
+  if (!authStore.isAdmin) {
+    for (const p of perfisStore.perfisDoUsuario || []) {
+      if (p.tipo === 'ESPECIALIDADE' && (p.especialidade || p.nome)) {
+        const n = normalizeEsp(p.especialidade || p.nome);
+        if (n) setEsp.add(n);
+      }
+    }
+  }
+  if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && (perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome)) {
+    const nAtiva = normalizeEsp(perfisStore.perfilAtivo.especialidade || perfisStore.perfilAtivo.nome);
+    if (nAtiva) setEsp.add(nAtiva);
+  }
+  return Array.from(setEsp).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+});
+
+const podeEditarEspecialidadeNaAbaEditar = computed<boolean>(() => {
+  if (abaAtiva.value !== 'EDITAR' || !formCarregadoDaSede.value) return false;
+  const tipoAtivo = perfisStore.perfilAtivo?.tipo;
+  if (tipoAtivo === 'ADMIN' || tipoAtivo === 'GESTAO_LEC') {
+    return true;
+  }
+  const espAtualProc = normalizeEsp(form.value.especialidade_anterior || form.value.especialidade);
+  const permitidas = especialidadesDoUsuarioLogado.value;
+  if (!espAtualProc || !permitidas.some(e => isSameSpecialty(e, espAtualProc))) {
+    return false;
+  }
+  return permitidas.length > 1;
+});
+
+const especialidadesFormulario = computed(() => {
+  if (abaAtiva.value === 'EDITAR') {
+    const tipoAtivo = perfisStore.perfilAtivo?.tipo;
+    if (tipoAtivo === 'ADMIN' || tipoAtivo === 'GESTAO_LEC') {
+      return especialidades.value;
+    }
+    const permitidas = especialidadesDoUsuarioLogado.value;
+    const filtradas = especialidades.value.filter(e => permitidas.some(p => isSameSpecialty(p, e.nome)));
+    return filtradas.length > 0 ? filtradas : especialidades.value;
+  }
+  return especialidades.value;
+});
+
 const isEspecialidadeDisabled = computed(() => {
-  return camposDesabilitados.value || perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' || abaAtiva.value === 'EDITAR';
+  if (camposDesabilitados.value) return true;
+  if (abaAtiva.value === 'EDITAR') {
+    return !podeEditarEspecialidadeNaAbaEditar.value;
+  }
+  return perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE';
 });
 
 const especialidadeForm = computed(() => {
+  if (abaAtiva.value === 'EDITAR' && form.value.especialidade) {
+    return form.value.especialidade;
+  }
   if (perfisStore.perfilAtivo.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo.especialidade) {
     return perfisStore.perfilAtivo.especialidade;
   }
   return form.value.especialidade || '';
 });
+
+const onEspecialidadeChange = () => {
+  if (abaAtiva.value === 'INSERIR' || (abaAtiva.value === 'EDITAR' && desejaAlterarProcedimento.value === 'Sim')) {
+    form.value.procedimento = '';
+  } else if (abaAtiva.value === 'EDITAR') {
+    form.value.procedimento = form.value.procedimento_anterior || form.value.procedimento;
+  }
+  form.value.medico_responsavel = '';
+  form.value.categorizacao = '';
+};
 
 const usuariosLocais = ref<any[]>([]);
 
@@ -1848,10 +1938,14 @@ const solicitacoesFiltradas = computed(() => {
   if (perfisStore.perfilAtivo?.tipo === 'ESPECIALIDADE' && perfisStore.perfilAtivo?.especialidade) {
     const activeSpecialtyName = perfisStore.perfilAtivo.especialidade;
     list = list.filter(s => 
-      s.especialidade && isSameSpecialty(s.especialidade, activeSpecialtyName)
+      (s.especialidade && isSameSpecialty(s.especialidade, activeSpecialtyName)) ||
+      (s.especialidade_anterior && isSameSpecialty(s.especialidade_anterior, activeSpecialtyName))
     );
   } else if (filtroEsp.value) {
-    list = list.filter(s => s.especialidade && isSameSpecialty(s.especialidade, filtroEsp.value));
+    list = list.filter(s =>
+      (s.especialidade && isSameSpecialty(s.especialidade, filtroEsp.value)) ||
+      (s.especialidade_anterior && isSameSpecialty(s.especialidade_anterior, filtroEsp.value))
+    );
   }
 
   // 5. Filtro de Procedimento
@@ -2027,6 +2121,8 @@ const limparFormulario = (manterCodigo = false) => {
   const codSalvo = manterCodigo ? form.value.codigo_paciente : '';
   form.value = {
     especialidade: '',
+    especialidade_anterior: '',
+    procedimento_alvo_id: '',
     procedimento: '',
     procedimento_anterior: '',
     codigo_paciente: codSalvo,
@@ -2063,6 +2159,8 @@ const iniciarEdicaoSolicitacao = (solic: any) => {
   
   form.value = {
     especialidade: solic.especialidade || '',
+    especialidade_anterior: solic.especialidade_anterior || solic.especialidade || '',
+    procedimento_alvo_id: solic.procedimento_alvo_id ? String(solic.procedimento_alvo_id) : '',
     procedimento: solic.procedimento || '',
     procedimento_anterior: solic.procedimento_anterior || '',
     codigo_paciente: String(solic.codigo_paciente || ''),
@@ -2104,6 +2202,8 @@ const cancelarEdicaoSolicitacao = () => {
 
 // Preenche o formulário ao selecionar o procedimento para edição/exclusão/standby
 const preencherCamposDoProc = (proc: any) => {
+  form.value.procedimento_alvo_id = proc.id ? String(proc.id) : '';
+  form.value.especialidade_anterior = proc.especialidade;
   form.value.procedimento_anterior = proc.procedimento;
   form.value.procedimento = proc.procedimento;
   form.value.especialidade = proc.especialidade;
@@ -2203,23 +2303,8 @@ const buscarDados = async (isAutomatic = false) => {
       let procs: any[] = [];
       
       if (solicsDosPac.length > 0) {
-        // Reconstrói a lista de procedimentos aprovados do paciente
-        const procMap = new Map<string, any>();
-        
-        // Inicializa com o procedimento base cadastrado no AGHU/pacientes.csv
-        if (pacData && pacData.procedimento) {
-          const baseKey = `${pacData.especialidade}||${pacData.procedimento}`;
-          procMap.set(baseKey, {
-            especialidade: pacData.especialidade,
-            procedimento: pacData.procedimento,
-            judicializado: 'Não',
-            swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
-            medico_responsavel: 'Não informado',
-            categorizacao: pacData.categorizacao || '',
-            lateralidade: pacData.lateralidade || 'Indefinida',
-            status: 'ATIVO'
-          });
-        }
+        // Reconstrói a lista de instâncias ativas de procedimentos do paciente (preservando procedimentos duplicados na mesma especialidade)
+        const procsList: any[] = [];
 
         const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
@@ -2241,61 +2326,93 @@ const buscarDados = async (isAutomatic = false) => {
         };
 
         const approvedSolics = solicsDosPac
-          .filter(s => s.status === 'APROVADO')
-          .sort((a: any, b: any) => a.data_criacao.localeCompare(b.data_criacao));
+          .filter(s => s.status === 'APROVADO' && s.evento_tipo !== 'RESPOSTA' && !s.is_resposta && s.evento_tipo !== 'ALTERACAO' && s.evento_tipo !== 'EDICAO' && s.evento_tipo !== 'CANCELAMENTO')
+          .sort((a: any, b: any) => (a.data_criacao || '').localeCompare(b.data_criacao || ''));
 
         for (const s of approvedSolics) {
-          const key = `${s.especialidade}||${s.procedimento}`;
+          const sAlvoId = s.procedimento_alvo_id ? String(s.procedimento_alvo_id).trim() : '';
+          const sEspOrig = s.especialidade_anterior || s.especialidade;
+          const targetProcName = s.procedimento_anterior || s.procedimento;
+
           if (s.tipo === 'INSERIR') {
-            procMap.set(key, {
-              especialidade: s.especialidade,
+            procsList.push({
+              id: s.id,
+              especialidade: normalizeEsp(s.especialidade),
               procedimento: s.procedimento,
               judicializado: s.judicializado || 'Não',
               swallis: s.swalis || s.swallis || s.Swalis || '—',
+              data_insercao: s.data_criacao || '—',
               medico_responsavel: resolverMedicoNome(s.medico_responsavel),
               categorizacao: s.categorizacao || '',
               lateralidade: s.lateralidade || 'Indefinida',
               status: 'ATIVO'
             });
           } else if (s.tipo === 'EDITAR') {
-            const oldKey = `${s.especialidade}||${s.procedimento_anterior || s.procedimento}`;
-            const existing = procMap.get(oldKey);
-            if (existing) {
-              procMap.delete(oldKey);
-              procMap.set(key, {
-                ...existing,
-                procedimento: s.procedimento,
-                judicializado: s.judicializado || 'Não',
-                swallis: s.swalis || s.swallis || s.Swalis || '—',
-                medico_responsavel: resolverMedicoNome(s.medico_responsavel),
-                categorizacao: s.categorizacao !== undefined ? (s.categorizacao || '') : (existing.categorizacao || ''),
-                lateralidade: s.lateralidade !== undefined ? (s.lateralidade || 'Indefinida') : (existing.lateralidade || 'Indefinida')
-              });
-            } else {
-              procMap.set(key, {
-                especialidade: s.especialidade,
-                procedimento: s.procedimento,
-                judicializado: s.judicializado || 'Não',
-                swallis: s.swalis || s.swallis || s.Swalis || '—',
-                medico_responsavel: resolverMedicoNome(s.medico_responsavel),
-                categorizacao: s.categorizacao || '',
-                lateralidade: s.lateralidade || 'Indefinida',
-                status: 'ATIVO'
-              });
+            let idx = -1;
+            if (sAlvoId) {
+              idx = procsList.findIndex(p => String(p.id) === sAlvoId);
+            }
+            if (idx === -1) {
+              idx = procsList.findIndex(p =>
+                (s.id && p.id === s.id) ||
+                (isSameSpecialty(p.especialidade, sEspOrig) && p.procedimento === targetProcName)
+              );
+            }
+            if (idx !== -1) {
+              const existing = procsList[idx];
+              existing.procedimento = s.procedimento;
+              existing.especialidade = normalizeEsp(s.especialidade) || existing.especialidade;
+              existing.judicializado = s.judicializado || 'Não';
+              existing.swallis = s.swalis || s.swallis || s.Swalis || existing.swallis || '—';
+              existing.medico_responsavel = resolverMedicoNome(s.medico_responsavel);
+              existing.categorizacao = s.categorizacao !== undefined ? (s.categorizacao || '') : (existing.categorizacao || '');
+              existing.lateralidade = s.lateralidade !== undefined ? (s.lateralidade || 'Indefinida') : (existing.lateralidade || 'Indefinida');
+              if (!existing.data_insercao || existing.data_insercao === '—') {
+                existing.data_insercao = s.data_criacao || '—';
+              }
             }
           } else if (s.tipo === 'EXCLUIR') {
-            procMap.delete(key);
+            let idx = -1;
+            if (sAlvoId) {
+              idx = procsList.findIndex(p => String(p.id) === sAlvoId);
+            }
+            if (idx === -1) {
+              idx = procsList.findIndex(p =>
+                (s.id && p.id === s.id) ||
+                (isSameSpecialty(p.especialidade, sEspOrig) && p.procedimento === s.procedimento)
+              );
+            }
+            if (idx !== -1) {
+              procsList.splice(idx, 1);
+            }
           }
         }
-        procs = Array.from(procMap.values());
+
+        if (procsList.length === 0 && approvedSolics.length === 0 && pacData && pacData.procedimento) {
+          procsList.push({
+            id: '',
+            especialidade: normalizeEsp(pacData.especialidade),
+            procedimento: pacData.procedimento,
+            judicializado: 'Não',
+            swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
+            data_insercao: pacData.data_hora_inicio || '—',
+            medico_responsavel: 'Não informado',
+            categorizacao: pacData.categorizacao || '',
+            lateralidade: pacData.lateralidade || 'Indefinida',
+            status: 'ATIVO'
+          });
+        }
+        procs = procsList;
       } else {
         // Fallback: Usa o procedimento do cadastro inicial do paciente
         if (pacData && pacData.procedimento) {
           procs = [{
-            especialidade: pacData.especialidade,
+            id: '',
+            especialidade: normalizeEsp(pacData.especialidade),
             procedimento: pacData.procedimento,
             judicializado: 'Não',
             swallis: pacData.swalis || pacData.swallis || pacData.Swalis || '—',
+            data_insercao: pacData.data_hora_inicio || '—',
             medico_responsavel: 'Não informado',
             categorizacao: pacData.categorizacao || '',
             lateralidade: pacData.lateralidade || 'Indefinida',
@@ -2304,7 +2421,7 @@ const buscarDados = async (isAutomatic = false) => {
         }
       }
 
-      // Filtra por especialidade se o perfil for ESPECIALIDADE
+      // Filtra por especialidade se o perfil ativo for ESPECIALIDADE
       if (especialidadeAtual) {
         procs = procs.filter(p => p.especialidade && isSameSpecialty(p.especialidade, especialidadeAtual));
       }
@@ -2471,8 +2588,11 @@ const enviarSolicitacao = async () => {
       const formCat = form.value.categorizacao || '';
       const origLat = (orig.lateralidade || 'Indefinida').trim().toLowerCase();
       const formLat = (form.value.lateralidade || '').trim().toLowerCase();
+      const origEsp = normalizeEsp(orig.especialidade || '');
+      const formEsp = normalizeEsp(form.value.especialidade || '');
 
-      const alterado = (origSw !== formSw) || 
+      const alterado = (origEsp !== formEsp) ||
+                       (origSw !== formSw) || 
                        (origMed !== formMed) || 
                        (origJud !== formJud) || 
                        (origProc !== formProc) ||
@@ -2480,8 +2600,22 @@ const enviarSolicitacao = async () => {
                        (origLat !== formLat);
 
       if (!alterado) {
-        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Procedimento, Judicialização, Swalis, Médico Responsável, Categorização, Lateralidade) antes de enviar.');
+        toast.error('Nenhuma alteração detectada. Modifique pelo menos um campo (Especialidade, Procedimento, Judicialização, Swalis, Médico Responsável, Categorização, Lateralidade) antes de enviar.');
         return;
+      }
+
+      if (origEsp !== formEsp) {
+        const tipoAtivo = perfisStore.perfilAtivo?.tipo;
+        const isAdminOrGestao = tipoAtivo === 'ADMIN' || tipoAtivo === 'GESTAO_LEC';
+        if (!isAdminOrGestao) {
+          const permitidas = especialidadesDoUsuarioLogado.value;
+          const temAnt = permitidas.some(e => isSameSpecialty(e, origEsp));
+          const temNova = permitidas.some(e => isSameSpecialty(e, formEsp));
+          if (!temAnt || !temNova) {
+            toast.error(`Para alterar a especialidade de "${origEsp}" para "${formEsp}", você deve possuir perfil cadastrado em ambas as especialidades.`);
+            return;
+          }
+        }
       }
     }
   }
@@ -2558,8 +2692,11 @@ const enviarSolicitacao = async () => {
     }
   } else if (abaAtiva.value === 'EDITAR') {
     const procExib = form.value.procedimento_anterior || form.value.procedimento;
+    const alvoAtual = (form.value.procedimento_alvo_id || '').trim();
     const pendenteEditar = pendentesDoPac.some((s: any) => {
       if (!['EDITAR', 'EDICAO'].includes(String(s.tipo || '').toUpperCase())) return false;
+      const sAlvo = String(s.procedimento_alvo_id || '').trim();
+      if (sAlvo && alvoAtual) return sAlvo === alvoAtual;
       const sAnt = normProcBase(s.procedimento_anterior || s.procedimento);
       const sNovo = normProcBase(s.procedimento);
       return sAnt === procAntNorm || sAnt === procAtualNorm || sNovo === procAntNorm || sNovo === procAtualNorm;
@@ -2583,19 +2720,25 @@ const enviarSolicitacao = async () => {
       }
     }
   } else if (abaAtiva.value === 'STANDBY') {
-    const pendenteStandby = pendentesDoPac.some((s: any) =>
-      ['STANDBY', 'CANCELAR_STANDBY'].includes(String(s.tipo || '').toUpperCase()) &&
-      normProcBase(s.procedimento) === procAtualNorm
-    );
+    const alvoAtual = (form.value.procedimento_alvo_id || '').trim();
+    const pendenteStandby = pendentesDoPac.some((s: any) => {
+      if (!['STANDBY', 'CANCELAR_STANDBY'].includes(String(s.tipo || '').toUpperCase())) return false;
+      const sAlvo = String(s.procedimento_alvo_id || '').trim();
+      if (sAlvo && alvoAtual) return sAlvo === alvoAtual;
+      return normProcBase(s.procedimento) === procAtualNorm;
+    });
     if (pendenteStandby) {
       toast.error(`Não é permitido solicitar standby: já existe uma solicitação de standby PENDENTE para o paciente (#${codPacAtual}) e o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
       return;
     }
   } else if (abaAtiva.value === 'EXCLUIR') {
-    const pendenteExcluir = pendentesDoPac.some((s: any) =>
-      String(s.tipo || '').toUpperCase() === 'EXCLUIR' &&
-      normProcBase(s.procedimento) === procAtualNorm
-    );
+    const alvoAtual = (form.value.procedimento_alvo_id || '').trim();
+    const pendenteExcluir = pendentesDoPac.some((s: any) => {
+      if (String(s.tipo || '').toUpperCase() !== 'EXCLUIR') return false;
+      const sAlvo = String(s.procedimento_alvo_id || '').trim();
+      if (sAlvo && alvoAtual) return sAlvo === alvoAtual;
+      return normProcBase(s.procedimento) === procAtualNorm;
+    });
     if (pendenteExcluir) {
       toast.error(`Não é permitido solicitar exclusão: já existe uma solicitação de exclusão PENDENTE para o paciente (#${codPacAtual}) e o procedimento "${form.value.procedimento}". Aguarde a análise da Gestão LEC.`);
       return;
@@ -2632,6 +2775,8 @@ const enviarSolicitacao = async () => {
         perfil_executor: perfisStore.perfilAtivo.tipo,
         usuario: authStore.user?.username || 'Usuário Sistema',
         procedimento_anterior: form.value.procedimento_anterior || undefined,
+        especialidade_anterior: form.value.especialidade_anterior || form.value.especialidade || undefined,
+        procedimento_alvo_id: form.value.procedimento_alvo_id || undefined,
         origem_menu: 'Solicitações LEC',
         categorizacao: form.value.categorizacao || '',
         lateralidade: form.value.lateralidade || 'Indefinida'
@@ -2653,6 +2798,8 @@ const enviarSolicitacao = async () => {
         perfil_executor: perfisStore.perfilAtivo.tipo,
         usuario: authStore.user?.username || 'Usuário Sistema',
         procedimento_anterior: form.value.procedimento_anterior || undefined,
+        especialidade_anterior: form.value.especialidade_anterior || form.value.especialidade || undefined,
+        procedimento_alvo_id: form.value.procedimento_alvo_id || undefined,
         origem_menu: 'Solicitações LEC',
         categorizacao: form.value.categorizacao || '',
         lateralidade: form.value.lateralidade || 'Indefinida'
@@ -2969,6 +3116,9 @@ const obterEstadoAnterior = (solic: any) => {
   
   if (solic.procedimento_anterior) {
     estado.procedimento = solic.procedimento_anterior;
+  }
+  if (solic.especialidade_anterior) {
+    estado.especialidade = solic.especialidade_anterior;
   }
   
   return estado;
