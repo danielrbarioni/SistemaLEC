@@ -20,12 +20,12 @@ O sistema SHALL consultar no AGHU a consulta mais recente para cada par `(Prontu
 - **WHEN** o usuário visualiza a Tabela 1 (EPO Agendada) ou a Tabela 2.1 (EPO Faltosa)
 - **THEN** o sistema exibe Nome do paciente, Prontuário, Grade da consulta EPO, Data da consulta EPO e Status da consulta EPO, permitindo filtrar por prontuário/nome, por grade(s) EPO e por intervalo de data da consulta EPO, ordenados da data mais antiga para a mais recente
 
-#### Scenario: Exibição de exames e consultas pré-operatórias na Tabela 2.2 (EPO Realizada)
+#### Scenario: Exibição de exames e consultas pré-operatórias em cards na Tabela 2.2 (EPO Realizada)
 - **WHEN** o usuário visualiza a Tabela 2.2 (Pacientes com consulta EPO realizada)
-- **THEN** o sistema exibe, além dos dados da consulta EPO realizada, colunas de Data e Status para o registro mais recente de cada Grupo de Exame Pré-Operatório configurado (Laboratório, Raio X, Espirometria, Ecocardiograma Transtorácico, Cintilografia Miocárdica, Ressonância Magnética) e de cada Grade de Consulta Pré-Operatória configurada (`RIS`, `PPC`) para aquele paciente
+- **THEN** o sistema exibe, na linha de cada paciente, cards/badges compactos apenas para os exames pré-operatórios (dentre os grupos monitorados: Laboratório, Raio X, Espirometria, Ecocardiograma Transtorácico, Cintilografia Miocárdica, Ressonância Magnética, Holter 24h e Teste de Esteira) e consultas pré-operatórias (`RIS`, `PPC`, `RCI`, `OHR`, `PPO`) que foram ao menos solicitados/agendados para aquele paciente, mostrando o nome/sigla individual, o status mais recente e a respectiva data, além de permitir filtrar os pacientes por exame/consulta pré-op e situação de liberação
 
 ### Requirement: Painéis de estágios de Avaliação Pré-Anestésica (Tabelas 3.1 e 3.2)
-O sistema SHALL consultar no AGHU a consulta mais recente para cada par `(Prontuário + Grade APA)` dentre as siglas de grades APA configuradas (padrão inicial: `ANE`) e distribuir os pacientes em: Tabela 3.1 (APA não realizada: status Agendado, Falta do paciente ou Falta do profissional, ordenada da data mais antiga para a mais recente) e Tabela 3.2 (APA realizada: status Realizado, ordenada da data mais recente para a mais antiga).
+O sistema SHALL consultar no AGHU a consulta mais recente para cada par `(Prontuário + Grade APA)` dentre as siglas de grades APA configuradas (padrão inicial: `ANE` e `TAN`) e distribuir os pacientes em: Tabela 3.1 (APA não realizada: status Agendado, Falta do paciente ou Falta do profissional, ordenada da data mais antiga para a mais recente) e Tabela 3.2 (APA realizada: status Realizado, ordenada da data mais recente para a mais antiga).
 
 #### Scenario: Exibição e filtro de status na Tabela 3.1 (APA não realizada)
 - **WHEN** o usuário visualiza a Tabela 3.1

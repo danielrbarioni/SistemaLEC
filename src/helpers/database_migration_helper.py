@@ -211,5 +211,13 @@ async def ensure_diagnosticos_lec_table(conn):
         await conn.execute(text(
             "INSERT OR IGNORE INTO perfis (id, nome, tipo, cor, especialidade) VALUES ('BLOCO_CIRURGICO', 'BLOCO CIRÚRGICO', 'BLOCO_CIRURGICO', 'lilas', NULL);"
         ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS navegacao_config (
+                id VARCHAR PRIMARY KEY,
+                config_json TEXT NOT NULL,
+                data_atualizacao VARCHAR,
+                usuario_atualizacao VARCHAR
+            );
+        """))
     except Exception as e:
         logger.error(f"Erro ao garantir tabela diagnosticos_lec: {e}")

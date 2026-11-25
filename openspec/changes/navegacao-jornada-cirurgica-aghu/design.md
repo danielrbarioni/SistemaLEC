@@ -15,10 +15,14 @@ Veja `proposal.md` para a motivação e o escopo funcional. A arquitetura do mó
        - `POT` (`seq=2309`): `TELEENFERMAGEM PRE-OPERATORIO`
        - `POF` (`seq=2790`): `ENFERMAGEM PRE-OPERATORIO OFTALMOLOGIA`
      - **Consultas Pré-Operatórias (solicitadas pela EPO)**:
-       - `RIS` (`seq=1550`): `CARDIO - RISCO CIRURGICO` *(também existentes no AGHU e adicionáveis pela Gestão LEC: `RCI` — Cardio Risco Cirúrgico Infantil, `OHR` — OCI Avaliação de Risco Cirúrgico)*
-       - `PPC` (`seq=2042`): `PNEUMOLOGIA - PARECER` *(também existente no AGHU: `PPO` — Pneumopediatria Pré-Operatório)*
+       - `RIS` (`seq=1550`): `CARDIO - RISCO CIRURGICO`
+       - `PPC` (`seq=2042`): `PNEUMOLOGIA - PARECER`
+       - `RCI` (`seq=2514`): `CARDIO - RISCO CIRURGICO INFANTIL`
+       - `OHR` (`seq=2830`): `OCI AVALIACAO DE RISCO CIRURGICO`
+       - `PPO` (`seq=2696`): `PNEUMOPEDIATRIA - PRE-OPERATORIO`
      - **APA (Avaliação Pré-Anestésica)**:
-       - `ANE` (`seq=1534`): `ANESTESIOLOGIA` *(também existente no AGHU: `TAN` — Anestesiologia Telemedicina)*
+       - `ANE` (`seq=1534`): `ANESTESIOLOGIA`
+       - `TAN` (`seq=2328`): `ANESTESIOLOGIA - TELEMEDICINA`
    - **Status de Consultas no AGHU (`agh.aac_consultas.ret_seq` → `agh.aac_retornos`)**:
      Para consultas marcadas a pacientes (`ind_sit_consulta = 'M'` e `pac_codigo IS NOT NULL`), existem 7 retornos no AGHU, mapeados para os 4 status de negócio da Navegação:
      - **`Agendado`**: `ret_seq = 9` (`PACIENTE AGENDADO`) e `ret_seq = 20` (`AGUARDANDO ATENDIMENTO`)
@@ -27,13 +31,15 @@ Veja `proposal.md` para a motivação e o escopo funcional. A arquitetura do mó
      - **`Falta do profissional`**: `ret_seq = 30` (`PROFISSIONAL FALTOU`)
    - **Exames e Status de Exames no AGHU (`agh.ael_exames` + `agh.ael_solicitacao_exames` + `agh.ael_item_solicitacao_exames` + `agh.ael_sit_item_solicitacoes`)**:
      - Os status de itens de exame em `agh.ael_sit_item_solicitacoes` são: `LI` (`LIBERADO`), `EO` (`EXECUTADO`), `EX` (`EXECUTANDO`), `AE` (`AREA EXECUTORA`), `RE` (`RECEBIDO`), `CO` (`COLETADO`), `CS` (`COLETADO PELO SOLICITANTE`), `EC` (`EM COLETA`), `AG` (`AGENDADO`), `AC` (`A COLETAR`), `AX` (`A EXECUTAR`), `PE` (`PENDENTE`), `CA` (`CANCELADO`).
-     - Os 6 exames elencados pela Gestão LEC na Tabela 2.2 funcionam como **Grupos/Colunas de Exames Pré-Operatórios**, cada um mapeado para suas siglas em `agh.ael_exames` (configuráveis pela Gestão LEC):
+     - Os 8 grupos de exames elencados e validados pela Gestão LEC na Tabela 2.2 organizam o catálogo monitorado em `agh.ael_exames` (configuráveis pela Gestão LEC), enquanto na linha de cada paciente na Tabela 2.2 são exibidos **cards individuais apenas para os exames efetivamente solicitados** para aquele paciente (mostrando o registro mais recente de cada `Prontuário + Sigla do Exame` com seu nome/sigla, status e data):
        1. **Laboratório** (`LAB`): Hemograma (`H`), Coagulograma/TP/TTPA, Glicemia, Ureia, Creatinina, etc.
        2. **Raio X** (`RAIO_X`): `RXPAP` (`RX TÓRAX PA+PERFIL`), `RXCVB`, `RXTX1`, `RXTX4`, `RXTX5`, `RXTX7`, `RXTX9`, `DL`.
        3. **Espirometria** (`ESPIROMETRIA`): `ESP` (`ESPIROMETRIA SEM PROVA FARMACODINÂMICA`), `ESPB` (`ESPIROMETRIA COM PROVA FARMACODINÂMICA`), `ESPP` (`ESPIROMETRIA PEDIÁTRICA`), `ERGOE`.
        4. **Ecocardiograma Transtorácico** (`ECOCARDIOGRAMA`): `ETT` (`ECOCARDIOGRAMA TRANSTORÁCICO`), `ECO` (`ECOCARDIOGRAMA`), `ECOPE` (`ECOCARDIOGRAMA PEDIATRICO`), `ECOBO`, `ETE`.
        5. **Cintilografia Miocárdica** (`CINTILOGRAFIA`): `CMDIP` (`CINTILOGRAFIA DO MIOCARDIO COM DIPIRIDAMOL`), `CMREP` (`CINTILOGRAFIA DO MIOCARDIO EM REPOUSO`), `CMTLR`, `CMPIR`.
-       6. **Ressonância Magnética** (`RESSONANCIA`): siglas ativas de ressonância magnética (`RM*`, `ANGRA`, `CANRM`, `COLRM`, `ABRM`, `ACRM`).
+       6. **Ressonância Magnética** (`RESSONANCIA`): todas as 205 siglas ativas de ressonância magnética (`UPPER(descricao) LIKE '%RESSON%' OR UPPER(descricao_usual) LIKE '%RESSON%'`).
+       7. **Holter 24h** (`HOLTER`): `HOLT` (`HOLTER` / `HOLTER 24 HORAS`).
+       8. **Teste de Esteira** (`TESTE_ESTEIRA`): `ERGO` (`ERGOMETRIA` / `TESTE ERGOMETRICO`), `ERGOE` (`ERGOESPIROMETRIA`).
 
 ## Goals / Non-Goals
 
@@ -52,12 +58,12 @@ Veja `proposal.md` para a motivação e o escopo funcional. A arquitetura do mó
 ### 1. Estratégia de Busca Performática no AGHU (`DISTINCT ON` + Recorte Temporal + Cache TTL)
 - **Decisão**:
   - **Ancoragem por Siglas de Grades + Janela Temporal Configurável (padrão: últimos 12 meses + agendamentos futuros)**:
-    - Em uma única query PostgreSQL com `DISTINCT ON (c.pac_codigo, e.sigla)` ordenada por `c.pac_codigo, e.sigla, c.dt_consulta DESC`, buscamos a consulta mais recente de cada `(Paciente, Sigla da Grade)` para todas as siglas configuradas em `EPO` (`EPO, EPG, POO, OEP, POT, POF`) e `APA` (`ANE`).
+    - Em uma única query PostgreSQL com `DISTINCT ON (c.pac_codigo, e.sigla)` ordenada por `c.pac_codigo, e.sigla, c.dt_consulta DESC`, buscamos a consulta mais recente de cada `(Paciente, Sigla da Grade)` para todas as siglas configuradas em `EPO` (`EPO, EPG, POO, OEP, POT, POF`) e `APA` (`ANE, TAN`).
     - Essa query executa em menos de **150 ms** no PostgreSQL do AGHU porque filtra diretamente por `g.esp_seq` das siglas monitoradas e `c.ind_sit_consulta = 'M'`.
   - **Enriquecimento seletivo da Tabela 2.2 (apenas para os `pac_codigo` com EPO Realizada)**:
     - Para o subconjunto de `pac_codigo` que se encontram na **Tabela 2.2** (EPO Realizada):
-      1. Buscamos com `DISTINCT ON (c.pac_codigo, e.sigla)` a consulta mais recente nas grades pré-operatórias configuradas (`RIS`, `PPC`).
-      2. Buscamos nos pedidos de exame (`agh.ael_solicitacao_exames soe JOIN agh.agh_atendimentos atd ON soe.atd_seq = atd.seq JOIN agh.ael_item_solicitacao_exames ise ON ise.soe_seq = soe.seq`) filtrando `WHERE atd.pac_codigo = ANY(:pac_codigos_epo_realizada) AND ise.ufe_ema_exa_sigla = ANY(:siglas_exames_monitorados) AND ise.sit_codigo <> 'CA'`, pegando a data e o status mais recente de cada grupo de exame por paciente.
+      1. Buscamos com `DISTINCT ON (c.pac_codigo, e.sigla)` a consulta mais recente nas grades pré-operatórias configuradas (`RIS, PPC, RCI, OHR, PPO`).
+      2. Buscamos nos pedidos de exame (`agh.ael_solicitacao_exames soe JOIN agh.agh_atendimentos atd ON soe.atd_seq = atd.seq JOIN agh.ael_item_solicitacao_exames ise ON ise.soe_seq = soe.seq`) filtrando `WHERE atd.pac_codigo = ANY(:pac_codigos_epo_realizada) AND ise.ufe_ema_exa_sigla = ANY(:siglas_exames_monitorados) AND ise.sit_codigo <> 'CA'`, usando `DISTINCT ON (atd.pac_codigo, ise.ufe_ema_exa_sigla)` para retornar o item mais recente de cada exame individual solicitado para o paciente, que será exibido como um **card** na linha do paciente na Tabela 2.2.
   - **Cache em memória no Backend com TTL (60s) + Botão "Atualizar do AGHU"**:
     - O resultado consolidado das 5 tabelas fica em cache em memória por 60 segundos (e é invalidado imediatamente quando a configuração de grades/exames é alterada ou quando o usuário clica em *"Atualizar dados do AGHU"*). Assim, a navegação entre as 5 abas/tabelas, a aplicação de filtros modificáveis e a busca global por prontuário ocorrem instantaneamente no frontend.
 
@@ -66,9 +72,9 @@ Veja `proposal.md` para a motivação e o escopo funcional. A arquitetura do mó
   - Criar a tabela `navegacao_config` no SQLite local (`app.db`) contendo um documento JSON estruturado (inicializado automaticamente com o seed da Gestão LEC caso ainda não exista):
     - `janela_meses`: `12` (recorte temporal padrão em meses para trás, além de todas as datas futuras agendadas)
     - `grades_epo`: lista de objetos `{ sigla, nome_especialidade, grd_seqs?, ativo }` (seed: `EPO, EPG, POO, OEP, POT, POF`)
-    - `grades_preop`: lista de objetos `{ sigla, nome_especialidade, grd_seqs?, ativo }` (seed: `RIS, PPC`)
-    - `grades_apa`: lista de objetos `{ sigla, nome_especialidade, grd_seqs?, ativo }` (seed: `ANE`)
-    - `grupos_exames`: lista de objetos `{ id, nome, siglas_exames: [{ sigla, descricao }], ativo }` (seed: os 6 grupos elencados pela Gestão LEC com suas respectivas siglas reais do `agh.ael_exames`).
+    - `grades_preop`: lista de objetos `{ sigla, nome_especialidade, grd_seqs?, ativo }` (seed: `RIS, PPC, RCI, OHR, PPO`)
+    - `grades_apa`: lista de objetos `{ sigla, nome_especialidade, grd_seqs?, ativo }` (seed: `ANE, TAN`)
+    - `grupos_exames`: lista de objetos `{ id, nome, siglas_exames: [{ sigla, descricao }], ativo }` (seed: os 8 grupos elencados e validados pela Gestão LEC com suas respectivas siglas reais do `agh.ael_exames`).
 
 ## Risks / Trade-offs
 
