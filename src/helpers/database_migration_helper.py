@@ -219,5 +219,27 @@ async def ensure_diagnosticos_lec_table(conn):
                 usuario_atualizacao VARCHAR
             );
         """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS navegacao_classificacoes (
+                id VARCHAR PRIMARY KEY,
+                pac_codigo INTEGER NOT NULL,
+                prontuario VARCHAR NOT NULL,
+                tabela_origem VARCHAR NOT NULL,
+                numero_consulta_ref INTEGER,
+                data_consulta_ref VARCHAR,
+                grade_sigla_ref VARCHAR,
+                status_consulta_ref VARCHAR,
+                classificacao VARCHAR NOT NULL,
+                requer_acao INTEGER NOT NULL DEFAULT 0,
+                acao_realizada INTEGER NOT NULL DEFAULT 0,
+                usuario_classificacao VARCHAR,
+                data_classificacao VARCHAR,
+                usuario_acao VARCHAR,
+                data_acao VARCHAR
+            );
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_navegacao_classificacoes_pac_codigo ON navegacao_classificacoes (pac_codigo);"
+        ))
     except Exception as e:
         logger.error(f"Erro ao garantir tabela diagnosticos_lec: {e}")

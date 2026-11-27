@@ -18,7 +18,7 @@ from .models.refresh_token import RefreshToken
 from .models.user import User
 from .models.profile import Profile
 from .models.diagnostico_lec import DiagnosticoLec
-from .models.navegacao_config import NavegacaoConfig
+from .models.navegacao_config import NavegacaoConfig, NavegacaoClassificacao
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

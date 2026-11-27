@@ -39,6 +39,7 @@
               <option value="">Todas</option>
               <option value="Solicitações LEC">Solicitações LEC</option>
               <option value="Pacientes">Pacientes</option>
+              <option value="Navegação">Navegação</option>
               <option value="Usuários">Usuários</option>
             </select>
           </div>
@@ -83,6 +84,14 @@
                 <option value="STANDBY">Standby de Procedimento</option>
                 <option value="EXCLUIR">Exclusão de Procedimento</option>
               </optgroup>
+              <optgroup label="Menu Navegação">
+                <option value="NAV_REAGENDAR_EPO">Reagendar consulta EPO</option>
+                <option value="NAV_AGENDAR_APA">Agendar consulta APA</option>
+                <option value="NAV_REAGENDAR_APA">Reagendar consulta APA</option>
+                <option value="NAV_PACIENTE_PRONTO_LEC">Paciente pronto no Sistema LEC</option>
+                <option value="NAV_SEM_SEGUIMENTO">Sem seguimento cirúrgico</option>
+                <option value="NAV_REALIZADA_SEM_REGISTRO_AGHU">Realizada (sem registro no AGHU)</option>
+              </optgroup>
               <optgroup label="Menu Usuários">
                 <option value="CRIAR_PERFIL">Criação de Perfil</option>
                 <option value="EDITAR_PERFIL">Edição de Perfil</option>
@@ -107,6 +116,7 @@
               <option value="CANCELAMENTO">Cancelamento de Solicitação</option>
               <option value="RESPOSTA">Resposta</option>
               <option value="EXECUCAO">Execução</option>
+              <option value="CANCELAMENTO_EXECUCAO">Cancelamento</option>
             </select>
           </div>
 
@@ -243,7 +253,10 @@
               <!-- 6. Tipo de Evento (Solicitação, Execução, Alteração de Solicitação, Cancelamento de Solicitação, Resposta) -->
               <td class="px-2.5 py-2.5 whitespace-nowrap text-center">
                 <div class="inline-flex flex-col items-center justify-center">
-                  <span v-if="solic.evento_tipo === 'CANCELAMENTO' || (solic.status === 'CANCELADO' && (solic.detalhes?.toLowerCase().includes('cancelou') || solic.evento_tipo === 'CANCELAMENTO'))" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
+                  <span v-if="isEventoCancelamentoExecucao(solic)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                    Cancelamento
+                  </span>
+                  <span v-else-if="solic.evento_tipo === 'CANCELAMENTO' || (solic.status === 'CANCELADO' && (solic.detalhes?.toLowerCase().includes('cancelou') || solic.evento_tipo === 'CANCELAMENTO'))" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
                     Cancelamento de Solicitação
                   </span>
                   <span v-else-if="solic.evento_tipo === 'RESPOSTA' || solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
@@ -376,7 +389,10 @@
 
               <div>
                 <span class="font-bold text-gray-500 uppercase text-[10px] block">Tipo de Evento:</span>
-                <span v-if="modalDetalhes.solic.evento_tipo === 'CANCELAMENTO' || (modalDetalhes.solic.status === 'CANCELADO' && (modalDetalhes.solic.detalhes?.toLowerCase().includes('cancelou') || modalDetalhes.solic.evento_tipo === 'CANCELAMENTO'))" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
+                <span v-if="isEventoCancelamentoExecucao(modalDetalhes.solic)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                  Cancelamento
+                </span>
+                <span v-else-if="modalDetalhes.solic.evento_tipo === 'CANCELAMENTO' || (modalDetalhes.solic.status === 'CANCELADO' && (modalDetalhes.solic.detalhes?.toLowerCase().includes('cancelou') || modalDetalhes.solic.evento_tipo === 'CANCELAMENTO'))" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
                   Cancelamento de Solicitação
                 </span>
                 <span v-else-if="modalDetalhes.solic.evento_tipo === 'RESPOSTA' || modalDetalhes.solic.is_resposta" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
@@ -857,7 +873,19 @@ const resumoFiltrosAtivos = computed(() => {
   return f.join(' | ');
 });
 
+const isEventoCancelamentoExecucao = (solic: any) => {
+  if (!solic) return false;
+  if (solic.evento_tipo === 'CANCELAMENTO_EXECUCAO') return true;
+  if ((solic.origem_menu === 'Navegação' || solic.origem_menu === 'Navegacao') && solic.detalhes?.toLowerCase().includes('desfez a classificação')) {
+    return true;
+  }
+  return false;
+};
+
 const obterEventoTipoTexto = (solic: any) => {
+  if (isEventoCancelamentoExecucao(solic)) {
+    return 'Cancelamento';
+  }
   if (solic.evento_tipo === 'CANCELAMENTO' || (solic.status === 'CANCELADO' && (solic.detalhes?.toLowerCase().includes('cancelou') || solic.evento_tipo === 'CANCELAMENTO'))) {
     return 'Cancelamento de Solicitação';
   }
@@ -982,12 +1010,14 @@ const executarExportacaoExcel = () => {
 
       // Tipo de Evento
       if (filtroEventoTipo.value) {
-        const isCanc = s.evento_tipo === 'CANCELAMENTO' || (s.status === 'CANCELADO' && (s.detalhes?.toLowerCase().includes('cancelou') || s.evento_tipo === 'CANCELAMENTO'));
-        const isResp = (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && !isCanc;
-        const isAlt = s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO';
-        const isExec = s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha';
-        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec && !isCanc;
+        const isCancExec = isEventoCancelamentoExecucao(s);
+        const isCanc = !isCancExec && (s.evento_tipo === 'CANCELAMENTO' || (s.status === 'CANCELADO' && (s.detalhes?.toLowerCase().includes('cancelou') || s.evento_tipo === 'CANCELAMENTO')));
+        const isResp = (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && !isCanc && !isCancExec;
+        const isAlt = (s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO') && !isCancExec;
+        const isExec = !isCancExec && (s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha');
+        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec && !isCanc && !isCancExec;
 
+        if (filtroEventoTipo.value === 'CANCELAMENTO_EXECUCAO' && !isCancExec) return false;
         if (filtroEventoTipo.value === 'CANCELAMENTO' && !isCanc) return false;
         if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
         if (filtroEventoTipo.value === 'EXECUCAO' && !isExec) return false;
@@ -1311,6 +1341,7 @@ const carregarHistorico = async () => {
 const formatarOrigemMenu = (origem?: string) => {
   if (!origem || origem === 'Sistema LEC') return 'Solicitações LEC';
   if (origem === 'Importação Planilha' || origem === 'Pacientes') return 'Pacientes';
+  if (origem === 'Navegação' || origem === 'Navegacao') return 'Navegação';
   if (origem === 'Perfis' || origem === 'Usuários') return 'Usuários';
   return origem;
 };
@@ -1367,6 +1398,14 @@ const formatarTipo = (tipo: string) => {
     case 'SOLICITAR_APA':
     case 'APA': return 'Solicitação APA';
     
+    // Ações do menu Navegação
+    case 'NAV_REAGENDAR_EPO': return 'Reagendar consulta EPO';
+    case 'NAV_AGENDAR_APA': return 'Agendar consulta APA';
+    case 'NAV_REAGENDAR_APA': return 'Reagendar consulta APA';
+    case 'NAV_PACIENTE_PRONTO_LEC': return 'Paciente pronto no Sistema LEC';
+    case 'NAV_SEM_SEGUIMENTO': return 'Sem seguimento cirúrgico';
+    case 'NAV_REALIZADA_SEM_REGISTRO_AGHU': return 'Realizada (sem registro no AGHU)';
+
     // Ações do menu Perfis
     case 'CRIAR_PERFIL': return 'Criação de Perfil';
     case 'EDITAR_PERFIL': return 'Edição de Perfil';
@@ -1396,6 +1435,14 @@ const getTipoBadgeClass = (tipo: string) => {
     case 'SOLICITAR_APA':
     case 'APA': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200';
     
+    // Navegação
+    case 'NAV_REAGENDAR_EPO':
+    case 'NAV_AGENDAR_APA':
+    case 'NAV_REAGENDAR_APA': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300';
+    case 'NAV_PACIENTE_PRONTO_LEC': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300';
+    case 'NAV_SEM_SEGUIMENTO': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300';
+    case 'NAV_REALIZADA_SEM_REGISTRO_AGHU': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300';
+
     // Perfis (Lilás)
     case 'CRIAR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300';
     case 'EDITAR_PERFIL': return 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-blue-800 border border-purple-300';
@@ -1769,14 +1816,16 @@ const solicitacoesFiltradas = computed(() => {
         else if (filtroAcaoTipo.value !== 'INSERIR' && filtroAcaoTipo.value !== 'EDITAR' && filtroAcaoTipo.value !== 'EXCLUIR' && s.tipo !== filtroAcaoTipo.value) return false;
       }
 
-      // 6. Solicitação, Execução, Alteração de Solicitação, Cancelamento de Solicitação ou Resposta
+      // 6. Solicitação, Execução, Alteração de Solicitação, Cancelamento de Solicitação, Cancelamento ou Resposta
       if (filtroEventoTipo.value) {
-        const isCanc = s.evento_tipo === 'CANCELAMENTO' || (s.status === 'CANCELADO' && (s.detalhes?.toLowerCase().includes('cancelou') || s.evento_tipo === 'CANCELAMENTO'));
-        const isResp = (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && !isCanc;
-        const isAlt = s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO';
-        const isExec = s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha';
-        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec && !isCanc;
+        const isCancExec = isEventoCancelamentoExecucao(s);
+        const isCanc = !isCancExec && (s.evento_tipo === 'CANCELAMENTO' || (s.status === 'CANCELADO' && (s.detalhes?.toLowerCase().includes('cancelou') || s.evento_tipo === 'CANCELAMENTO')));
+        const isResp = (s.evento_tipo === 'RESPOSTA' || s.is_resposta) && !isCanc && !isCancExec;
+        const isAlt = (s.evento_tipo === 'ALTERACAO' || s.evento_tipo === 'EDICAO') && !isCancExec;
+        const isExec = !isCancExec && (s.evento_tipo === 'EXECUCAO' || s.origem_menu === 'Pacientes' || s.origem_menu === 'Importação Planilha');
+        const isSolic = (s.evento_tipo === 'SOLICITACAO' || !s.evento_tipo) && !isResp && !isAlt && !isExec && !isCanc && !isCancExec;
 
+        if (filtroEventoTipo.value === 'CANCELAMENTO_EXECUCAO' && !isCancExec) return false;
         if (filtroEventoTipo.value === 'CANCELAMENTO' && !isCanc) return false;
         if (filtroEventoTipo.value === 'RESPOSTA' && !isResp) return false;
         if (filtroEventoTipo.value === 'EXECUCAO' && !isExec) return false;
